@@ -33,7 +33,7 @@ import (
 	clustercontroller "github.com/tmax-cloud/hypercloud-multi-operator/controllers/cluster"
 
 	// +kubebuilder:scaffold:imports
-
+	servicecatalogv1beta1 "github.com/kubernetes-sigs/service-catalog/pkg/apis/servicecatalog/v1beta1"
 	clusterv1alpha3 "sigs.k8s.io/cluster-api/api/v1alpha3"
 	fedv1a1 "sigs.k8s.io/kubefed/pkg/apis/core/v1alpha1"
 	fedv1b1 "sigs.k8s.io/kubefed/pkg/apis/core/v1beta1"
@@ -66,6 +66,7 @@ func init() {
 	utilruntime.Must(typesv1beta1.AddToScheme(scheme))
 	utilruntime.Must(controlplanev1.AddToScheme(scheme))
 	utilruntime.Must(console.AddToScheme(scheme))
+	utilruntime.Must(servicecatalogv1beta1.AddToScheme(scheme))
 	// +kubebuilder:scaffold:scheme
 }
 
