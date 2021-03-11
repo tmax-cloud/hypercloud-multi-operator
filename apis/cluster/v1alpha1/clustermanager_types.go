@@ -61,15 +61,12 @@ type ClusterManagerSpec struct {
 
 // ClusterManagerStatus defines the observed state of ClusterManager
 type ClusterManagerStatus struct {
-	Provider  string            `json:"provider,omitempty"`
-	Version   string            `json:"version,omitempty"`
-	Ready     bool              `json:"ready,omitempty"`
-	MasterRun int               `json:"masterRun,omitempty"`
-	WorkerRun int               `json:"workerRun,omitempty"`
-	Node      []NodeInfo        `json:"nodes,omitempty"`
-	Owner     map[string]string `json:"owner,omitempty"`
-	Members   map[string]string `json:"members,omitempty"`
-	Groups    map[string]string `json:"groups,omitempty"`
+	Provider  string     `json:"provider,omitempty"`
+	Version   string     `json:"version,omitempty"`
+	Ready     bool       `json:"ready,omitempty"`
+	MasterRun int        `json:"masterRun,omitempty"`
+	WorkerRun int        `json:"workerRun,omitempty"`
+	Node      []NodeInfo `json:"nodes,omitempty"`
 }
 
 // +kubebuilder:object:root=true

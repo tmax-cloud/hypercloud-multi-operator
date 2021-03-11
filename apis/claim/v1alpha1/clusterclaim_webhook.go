@@ -74,9 +74,6 @@ func (r *ClusterClaim) ValidateUpdate(old runtime.Object) error {
 
 	if oldClusterClaim.Status.Phase == "Awaiting" {
 		return nil
-		// if !reflect.DeepEqual(r.Spec, oldClusterClaim.Spec) {
-		// 	return errors.New("Cannot modify clusterClaim")
-		// }
 	}
 	return errors.New("Cannot modify clusterClaim after approval")
 }

@@ -18,7 +18,6 @@ package v1alpha1
 
 import (
 	"errors"
-	"reflect"
 
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -70,14 +69,14 @@ func (r *ClusterManager) ValidateUpdate(old runtime.Object) error {
 		return errors.New("Cannot modify clusterManager.Annotations.owner")
 	}
 
-	if r.Status.Ready == false {
-		if !reflect.DeepEqual(r.Status.Members, oldClusterClaim.Status.Members) {
-			return errors.New("Cannot modify members when cluster status is not ready")
-		}
-		if !reflect.DeepEqual(r.Status.Groups, oldClusterClaim.Status.Groups) {
-			return errors.New("Cannot modify groups when cluster status is not ready")
-		}
-	}
+	// if r.Status.Ready == false {
+	// 	if !reflect.DeepEqual(r.Status.Members, oldClusterClaim.Status.Members) {
+	// 		return errors.New("Cannot modify members when cluster status is not ready")
+	// 	}
+	// 	if !reflect.DeepEqual(r.Status.Groups, oldClusterClaim.Status.Groups) {
+	// 		return errors.New("Cannot modify groups when cluster status is not ready")
+	// 	}
+	// }
 
 	return nil
 }
