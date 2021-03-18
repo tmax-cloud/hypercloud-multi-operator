@@ -37,6 +37,10 @@ spec:
     description: running of worker
     name: WorkerRun
     type: string
+  - JSONPath: .status.phase
+    description: cluster status phase
+    name: Phase
+    type: string
   group: cluster.tmax.io
   names:
     kind: ClusterManager
@@ -127,6 +131,13 @@ spec:
                     type: array
                 type: object
               type: array
+            observedGeneration:
+              description: ObservedGeneration is the latest generation observed by
+                the controller.
+              format: int64
+              type: integer
+            phase:
+              type: string
             provider:
               type: string
             ready:

@@ -199,12 +199,21 @@ func (r *ClusterClaimReconciler) CreateClusterManager(clusterClaim *claimv1alpha
 			WorkerNum:  clusterClaim.Spec.WorkerNum,
 			WorkerType: clusterClaim.Spec.WorkerType,
 		},
+		// Status: clusterv1alpha1.ClusterManagerStatus{
+		// 	Phase: "Provisioning",
+		// 	Ready: false,
+		// },
 	}
 	err := r.Create(context.TODO(), clm)
 	if err != nil {
 		log.Error(err, "Failed to create ClusterManager")
 		return err
 	}
+	// err = r.Status().Update(context.TODO(), clm)
+	// if err != nil {
+	// 	log.Error(err, "Failed to update owner in ClusterManager")
+	// 	return err
+	// }
 
 	return nil
 }

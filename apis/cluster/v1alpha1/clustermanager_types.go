@@ -67,6 +67,41 @@ type ClusterManagerStatus struct {
 	MasterRun int        `json:"masterRun,omitempty"`
 	WorkerRun int        `json:"workerRun,omitempty"`
 	Node      []NodeInfo `json:"nodes,omitempty"`
+	Phase     string     `json:"phase,omitempty"`
+	// ObservedGeneration is the latest generation observed by the controller.
+	// +optional
+	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
+}
+type ClusterManagerPhase string
+
+const (
+	// ClusterManagerPhasePending is the first state a Cluster is assigned by
+	// Cluster API Cluster controller after being created.
+	ClusterManagerPhasePending = ClusterManagerPhase("Pending")
+
+	// ClusterManagerPhaseProvisioning is the state when the Cluster has a provider infrastructure
+	// object associated and can start provisioning.
+	ClusterManagerPhaseProvisioning = ClusterManagerPhase("Provisioning")
+
+	// ClusterManagerPhaseProvisioned is the state when its
+	// infrastructure has been created and configured.
+	ClusterManagerPhaseProvisioned = ClusterManagerPhase("Provisioned")
+
+	// ClusterManagerPhaseDeleting is the Cluster state when a delete
+	// request has been sent to the API Server,
+	// but its infrastructure has not yet been fully deleted.
+	ClusterManagerPhaseDeleting = ClusterManagerPhase("Deleting")
+
+	// ClusterManagerPhaseFailed is the Cluster state when the system
+	// might require user intervention.
+	ClusterManagerPhaseFailed = ClusterManagerPhase("Failed")
+
+	// ClusterManagerPhaseUnknown is returned if the Cluster state cannot be determined.
+	ClusterManagerPhaseUnknown = ClusterManagerPhase("Unknown")
+)
+
+func (c *ClusterManagerStatus) SetTypedPhase(p ClusterManagerPhase) {
+	c.Phase = string(p)
 }
 
 // +kubebuilder:object:root=true
@@ -79,6 +114,7 @@ type ClusterManagerStatus struct {
 // +kubebuilder:printcolumn:name="MasterRun",type="string",JSONPath=".status.masterRun",description="running of master"
 // +kubebuilder:printcolumn:name="WorkerNum",type="string",JSONPath=".spec.workerNum",description="replica number of worker"
 // +kubebuilder:printcolumn:name="WorkerRun",type="string",JSONPath=".status.workerRun",description="running of worker"
+// +kubebuilder:printcolumn:name="Phase",type="string",JSONPath=".status.phase",description="cluster status phase"
 
 // ClusterManager is the Schema for the clustermanagers API
 type ClusterManager struct {

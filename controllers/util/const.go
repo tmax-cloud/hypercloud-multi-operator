@@ -29,6 +29,7 @@ const (
 	MultiApiServerNamespace            = "hypercloud4-multi-system"
 	MultiApiServerServiceName          = "hypercloud4-multi-api-server-service"
 	SecretFinalizer                    = "secret/finalizers"
+	ClusterManagerFinalizer            = "clusterManager.claim.tmax.io"
 	KubefedclusterFinalizer            = "kubefedcluster/finalizers"
 	MultiApiServerServiceSelectorKey   = "hypercloud4"
 	MultiApiServerServiceSelectorValue = "multi-api-server"
