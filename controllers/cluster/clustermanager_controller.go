@@ -142,8 +142,8 @@ func (r *ClusterManagerReconciler) reconcile(ctx context.Context, clusterManager
 	phases := []func(context.Context, *clusterv1alpha1.ClusterManager) (ctrl.Result, error){
 		r.CreateServiceInstance,
 		r.CreateClusterMnagerOwnerRole,
-		// r.kubeadmControlPlaneUpdate,
-		// r.machineDeploymentUpdate,
+		r.kubeadmControlPlaneUpdate,
+		r.machineDeploymentUpdate,
 	}
 
 	res := ctrl.Result{}
