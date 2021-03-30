@@ -106,7 +106,7 @@ func (c *ClusterManagerStatus) SetTypedPhase(p ClusterManagerPhase) {
 
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
-// +kubebuilder:resource:path=clustermanagers,scope=Cluster,shortName=clm
+// +kubebuilder:resource:path=clustermanagers,scope=Namespaced,shortName=clm
 // +kubebuilder:printcolumn:name="Provider",type="string",JSONPath=".spec.provider",description="provider"
 // +kubebuilder:printcolumn:name="Version",type="string",JSONPath=".spec.version",description="k8s version"
 // +kubebuilder:printcolumn:name="Ready",type="string",JSONPath=".status.ready",description="is running"

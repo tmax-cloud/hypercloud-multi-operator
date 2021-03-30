@@ -14,7 +14,7 @@ const (
 	DB_NAME      = "postgres"
 	HOSTNAME     = "postgres-service.hypercloud5-system.svc"
 	PORT         = 5432
-	INSERT_QUERY = "INSERT INTO CLUSTER_MEMBER (cluster, member, attribute, role, status, createdTime, updatedTime) VALUES ($1, $2, $3, $4, $5, $6, $7)"
+	INSERT_QUERY = "INSERT INTO CLUSTER_MEMBER (cluster, member_id, member_name, attribute, role, status, createdTime, updatedTime) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)"
 	DELETE_QUERY = "DELETE FROM CLUSTER_MEMBER WHERE cluster = $1"
 )
 
