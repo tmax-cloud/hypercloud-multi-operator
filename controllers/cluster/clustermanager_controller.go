@@ -27,7 +27,6 @@ import (
 	"github.com/prometheus/common/log"
 	clusterv1alpha1 "github.com/tmax-cloud/hypercloud-multi-operator/apis/cluster/v1alpha1"
 	util "github.com/tmax-cloud/hypercloud-multi-operator/controllers/util"
-	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -141,7 +140,7 @@ func (r *ClusterManagerReconciler) Reconcile(req ctrl.Request) (_ ctrl.Result, r
 func (r *ClusterManagerReconciler) reconcile(ctx context.Context, clusterManager *clusterv1alpha1.ClusterManager) (ctrl.Result, error) {
 	phases := []func(context.Context, *clusterv1alpha1.ClusterManager) (ctrl.Result, error){
 		r.CreateServiceInstance,
-		r.CreateClusterMnagerOwnerRole,
+		// r.CreateClusterMnagerOwnerRole,
 		r.kubeadmControlPlaneUpdate,
 		r.machineDeploymentUpdate,
 	}
@@ -165,7 +164,7 @@ func (r *ClusterManagerReconciler) reconcile(ctx context.Context, clusterManager
 func (r *ClusterManagerReconciler) reconcileDelete(ctx context.Context, clusterManager *clusterv1alpha1.ClusterManager) (reconcile.Result, error) {
 	// delete serviceinstance
 	serviceInstance := &servicecatalogv1beta1.ServiceInstance{}
-	serviceInstanceKey := types.NamespacedName{Name: clusterManager.Name, Namespace: CAPI_SYSTEM_NAMESPACE}
+	serviceInstanceKey := types.NamespacedName{Name: clusterManager.Name, Namespace: clusterManager.Namespace}
 
 	if err := r.Get(context.TODO(), serviceInstanceKey, serviceInstance); err != nil {
 		if errors.IsNotFound(err) {
@@ -183,7 +182,7 @@ func (r *ClusterManagerReconciler) reconcileDelete(ctx context.Context, clusterM
 
 	//delete handling
 	cluster := &clusterv1.Cluster{}
-	clusterKey := types.NamespacedName{Name: clusterManager.Name, Namespace: "capi-system"}
+	clusterKey := types.NamespacedName{Name: clusterManager.Name, Namespace: clusterManager.Namespace}
 
 	if err := r.Get(context.TODO(), clusterKey, cluster); err != nil {
 		if errors.IsNotFound(err) {
@@ -227,7 +226,7 @@ func (r *ClusterManagerReconciler) reconcilePhase(_ context.Context, clusterMana
 func (r *ClusterManagerReconciler) CreateServiceInstance(ctx context.Context, clusterManager *clusterv1alpha1.ClusterManager) (ctrl.Result, error) {
 	fmt.Println("CreateServiceInstance ")
 	serviceInstance := &servicecatalogv1beta1.ServiceInstance{}
-	serviceInstanceKey := types.NamespacedName{Name: clusterManager.Name, Namespace: CAPI_SYSTEM_NAMESPACE}
+	serviceInstanceKey := types.NamespacedName{Name: clusterManager.Name, Namespace: clusterManager.Namespace}
 	if err := r.Get(context.TODO(), serviceInstanceKey, serviceInstance); err != nil {
 		if errors.IsNotFound(err) {
 			clusterParameter := ClusterParameter{
@@ -251,7 +250,7 @@ func (r *ClusterManagerReconciler) CreateServiceInstance(ctx context.Context, cl
 			newServiceInstance := &servicecatalogv1beta1.ServiceInstance{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      clusterManager.Name,
-					Namespace: CAPI_SYSTEM_NAMESPACE,
+					Namespace: clusterManager.Namespace,
 				},
 				Spec: servicecatalogv1beta1.ServiceInstanceSpec{
 					PlanReference: servicecatalogv1beta1.PlanReference{
@@ -278,74 +277,74 @@ func (r *ClusterManagerReconciler) CreateServiceInstance(ctx context.Context, cl
 	return ctrl.Result{}, nil
 }
 
-func (r *ClusterManagerReconciler) CreateClusterMnagerOwnerRole(ctx context.Context, clusterManager *clusterv1alpha1.ClusterManager) (ctrl.Result, error) {
-	fmt.Println("CreateClusterMnagerOwnerRole ")
-	clusterRole := &rbacv1.ClusterRole{}
-	clusterRoleName := clusterManager.Annotations["owner"] + "-" + clusterManager.Name + "-clm-role"
-	clusterRoleKey := types.NamespacedName{Name: clusterRoleName, Namespace: ""}
-	if err := r.Get(context.TODO(), clusterRoleKey, clusterRole); err != nil {
-		if errors.IsNotFound(err) {
-			newClusterRole := &rbacv1.ClusterRole{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: clusterRoleName,
-				},
-				Rules: []rbacv1.PolicyRule{
-					{APIGroups: []string{CLUSTER_API_GROUP}, Resources: []string{"clustermanagers"},
-						ResourceNames: []string{clusterManager.Name}, Verbs: []string{"get", "update", "delete"}},
-					{APIGroups: []string{CLUSTER_API_GROUP}, Resources: []string{"clustermanagers/status"},
-						ResourceNames: []string{clusterManager.Name}, Verbs: []string{"get"}},
-				},
-			}
-			ctrl.SetControllerReference(clusterManager, newClusterRole, r.Scheme)
-			err := r.Create(context.TODO(), newClusterRole)
-			if err != nil {
-				log.Error(err, "Failed to create "+clusterRoleName+" clusterRole.")
-				return ctrl.Result{}, err
-			}
-		} else {
-			log.Error(err, "Failed to get clusterRole")
-			return ctrl.Result{}, err
-		}
-	}
-	clusterRoleBinding := &rbacv1.ClusterRoleBinding{}
-	clusterRoleBindingName := clusterManager.Annotations["owner"] + "-" + clusterManager.Name + "-clm-rolebinding"
-	clusterRoleBindingKey := types.NamespacedName{Name: clusterRoleBindingName, Namespace: ""}
-	if err := r.Get(context.TODO(), clusterRoleBindingKey, clusterRoleBinding); err != nil {
-		if errors.IsNotFound(err) {
-			newClusterRoleBinding := &rbacv1.ClusterRoleBinding{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: clusterRoleBindingName,
-				},
-				RoleRef: rbacv1.RoleRef{
-					APIGroup: "rbac.authorization.k8s.io",
-					Kind:     "ClusterRole",
-					Name:     clusterRoleName,
-				},
-				Subjects: []rbacv1.Subject{
-					{
-						APIGroup: "rbac.authorization.k8s.io",
-						Kind:     "User",
-						Name:     clusterManager.Annotations["owner"],
-					},
-				},
-			}
-			ctrl.SetControllerReference(clusterManager, newClusterRoleBinding, r.Scheme)
-			err = r.Create(context.TODO(), newClusterRoleBinding)
-			if err != nil {
-				log.Error(err, "Failed to create "+clusterRoleBindingName+" clusterRole.")
-				return ctrl.Result{}, err
-			}
-		} else {
-			log.Error(err, "Failed to get rolebinding")
-			return ctrl.Result{}, err
-		}
-	}
-	return ctrl.Result{}, nil
-}
+// func (r *ClusterManagerReconciler) CreateClusterMnagerOwnerRole(ctx context.Context, clusterManager *clusterv1alpha1.ClusterManager) (ctrl.Result, error) {
+// 	fmt.Println("CreateClusterMnagerOwnerRole ")
+// 	clusterRole := &rbacv1.ClusterRole{}
+// 	clusterRoleName := clusterManager.Annotations["owner"] + "-" + clusterManager.Name + "-clm-role"
+// 	clusterRoleKey := types.NamespacedName{Name: clusterRoleName, Namespace: ""}
+// 	if err := r.Get(context.TODO(), clusterRoleKey, clusterRole); err != nil {
+// 		if errors.IsNotFound(err) {
+// 			newClusterRole := &rbacv1.ClusterRole{
+// 				ObjectMeta: metav1.ObjectMeta{
+// 					Name: clusterRoleName,
+// 				},
+// 				Rules: []rbacv1.PolicyRule{
+// 					{APIGroups: []string{CLUSTER_API_GROUP}, Resources: []string{"clustermanagers"},
+// 						ResourceNames: []string{clusterManager.Name}, Verbs: []string{"get", "update", "delete"}},
+// 					{APIGroups: []string{CLUSTER_API_GROUP}, Resources: []string{"clustermanagers/status"},
+// 						ResourceNames: []string{clusterManager.Name}, Verbs: []string{"get"}},
+// 				},
+// 			}
+// 			ctrl.SetControllerReference(clusterManager, newClusterRole, r.Scheme)
+// 			err := r.Create(context.TODO(), newClusterRole)
+// 			if err != nil {
+// 				log.Error(err, "Failed to create "+clusterRoleName+" clusterRole.")
+// 				return ctrl.Result{}, err
+// 			}
+// 		} else {
+// 			log.Error(err, "Failed to get clusterRole")
+// 			return ctrl.Result{}, err
+// 		}
+// 	}
+// 	clusterRoleBinding := &rbacv1.ClusterRoleBinding{}
+// 	clusterRoleBindingName := clusterManager.Annotations["owner"] + "-" + clusterManager.Name + "-clm-rolebinding"
+// 	clusterRoleBindingKey := types.NamespacedName{Name: clusterRoleBindingName, Namespace: ""}
+// 	if err := r.Get(context.TODO(), clusterRoleBindingKey, clusterRoleBinding); err != nil {
+// 		if errors.IsNotFound(err) {
+// 			newClusterRoleBinding := &rbacv1.ClusterRoleBinding{
+// 				ObjectMeta: metav1.ObjectMeta{
+// 					Name: clusterRoleBindingName,
+// 				},
+// 				RoleRef: rbacv1.RoleRef{
+// 					APIGroup: "rbac.authorization.k8s.io",
+// 					Kind:     "ClusterRole",
+// 					Name:     clusterRoleName,
+// 				},
+// 				Subjects: []rbacv1.Subject{
+// 					{
+// 						APIGroup: "rbac.authorization.k8s.io",
+// 						Kind:     "User",
+// 						Name:     clusterManager.Annotations["owner"],
+// 					},
+// 				},
+// 			}
+// 			ctrl.SetControllerReference(clusterManager, newClusterRoleBinding, r.Scheme)
+// 			err = r.Create(context.TODO(), newClusterRoleBinding)
+// 			if err != nil {
+// 				log.Error(err, "Failed to create "+clusterRoleBindingName+" clusterRole.")
+// 				return ctrl.Result{}, err
+// 			}
+// 		} else {
+// 			log.Error(err, "Failed to get rolebinding")
+// 			return ctrl.Result{}, err
+// 		}
+// 	}
+// 	return ctrl.Result{}, nil
+// }
 
 func (r *ClusterManagerReconciler) kubeadmControlPlaneUpdate(ctx context.Context, clusterManager *clusterv1alpha1.ClusterManager) (ctrl.Result, error) {
 	kcp := &controlplanev1.KubeadmControlPlane{}
-	key := types.NamespacedName{Name: clusterManager.Name + "-control-plane", Namespace: CAPI_SYSTEM_NAMESPACE}
+	key := types.NamespacedName{Name: clusterManager.Name + "-control-plane", Namespace: clusterManager.Namespace}
 
 	// if err := r.Get(context.TODO(), key, kcp); err != nil {
 	// 	return ctrl.Result{}, err
@@ -379,7 +378,7 @@ func (r *ClusterManagerReconciler) kubeadmControlPlaneUpdate(ctx context.Context
 
 func (r *ClusterManagerReconciler) machineDeploymentUpdate(ctx context.Context, clusterManager *clusterv1alpha1.ClusterManager) (ctrl.Result, error) {
 	md := &clusterv1.MachineDeployment{}
-	key := types.NamespacedName{Name: clusterManager.Name + "-md-0", Namespace: CAPI_SYSTEM_NAMESPACE}
+	key := types.NamespacedName{Name: clusterManager.Name + "-md-0", Namespace: clusterManager.Namespace}
 
 	if err := r.Get(context.TODO(), key, md); err != nil {
 		if errors.IsNotFound(err) {
@@ -412,7 +411,7 @@ func (r *ClusterManagerReconciler) requeueClusterManagersForCluster(o handler.Ma
 
 	//get ClusterManager
 	clm := &clusterv1alpha1.ClusterManager{}
-	key := types.NamespacedName{Namespace: "", Name: c.Name}
+	key := types.NamespacedName{Namespace: c.Namespace, Name: c.Name}
 
 	if err := r.Get(context.TODO(), key, clm); err != nil {
 		if errors.IsNotFound(err) {
@@ -449,7 +448,7 @@ func (r *ClusterManagerReconciler) requeueClusterManagersForKubeadmControlPlane(
 
 	//get ClusterManager
 	clm := &clusterv1alpha1.ClusterManager{}
-	key := types.NamespacedName{Namespace: "", Name: cp.Name[0 : len(cp.Name)-len("-control-plane")]}
+	key := types.NamespacedName{Namespace: cp.Namespace, Name: cp.Name[0 : len(cp.Name)-len("-control-plane")]}
 	if err := r.Get(context.TODO(), key, clm); err != nil {
 		if errors.IsNotFound(err) {
 			log.Info("ClusterManager resource not found. Ignoring since object must be deleted.")
@@ -485,7 +484,7 @@ func (r *ClusterManagerReconciler) requeueClusterManagersForMachineDeployment(o 
 
 	//get ClusterManager
 	clm := &clusterv1alpha1.ClusterManager{}
-	key := types.NamespacedName{Namespace: "", Name: md.Name[0 : len(md.Name)-len("-md-0")]}
+	key := types.NamespacedName{Namespace: md.Namespace, Name: md.Name[0 : len(md.Name)-len("-md-0")]}
 	if err := r.Get(context.TODO(), key, clm); err != nil {
 		if errors.IsNotFound(err) {
 			log.Info("ClusterManager resource not found. Ignoring since object must be deleted.")
