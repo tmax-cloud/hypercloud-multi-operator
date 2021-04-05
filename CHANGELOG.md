@@ -1,6 +1,72 @@
 # HyperCloud-Multi-Operator changelog!!
 All notable changes to this project will be documented in this file.
 
+<!-------------------- v5.0.3.1 start -------------------->
+
+## HyperCloud-Multi-Operator_5.0.3.1 (Mon Apr  5 02:46:02 KST 2021)
+
+### Added
+
+### Changed
+  - [mod] remove status.member by chosangwon93
+  - [mod] remove status.member by chosangwon93
+  - [mod] add serviceinstance scheme by chosangwon93
+
+### Fixed
+
+### CRD yaml
+
+### Etc
+  - [etc] change webhook-server-cert name by chosangwon93
+  - [etc] pkg update by chosangwon93
+  - [etc] init by chosangwon93
+
+<!--------------------- v5.0.3.1 end --------------------->
+
+<!-------------------- v5.0.5.0 start -------------------->
+
+## HyperCloud-Multi-Operator_5.0.5.0 (Thu Apr  1 08:55:44 KST 2021)
+
+### Added
+
+### Changed
+  - [mod] remove status.member by chosangwon93
+  - [mod] remove status.member by chosangwon93
+  - [mod] add serviceinstance scheme by chosangwon93
+
+### Fixed
+
+### CRD yaml
+
+### Etc
+  - [etc] change webhook-server-cert name by chosangwon93
+  - [etc] pkg update by chosangwon93
+  - [etc] init by chosangwon93
+
+<!--------------------- v5.0.5.0 end --------------------->
+
+<!-------------------- v5.0.4.0 start -------------------->
+
+## HyperCloud-Multi-Operator_5.0.4.0 (Thu Mar 25 09:30:22 KST 2021)
+
+### Added
+
+### Changed
+  - [mod] remove status.member by chosangwon93
+  - [mod] remove status.member by chosangwon93
+  - [mod] add serviceinstance scheme by chosangwon93
+
+### Fixed
+
+### CRD yaml
+
+### Etc
+  - [etc] change webhook-server-cert name by chosangwon93
+  - [etc] pkg update by chosangwon93
+  - [etc] init by chosangwon93
+
+<!--------------------- v5.0.4.0 end --------------------->
+
 <!-------------------- v5.0.3.0 start -------------------->
 
 ## HyperCloud-Multi-Operator_5.0.3.0 (Thu Mar 18 17:54:55 KST 2021)
