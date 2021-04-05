@@ -208,8 +208,6 @@ func (r *ClusterClaimReconciler) CreateClusterManager(clusterClaim *claimv1alpha
 	return nil
 }
 
-//
-
 func (r *ClusterClaimReconciler) requeueClusterClaimsForClusterManager(o handler.MapObject) []ctrl.Request {
 	clm := o.Object.(*clusterv1alpha1.ClusterManager)
 	log := r.Log.WithValues("objectMapper", "clusterManagerToClusterClaim", "clusterManager", clm.Name)

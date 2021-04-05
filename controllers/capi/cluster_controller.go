@@ -96,7 +96,7 @@ func (r *ClusterReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 
 		reqLogger.Info(cluster.GetName() + " is successful")
 
-		r.deployRB2remote(cluster.Name, cluster.Annotations["owner"])
+		r.deployRB2remote(cluster, cluster.Annotations["owner"])
 		r.handleConsole(cluster)
 	} else {
 		reqLogger.Info(cluster.GetName() + " doesn't meet the condition")
@@ -218,10 +218,10 @@ func (r *ClusterReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Complete(r)
 }
 
-func (r *ClusterReconciler) deployRB2remote(clusterName, owner string) {
+func (r *ClusterReconciler) deployRB2remote(cluster *clusterv1.Cluster, owner string) {
 	var remoteClient client.Client
 
-	if restConfig, err := getConfigFromSecret(r.Client, clusterName); err != nil {
+	if restConfig, err := getConfigFromSecret(r.Client, cluster); err != nil {
 		log.Error(err)
 		return
 	} else {
@@ -230,7 +230,7 @@ func (r *ClusterReconciler) deployRB2remote(clusterName, owner string) {
 		remoteClient, err = client.New(restConfig, client.Options{Scheme: remoteScheme})
 
 		rb := &rbacv1.ClusterRoleBinding{}
-		rb.Name = clusterName + "-" + owner
+		rb.Name = cluster.Name + "-" + owner
 		rb.RoleRef = rbacv1.RoleRef{
 			APIGroup: "rbac.authorization.k8s.io",
 			Kind:     "ClusterRole",
@@ -278,10 +278,10 @@ func (r *ClusterReconciler) deployRB2remote(clusterName, owner string) {
 	}
 }
 
-func getConfigFromSecret(c client.Client, clusterName string) (*restclient.Config, error) {
+func getConfigFromSecret(c client.Client, cluster *clusterv1.Cluster) (*restclient.Config, error) {
 	secret := &corev1.Secret{}
 
-	if err := c.Get(context.TODO(), types.NamespacedName{Name: clusterName + "-kubeconfig", Namespace: "capi-system"}, secret); err != nil {
+	if err := c.Get(context.TODO(), types.NamespacedName{Name: cluster.Name + "-kubeconfig", Namespace: cluster.Namespace}, secret); err != nil {
 		log.Errorln(err)
 	}
 
