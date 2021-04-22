@@ -18,9 +18,7 @@ package v1alpha1
 
 import (
 	"errors"
-	"fmt"
 
-	util "github.com/tmax-cloud/hypercloud-multi-operator/controllers/util"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
@@ -86,11 +84,8 @@ func (r *ClusterManager) ValidateUpdate(old runtime.Object) error {
 
 // ValidateDelete implements webhook.Validator so a webhook will be registered for the type
 func (r *ClusterManager) ValidateDelete() error {
-	fmt.Println()
-	fmt.Println(util.Goid())
-	fmt.Println()
+
 	clustermanagerlog.Info("validate delete", "name", r.Name)
 
-	// TODO(user): fill in your validation logic upon object deletion.
 	return nil
 }

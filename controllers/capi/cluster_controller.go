@@ -20,13 +20,14 @@ import (
 	"context"
 	"strings"
 
+	"fmt"
+
 	"github.com/go-logr/logr"
 	"github.com/prometheus/common/log"
-	"k8s.io/client-go/tools/clientcmd"
-	"sigs.k8s.io/cluster-api/util/patch"
-
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/tools/clientcmd"
+	"sigs.k8s.io/cluster-api/util/patch"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -95,7 +96,7 @@ func (r *ClusterReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 		}
 
 		reqLogger.Info(cluster.GetName() + " is successful")
-
+		fmt.Println("chosangwon1")
 		r.deployRB2remote(cluster, cluster.Annotations["owner"])
 		r.handleConsole(cluster)
 	} else {
@@ -220,11 +221,12 @@ func (r *ClusterReconciler) SetupWithManager(mgr ctrl.Manager) error {
 
 func (r *ClusterReconciler) deployRB2remote(cluster *clusterv1.Cluster, owner string) {
 	var remoteClient client.Client
-
+	fmt.Println("chosangwon2")
 	if restConfig, err := getConfigFromSecret(r.Client, cluster); err != nil {
 		log.Error(err)
 		return
 	} else {
+		fmt.Println("chosangwon3")
 		remoteScheme := runtime.NewScheme()
 		utilruntime.Must(rbacv1.AddToScheme(remoteScheme))
 		remoteClient, err = client.New(restConfig, client.Options{Scheme: remoteScheme})
@@ -246,7 +248,7 @@ func (r *ClusterReconciler) deployRB2remote(cluster *clusterv1.Cluster, owner st
 		if err := remoteClient.Create(context.TODO(), rb); err != nil {
 			log.Error(err)
 		}
-
+		fmt.Println("chosangwon4")
 		cr := &rbacv1.ClusterRole{}
 		cr.Name = "developer"
 
@@ -261,20 +263,21 @@ func (r *ClusterReconciler) deployRB2remote(cluster *clusterv1.Cluster, owner st
 		someRule.Verbs = append(someRule.Verbs, "get", "list", "watch")
 
 		cr.Rules = append(cr.Rules, *allRule, *someRule)
-
+		fmt.Println("chosangwon5")
 		if err := remoteClient.Create(context.TODO(), cr); err != nil {
 			log.Error()
 		}
-
+		fmt.Println("chosangwon6")
 		cr2 := &rbacv1.ClusterRole{}
 		cr2.Name = "guest"
 		allRule.Verbs = []string{"get", "list", "watch"}
 
 		cr2.Rules = append(cr2.Rules, *allRule, *someRule)
-
+		fmt.Println("chosangwon7")
 		if err := remoteClient.Create(context.TODO(), cr2); err != nil {
 			log.Error()
 		}
+		fmt.Println("chosangwon8")
 	}
 }
 

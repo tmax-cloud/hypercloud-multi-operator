@@ -150,14 +150,14 @@ func main() {
 		setupLog.Error(err, "unable to create controller", "controller", "fed/federatedserviceController")
 		os.Exit(1)
 	}
-	if err = (&federatedServiceController.KubeFedClusterReconciler{
-		Client: mgr.GetClient(),
-		Log:    ctrl.Log.WithName("controller").WithName("fed/kubefedclusterController"),
-		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "fed/kubefedclusterController")
-		os.Exit(1)
-	}
+	// if err = (&federatedServiceController.KubeFedClusterReconciler{
+	// 	Client: mgr.GetClient(),
+	// 	Log:    ctrl.Log.WithName("controller").WithName("fed/kubefedclusterController"),
+	// 	Scheme: mgr.GetScheme(),
+	// }).SetupWithManager(mgr); err != nil {
+	// 	setupLog.Error(err, "unable to create controller", "controller", "fed/kubefedclusterController")
+	// 	os.Exit(1)
+	// }
 	// +kubebuilder:scaffold:builder
 
 	setupLog.Info("starting manager")

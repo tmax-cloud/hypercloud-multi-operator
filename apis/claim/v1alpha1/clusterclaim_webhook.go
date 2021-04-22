@@ -56,7 +56,7 @@ func (r *ClusterClaim) Default() {
 }
 
 // TODO(user): change verbs to "verbs=create;update;delete" if you want to enable deletion validation.
-// +kubebuilder:webhook:verbs=update,path=/validate-claim-tmax-io-v1alpha1-clusterclaim,mutating=false,failurePolicy=fail,groups=claim.tmax.io,resources=clusterclaims,versions=v1alpha1,name=vclusterclaim.kb.io
+// +kubebuilder:webhook:verbs=update;delete,path=/validate-claim-tmax-io-v1alpha1-clusterclaim,mutating=false,failurePolicy=fail,groups=claim.tmax.io,resources=clusterclaims;clusterclaims/status,versions=v1alpha1,name=vclusterclaim.kb.io
 
 var _ webhook.Validator = &ClusterClaim{}
 
@@ -82,6 +82,8 @@ func (r *ClusterClaim) ValidateUpdate(old runtime.Object) error {
 func (r *ClusterClaim) ValidateDelete() error {
 	clusterclaimlog.Info("validate delete", "name", r.Name)
 
-	// TODO(user): fill in your validation logic upon object deletion.
-	return nil
+	if r.Status.Phase == "Awaiting" {
+		return nil
+	}
+	return errors.New("Cannot modify clusterClaim after approval")
 }
