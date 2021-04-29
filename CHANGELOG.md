@@ -1,6 +1,32 @@
 # HyperCloud-Multi-Operator changelog!!
 All notable changes to this project will be documented in this file.
 
+<!-------------------- v5.0.8.0 start -------------------->
+
+## HyperCloud-Multi-Operator_5.0.8.0 (Fri Apr 30 08:58:34 KST 2021)
+
+### Added
+
+### Changed
+  - [mod] delete aws elb by chosangwon93
+  - [mod] add resource req, limit by chosangwon93
+  - [mod] scope by chosangwon93
+  - [mod] remove status.member by chosangwon93
+  - [mod] remove status.member by chosangwon93
+  - [mod] add serviceinstance scheme by chosangwon93
+
+### Fixed
+
+### CRD yaml
+
+### Etc
+  - [etc] delete duplicated manifests directory by chosangwon93
+  - [etc] change webhook-server-cert name by chosangwon93
+  - [etc] pkg update by chosangwon93
+  - [etc] init by chosangwon93
+
+<!--------------------- v5.0.8.0 end --------------------->
+
 <!-------------------- v5.0.7.0 start -------------------->
 
 ## HyperCloud-Multi-Operator_5.0.7.0 (Thu Apr 22 10:32:21 KST 2021)
