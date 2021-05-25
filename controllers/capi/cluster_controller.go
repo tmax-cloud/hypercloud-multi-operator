@@ -214,6 +214,8 @@ func (r *ClusterReconciler) patchSecret(key types.NamespacedName, status string)
 }
 
 func (r *ClusterReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	// create master cluster proxy config
+
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&clusterv1.Cluster{}).
 		Complete(r)

@@ -17,6 +17,7 @@ limitations under the License.
 package main
 
 import (
+	"context"
 	"flag"
 	"os"
 
@@ -67,6 +68,7 @@ func init() {
 	utilruntime.Must(controlplanev1.AddToScheme(scheme))
 	utilruntime.Must(console.AddToScheme(scheme))
 	utilruntime.Must(servicecatalogv1beta1.AddToScheme(scheme))
+
 	// +kubebuilder:scaffold:scheme
 }
 
@@ -91,6 +93,25 @@ func main() {
 	if err != nil {
 		setupLog.Error(err, "unable to start manager")
 		os.Exit(1)
+	}
+
+	// create master cluster proxy config
+	proxy := &console.Console{}
+	proxy.Name = "hypercloud5-multi-cluster"
+	proxy.Namespace = "console-system"
+
+	masterRouter := &console.Router{
+		Server: "https://",
+		Rule:   "PathPrefix(`/api/master/`)",
+		Path:   "/api/master/",
+	}
+
+	proxy.Spec.Configuration.Routers = map[string]*console.Router{
+		"master": masterRouter,
+	}
+
+	if err := mgr.GetClient().Create(context.TODO(), proxy); err != nil {
+		setupLog.Error(err, "problem creating master cluster proxy config")
 	}
 
 	if err = (&claimcontroller.ClusterClaimReconciler{
