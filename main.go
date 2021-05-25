@@ -21,7 +21,9 @@ import (
 	"flag"
 	"os"
 
+	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
@@ -96,22 +98,31 @@ func main() {
 	}
 
 	// create master cluster proxy config
-	proxy := &console.Console{}
-	proxy.Name = "hypercloud5-multi-cluster"
-	proxy.Namespace = "console-system"
+	cs := &console.Console{}
+	key := types.NamespacedName{Name: "hypercloud5-multi-cluster", Namespace: "console-system"}
 
-	masterRouter := &console.Router{
-		Server: "https://",
-		Rule:   "PathPrefix(`/api/master/`)",
-		Path:   "/api/master/",
-	}
+	if err := mgr.GetClient().Get(context.TODO(), key, cs); err != nil {
+		if errors.IsNotFound(err) {
+			setupLog.Info("console resource not found. create console resource.")
 
-	proxy.Spec.Configuration.Routers = map[string]*console.Router{
-		"master": masterRouter,
-	}
+			newCs := &console.Console{}
+			newCs.Name = "hypercloud5-multi-cluster"
+			newCs.Namespace = "console-system"
 
-	if err := mgr.GetClient().Create(context.TODO(), proxy); err != nil {
-		setupLog.Error(err, "problem creating master cluster proxy config")
+			masterRouter := &console.Router{
+				Server: "https://",
+				Rule:   "PathPrefix(`/api/master/`)",
+				Path:   "/api/master/",
+			}
+
+			newCs.Spec.Configuration.Routers = map[string]*console.Router{
+				"master": masterRouter,
+			}
+
+			if err := mgr.GetClient().Create(context.TODO(), newCs); err != nil {
+				setupLog.Error(err, "problem creating master cluster proxy config")
+			}
+		}
 	}
 
 	if err = (&claimcontroller.ClusterClaimReconciler{

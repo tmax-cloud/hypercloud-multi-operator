@@ -72,7 +72,7 @@ func (r *ClusterClaim) ValidateCreate() error {
 func (r *ClusterClaim) ValidateUpdate(old runtime.Object) error {
 	oldClusterClaim := old.(*ClusterClaim).DeepCopy()
 
-	if oldClusterClaim.Status.Phase == "Awaiting" {
+	if oldClusterClaim.Status.Phase == "Awaiting" || oldClusterClaim.Status.Phase == "" {
 		return nil
 	}
 	return errors.New("Cannot modify clusterClaim after approval")
