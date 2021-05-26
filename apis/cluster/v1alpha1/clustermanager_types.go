@@ -22,9 +22,9 @@ import (
 
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
 // NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
-type FakeObjectMeta struct {
-	FakeName string `json:"fakename,omitempty" protobuf:"bytes,1,opt,name=fakename"`
-}
+// type FakeObjectMeta struct {
+// 	FakeName string `json:"fakename,omitempty" protobuf:"bytes,1,opt,name=fakename"`
+// }
 
 type NodeInfo struct {
 	Name      string         `json:"name,omitempty"`
@@ -120,9 +120,9 @@ func (c *ClusterManagerStatus) SetTypedPhase(p ClusterManagerPhase) {
 type ClusterManager struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
-	FakeObjectMeta    `json:"fakeMetadata,omitempty"`
-	Spec              ClusterManagerSpec   `json:"spec,omitempty"`
-	Status            ClusterManagerStatus `json:"status,omitempty"`
+	// FakeObjectMeta    `json:"fakeMetadata,omitempty"`
+	Spec   ClusterManagerSpec   `json:"spec,omitempty"`
+	Status ClusterManagerStatus `json:"status,omitempty"`
 }
 
 // +kubebuilder:object:root=true
