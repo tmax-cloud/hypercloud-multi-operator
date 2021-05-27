@@ -139,15 +139,15 @@ func (r *ClusterReconciler) handleConsole(c *clusterv1.Cluster) {
 			newCs.Name = "hypercloud5-multi-cluster"
 			newCs.Namespace = "console-system"
 
-			masterRouter := &console.Router{
-				Server: "https://",
-				Rule:   "PathPrefix(`/api/master/`)",
-				Path:   "/api/master/",
-			}
+			// masterRouter := &console.Router{
+			// 	Server: "https://",
+			// 	Rule:   "PathPrefix(`/api/master/`)",
+			// 	Path:   "/api/master/",
+			// }
 
 			newCs.Spec.Configuration.Routers = map[string]*console.Router{
-				c.Name:   router,
-				"master": masterRouter,
+				c.Name: router,
+				// "master": masterRouter,
 			}
 
 			if err2 := r.Create(context.TODO(), newCs); err2 != nil {
@@ -214,6 +214,8 @@ func (r *ClusterReconciler) patchSecret(key types.NamespacedName, status string)
 }
 
 func (r *ClusterReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	// create master cluster proxy config
+
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&clusterv1.Cluster{}).
 		Complete(r)

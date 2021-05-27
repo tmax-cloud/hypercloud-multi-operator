@@ -67,6 +67,7 @@ func init() {
 	utilruntime.Must(controlplanev1.AddToScheme(scheme))
 	utilruntime.Must(console.AddToScheme(scheme))
 	utilruntime.Must(servicecatalogv1beta1.AddToScheme(scheme))
+
 	// +kubebuilder:scaffold:scheme
 }
 

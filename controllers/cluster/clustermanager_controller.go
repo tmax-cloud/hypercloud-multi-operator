@@ -168,7 +168,12 @@ func (r *ClusterManagerReconciler) reconcileDelete(ctx context.Context, clusterM
 
 	// delete ingress controller from remote cluster
 	if restConfig, err := getConfigFromSecret(r.Client, clusterManager); err != nil {
-		log.Error(err, "Failed to get kubeconfig secret")
+		if errors.IsNotFound(err) {
+			log.Info("Kubeconfig secret is already deleted.")
+		} else {
+			log.Error(err, "Failed to get kubeconfig secret")
+			return ctrl.Result{}, err
+		}
 	} else {
 		remoteScheme := runtime.NewScheme()
 		utilruntime.Must(corev1.AddToScheme(remoteScheme))
