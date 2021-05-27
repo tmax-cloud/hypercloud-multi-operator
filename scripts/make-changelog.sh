@@ -31,24 +31,6 @@ echo "All notable changes to this project will be documented in this file." >> $
 echo -e "\n<!-------------------- v$version start -------------------->" >> $output
 echo -e "\n## HyperCloud-Multi-Operator_$version ($timestamp)" >> $output
 
-if [ prev_version="5.0.0.0" ]; then
-# make commit log to changelog
-echo -e "\n### Added" >> $output
-git log --no-merges --oneline --format="  - %s by %cN" --grep="^\[feat\].*" -i >> $output
-#git log v$prev_version..HEAD --no-merges --oneline --format="  - %s by %cN" >> $output
-
-echo -e "\n### Changed" >> $output
-git log --no-merges --oneline --format="  - %s by %cN" --grep="^\[mod\].*" -i >> $output
-
-echo -e "\n### Fixed" >> $output
-git log --no-merges --oneline --format="  - %s by %cN" --grep="^\[ims\]\[[0-9]*\].*" -i >> $output
-
-echo -e "\n### CRD yaml" >> $output
-git log --no-merges --oneline --format="  - %s by %cN" --grep="^\[crd\].*" -i >> $output
-
-echo -e "\n### Etc" >> $output
-git log --no-merges --oneline --format="  - %s by %cN" --grep="^\[etc\].*" -i >> $output
-else
 # make commit log to changelog
 echo -e "\n### Added" >> $output
 git log v$prev_version..HEAD --no-merges --oneline --format="  - %s by %cN" --grep="^\[feat\].*" -i >> $output
@@ -66,7 +48,6 @@ git log v$prev_version..HEAD --no-merges --oneline --format="  - %s by %cN" --gr
 echo -e "\n### Etc" >> $output
 git log v$prev_version..HEAD --no-merges --oneline --format="  - %s by %cN" --grep="^\[etc\].*" -i >> $output
 
-fi
 echo -e "\n<!--------------------- v$version end --------------------->" >> $output
 
 if [ -f $backup ]; then
