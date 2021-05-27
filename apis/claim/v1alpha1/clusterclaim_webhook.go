@@ -70,12 +70,13 @@ func (r *ClusterClaim) ValidateCreate() error {
 
 // ValidateUpdate implements webhook.Validator so a webhook will be registered for the type
 func (r *ClusterClaim) ValidateUpdate(old runtime.Object) error {
-	oldClusterClaim := old.(*ClusterClaim).DeepCopy()
+	//oldClusterClaim := old.(*ClusterClaim).DeepCopy()
 
-	if oldClusterClaim.Status.Phase == "Awaiting" || oldClusterClaim.Status.Phase == "" {
-		return nil
-	}
-	return errors.New("Cannot modify clusterClaim after approval")
+	//if oldClusterClaim.Status.Phase == "Awaiting" || oldClusterClaim.Status.Phase == "" {
+	//	return nil
+	//}
+	//return errors.New("Cannot modify clusterClaim after approval")
+	return nil
 }
 
 // ValidateDelete implements webhook.Validator so a webhook will be registered for the type
