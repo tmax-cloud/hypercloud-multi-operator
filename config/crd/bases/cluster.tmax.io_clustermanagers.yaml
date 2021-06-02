@@ -69,7 +69,7 @@ spec:
         metadata:
           type: object
         spec:
-          description: FakeObjectMeta    `json:"fakeMetadata,omitempty"`
+          description: ClusterManagerSpec defines the desired state of ClusterManager
           properties:
             masterNum:
               description: The number of master node
