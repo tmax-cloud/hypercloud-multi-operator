@@ -52,19 +52,19 @@ All notable changes to this project will be documented in this file.
 <!-------------------- v5.0.12.0 start -------------------->
 -e 
 ## HyperCloud-Multi-Operator_5.0.12.0 (2021. 05. 27. (목) 15:05:09 KST)
--e 
+
 ### Added
--e 
+
 ### Changed
   - [mod] 네임스페이스 내에서 클러스터 이름이 중복되지 않게 변경되면서 ClusterManager에서 불필요한 필드 제거 및 로직 수정 by chosangwon93
--e 
+
 ### Fixed
--e 
+
 ### CRD yaml
--e 
+
 ### Etc
   - [etc] add key-mapping files by chosangwon93
--e 
+
 <!--------------------- v5.0.12.0 end --------------------->
 
 <!-------------------- v5.0.11.4 start -------------------->
