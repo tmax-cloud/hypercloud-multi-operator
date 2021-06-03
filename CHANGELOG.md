@@ -1,6 +1,23 @@
 # HyperCloud-Multi-Operator changelog!!
 All notable changes to this project will be documented in this file.
 
+<!-------------------- v5.0.13.1 start -------------------->
+
+## HyperCloud-Multi-Operator_5.0.13.1 (2021. 06. 03. (목) 18:56:06 KST)
+
+### Added
+
+### Changed
+  - [mod] 불필요한 delete 이벤트에 대한 webhook 로직 삭제 by chosangwon93
+
+### Fixed
+
+### CRD yaml
+
+### Etc
+
+<!--------------------- v5.0.13.1 end --------------------->
+
 <!-------------------- v5.0.13.0 start -------------------->
 
 ## HyperCloud-Multi-Operator_5.0.13.0 (2021. 06. 03. (목) 17:23:20 KST)
