@@ -1,6 +1,24 @@
 # HyperCloud-Multi-Operator changelog!!
 All notable changes to this project will be documented in this file.
 
+<!-------------------- v5.0.14.0 start -------------------->
+
+## HyperCloud-Multi-Operator_5.0.14.0 (2021. 06. 10. (목) 20:22:22 KST)
+
+### Added
+
+### Changed
+  - [mod] 클러스터가 삭제되었을 때 db에 직접 접근해서 cluster 정보를 지우지 않고 hypercloud를 호출하도록 수정' by chosangwon93
+
+### Fixed
+
+### CRD yaml
+
+### Etc
+  - [etc] .gitignore 수정 by chosangwon93
+
+<!--------------------- v5.0.14.0 end --------------------->
+
 <!-------------------- v5.0.13.1 start -------------------->
 
 ## HyperCloud-Multi-Operator_5.0.13.1 (2021. 06. 03. (목) 18:56:06 KST)
