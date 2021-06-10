@@ -72,7 +72,7 @@ func (r *ClusterClaim) ValidateCreate() error {
 func (r *ClusterClaim) ValidateUpdate(old runtime.Object) error {
 	oldClusterClaim := old.(*ClusterClaim).DeepCopy()
 
-	if r.ObjectMeta.DeletionTimestamp.IsZero() {
+	if !r.ObjectMeta.DeletionTimestamp.IsZero() {
 		return nil
 	}
 

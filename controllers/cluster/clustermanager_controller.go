@@ -177,7 +177,7 @@ func (r *ClusterManagerReconciler) reconcileDelete(ctx context.Context, clusterM
 	} else {
 		remoteScheme := runtime.NewScheme()
 		utilruntime.Must(corev1.AddToScheme(remoteScheme))
-		if remoteClient, err := client.New(restConfig, client.Options{Scheme: remoteScheme}); err == nil || remoteClient != nil {
+		if remoteClient, _ := client.New(restConfig, client.Options{Scheme: remoteScheme}); err != nil {
 			ingressNamespaceKey := types.NamespacedName{Name: "ingress-nginx", Namespace: ""}
 			ingressNamespace := corev1.Namespace{}
 			if err := remoteClient.Get(context.TODO(), ingressNamespaceKey, &ingressNamespace); err != nil {
@@ -194,7 +194,7 @@ func (r *ClusterManagerReconciler) reconcileDelete(ctx context.Context, clusterM
 				}
 			}
 		} else {
-			log.Error(err, "Failed to get remoteclient")
+			log.Info("Failed to get remoteclient, because cluster was deleted before it was created")
 		}
 	}
 
@@ -222,7 +222,7 @@ func (r *ClusterManagerReconciler) reconcileDelete(ctx context.Context, clusterM
 
 	if err := r.Get(context.TODO(), clusterKey, cluster); err != nil {
 		if errors.IsNotFound(err) {
-			if err := util.Delete(clusterManager.Name); err != nil {
+			if err := util.Delete(clusterManager.Namespace, clusterManager.Name); err != nil {
 				log.Error(err, "Failed to delete cluster info from cluster_member table")
 				return ctrl.Result{}, err
 			}
