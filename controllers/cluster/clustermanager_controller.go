@@ -177,24 +177,24 @@ func (r *ClusterManagerReconciler) reconcileDelete(ctx context.Context, clusterM
 	} else {
 		remoteScheme := runtime.NewScheme()
 		utilruntime.Must(corev1.AddToScheme(remoteScheme))
-		remoteClient, err := client.New(restConfig, client.Options{Scheme: remoteScheme})
-		if err != nil {
-			log.Error(err, "Failed to get remoteclient")
-		}
-		ingressNamespaceKey := types.NamespacedName{Name: "ingress-nginx", Namespace: ""}
-		ingressNamespace := corev1.Namespace{}
-		if err := remoteClient.Get(context.TODO(), ingressNamespaceKey, &ingressNamespace); err != nil {
-			if errors.IsNotFound(err) {
-				log.Info("Ingress-nginx namespace is already deleted.")
+		if remoteClient, err := client.New(restConfig, client.Options{Scheme: remoteScheme}); err == nil || remoteClient != nil {
+			ingressNamespaceKey := types.NamespacedName{Name: "ingress-nginx", Namespace: ""}
+			ingressNamespace := corev1.Namespace{}
+			if err := remoteClient.Get(context.TODO(), ingressNamespaceKey, &ingressNamespace); err != nil {
+				if errors.IsNotFound(err) {
+					log.Info("Ingress-nginx namespace is already deleted.")
+				} else {
+					log.Error(err, "Failed to get Ingress-nginx namespace")
+					return ctrl.Result{}, err
+				}
 			} else {
-				log.Error(err, "Failed to get Ingress-nginx namespace")
-				return ctrl.Result{}, err
+				if err := remoteClient.Delete(context.TODO(), &ingressNamespace); err != nil {
+					log.Error(err, "Failed to delete Ingress-nginx namespace")
+					return ctrl.Result{}, err
+				}
 			}
 		} else {
-			if err := remoteClient.Delete(context.TODO(), &ingressNamespace); err != nil {
-				log.Error(err, "Failed to delete Ingress-nginx namespace")
-				return ctrl.Result{}, err
-			}
+			log.Error(err, "Failed to get remoteclient")
 		}
 	}
 

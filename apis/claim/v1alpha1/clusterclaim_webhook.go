@@ -72,6 +72,10 @@ func (r *ClusterClaim) ValidateCreate() error {
 func (r *ClusterClaim) ValidateUpdate(old runtime.Object) error {
 	oldClusterClaim := old.(*ClusterClaim).DeepCopy()
 
+	if r.ObjectMeta.DeletionTimestamp.IsZero() {
+		return nil
+	}
+
 	if oldClusterClaim.Status.Phase == "Success" || oldClusterClaim.Status.Phase == "Rejected" || oldClusterClaim.Status.Phase == "Deleted" {
 		return errors.New("Cannot modify clusterClaim after approval")
 	}
