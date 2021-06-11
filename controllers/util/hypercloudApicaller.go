@@ -14,7 +14,6 @@ func Delete(namespace, cluster string) error {
 	tr := &http.Transport{
 		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
 	}
-	// inviteMail = strings.Replace(inviteMail, "@@LINK@@", bodyParameter["@@LINK@@"], -1)
 	url = strings.Replace(url, "{namespace}", namespace, -1)
 	url = strings.Replace(url, "{clustermanager}", cluster, -1)
 	client := &http.Client{Transport: tr}
