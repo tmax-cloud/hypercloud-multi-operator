@@ -68,3 +68,21 @@ webhooks:
     - UPDATE
     resources:
     - clustermanagers
+- clientConfig:
+    caBundle: Cg==
+    service:
+      name: webhook-service
+      namespace: system
+      path: /validate-cluster-tmax-io-v1alpha1-clusterregistration
+  failurePolicy: Fail
+  name: vclusterregistration.kb.io
+  rules:
+  - apiGroups:
+    - cluster.tmax.io
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - clusterregistrations

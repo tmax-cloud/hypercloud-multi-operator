@@ -17,18 +17,19 @@ limitations under the License.
 package v1alpha1
 
 import (
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
 // NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
 
-type NodeInfo struct {
-	Name      string         `json:"name,omitempty"`
-	Ip        string         `json:"ip,omitempty"`
-	IsMaster  bool           `json:"isMaster,omitempty"`
-	Resources []ResourceType `json:"resources,omitempty"`
-}
+// type NodeInfo struct {
+// 	Name      string         `json:"name,omitempty"`
+// 	Ip        string         `json:"ip,omitempty"`
+// 	IsMaster  bool           `json:"isMaster,omitempty"`
+// 	Resources []ResourceType `json:"resources,omitempty"`
+// }
 
 type ResourceType struct {
 	Type     string `json:"type,omitempty"`
@@ -58,13 +59,14 @@ type ClusterManagerSpec struct {
 
 // ClusterManagerStatus defines the observed state of ClusterManager
 type ClusterManagerStatus struct {
-	Provider  string     `json:"provider,omitempty"`
-	Version   string     `json:"version,omitempty"`
-	Ready     bool       `json:"ready,omitempty"`
-	MasterRun int        `json:"masterRun,omitempty"`
-	WorkerRun int        `json:"workerRun,omitempty"`
-	Node      []NodeInfo `json:"nodes,omitempty"`
-	Phase     string     `json:"phase,omitempty"`
+	Provider             string                  `json:"provider,omitempty"`
+	Version              string                  `json:"version,omitempty"`
+	Ready                bool                    `json:"ready,omitempty"`
+	MasterRun            int                     `json:"masterRun,omitempty"`
+	WorkerRun            int                     `json:"workerRun,omitempty"`
+	NodeInfo             []corev1.NodeSystemInfo `json:"nodeInfo,omitempty"`
+	Phase                string                  `json:"phase,omitempty"`
+	ControlPlaneEndpoint string                  `json:"controlPlaneEndpoint,omitempty"`
 	// ObservedGeneration is the latest generation observed by the controller.
 	// +optional
 	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
@@ -80,9 +82,15 @@ const (
 	// object associated and can start provisioning.
 	ClusterManagerPhaseProvisioning = ClusterManagerPhase("Provisioning")
 
+	// object associated and can start provisioning.
+	ClusterManagerPhaseRegistering = ClusterManagerPhase("Registering")
+
 	// ClusterManagerPhaseProvisioned is the state when its
 	// infrastructure has been created and configured.
 	ClusterManagerPhaseProvisioned = ClusterManagerPhase("Provisioned")
+
+	// infrastructure has been created and configured.
+	ClusterManagerPhaseRegistered = ClusterManagerPhase("Registered")
 
 	// ClusterManagerPhaseDeleting is the Cluster state when a delete
 	// request has been sent to the API Server,

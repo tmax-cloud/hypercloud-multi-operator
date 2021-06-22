@@ -74,6 +74,26 @@ rules:
   - patch
   - update
 - apiGroups:
+  - cluster.tmax.io
+  resources:
+  - clusterregistrations
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - cluster.tmax.io
+  resources:
+  - clusterregistrations/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
   - cluster.x-k8s.io
   resources:
   - clusters
