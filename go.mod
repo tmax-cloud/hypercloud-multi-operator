@@ -16,5 +16,5 @@ require (
 	sigs.k8s.io/cluster-api v0.3.8
 	sigs.k8s.io/controller-runtime v0.6.2
 	sigs.k8s.io/kubefed v0.4.0
-	sigs.k8s.io/yaml v1.2.0 // indirect
+	sigs.k8s.io/yaml v1.2.0
 )

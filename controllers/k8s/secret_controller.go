@@ -342,52 +342,54 @@ func (r *SecretReconciler) reconcileDelete(ctx context.Context, secret *corev1.S
 		log.Error(err, "Failed to get ClusterManager")
 		return ctrl.Result{}, err
 	}
-	// delete deployed role/binding
-	remoteClientset, err := util.GetRemoteK8sClient(secret)
-	if err != nil {
-		log.Error(err, "Failed to get remoteK8sClient")
-		return ctrl.Result{}, err
-	}
+	if val, ok := clm.Labels[util.ClusterTypeKey]; ok && val == util.ClusterTypeRegistered {
+		// delete deployed role/binding
+		remoteClientset, err := util.GetRemoteK8sClient(secret)
+		if err != nil {
+			log.Error(err, "Failed to get remoteK8sClient")
+			return ctrl.Result{}, err
+		}
 
-	if _, err := remoteClientset.RbacV1().ClusterRoleBindings().Get(context.TODO(), "cluster-owner-crb-"+clm.Annotations["owner"], metav1.GetOptions{}); err != nil {
-		if errors.IsNotFound(err) {
-			log.Info("Cannot found cluster-admin crb from remote cluster. Cluster-owner-crb clusterrolebinding is already deleted")
+		if _, err := remoteClientset.RbacV1().ClusterRoleBindings().Get(context.TODO(), "cluster-owner-crb-"+clm.Annotations["owner"], metav1.GetOptions{}); err != nil {
+			if errors.IsNotFound(err) {
+				log.Info("Cannot found cluster-admin crb from remote cluster. Cluster-owner-crb clusterrolebinding is already deleted")
+			} else {
+				log.Error(err, "Failed to get cluster-owner-crb clusterrolebinding from remote cluster")
+				return ctrl.Result{}, err
+			}
 		} else {
-			log.Error(err, "Failed to get cluster-owner-crb clusterrolebinding from remote cluster")
-			return ctrl.Result{}, err
+			if err := remoteClientset.RbacV1().ClusterRoleBindings().Delete(context.TODO(), "cluster-owner-crb-"+clm.Annotations["owner"], metav1.DeleteOptions{}); err != nil {
+				log.Error(err, "Cannnot delete cluster-owner-crb clusterrolebinding")
+				return ctrl.Result{}, err
+			}
 		}
-	} else {
-		if err := remoteClientset.RbacV1().ClusterRoleBindings().Delete(context.TODO(), "cluster-owner-crb-"+clm.Annotations["owner"], metav1.DeleteOptions{}); err != nil {
-			log.Error(err, "Cannnot delete cluster-owner-crb clusterrolebinding")
-			return ctrl.Result{}, err
-		}
-	}
 
-	if _, err := remoteClientset.RbacV1().ClusterRoles().Get(context.TODO(), "developer", metav1.GetOptions{}); err != nil {
-		if errors.IsNotFound(err) {
-			log.Info("Cannot found developer cr from remote cluster.  Developer clusterrole is already deleted")
+		if _, err := remoteClientset.RbacV1().ClusterRoles().Get(context.TODO(), "developer", metav1.GetOptions{}); err != nil {
+			if errors.IsNotFound(err) {
+				log.Info("Cannot found developer cr from remote cluster.  Developer clusterrole is already deleted")
+			} else {
+				log.Error(err, "Failed to get developer clusterrole from remote cluster")
+				return ctrl.Result{}, err
+			}
 		} else {
-			log.Error(err, "Failed to get developer clusterrole from remote cluster")
-			return ctrl.Result{}, err
+			if err := remoteClientset.RbacV1().ClusterRoles().Delete(context.TODO(), "developer", metav1.DeleteOptions{}); err != nil {
+				log.Error(err, "Cannnot delete developer clusterrole")
+				return ctrl.Result{}, err
+			}
 		}
-	} else {
-		if err := remoteClientset.RbacV1().ClusterRoles().Delete(context.TODO(), "developer", metav1.DeleteOptions{}); err != nil {
-			log.Error(err, "Cannnot delete developer clusterrole")
-			return ctrl.Result{}, err
-		}
-	}
 
-	if _, err := remoteClientset.RbacV1().ClusterRoles().Get(context.TODO(), "guest", metav1.GetOptions{}); err != nil {
-		if errors.IsNotFound(err) {
-			log.Info("Cannot found guest cr from remote cluster. Guest clusterrole is already deleted")
+		if _, err := remoteClientset.RbacV1().ClusterRoles().Get(context.TODO(), "guest", metav1.GetOptions{}); err != nil {
+			if errors.IsNotFound(err) {
+				log.Info("Cannot found guest cr from remote cluster. Guest clusterrole is already deleted")
+			} else {
+				log.Error(err, "Failed to get guest clusterrole from remote cluster")
+				return ctrl.Result{}, err
+			}
 		} else {
-			log.Error(err, "Failed to get guest clusterrole from remote cluster")
-			return ctrl.Result{}, err
-		}
-	} else {
-		if err := remoteClientset.RbacV1().ClusterRoles().Delete(context.TODO(), "guest", metav1.DeleteOptions{}); err != nil {
-			log.Error(err, "Cannnot delete guest clusterrole")
-			return ctrl.Result{}, err
+			if err := remoteClientset.RbacV1().ClusterRoles().Delete(context.TODO(), "guest", metav1.DeleteOptions{}); err != nil {
+				log.Error(err, "Cannnot delete guest clusterrole")
+				return ctrl.Result{}, err
+			}
 		}
 	}
 
