@@ -18,6 +18,7 @@ package v1alpha1
 
 import (
 	"errors"
+	"reflect"
 
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -77,7 +78,9 @@ func (r *ClusterClaim) ValidateUpdate(old runtime.Object) error {
 	}
 
 	if oldClusterClaim.Status.Phase == "Success" || oldClusterClaim.Status.Phase == "Rejected" || oldClusterClaim.Status.Phase == "Deleted" {
-		return errors.New("Cannot modify clusterClaim after approval")
+		if !reflect.DeepEqual(oldClusterClaim.Spec, r.Spec) {
+			return errors.New("Cannot modify clusterClaim after approval")
+		}
 	}
 	return nil
 }

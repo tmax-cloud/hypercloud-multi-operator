@@ -20,11 +20,12 @@ import (
 	"context"
 
 	"github.com/go-logr/logr"
-	clusterv1alpha1 "github.com/tmax-cloud/hypercloud-multi-operator/apis/cluster/v1alpha1"
-	"k8s.io/apimachinery/pkg/runtime"
-
 	claimv1alpha1 "github.com/tmax-cloud/hypercloud-multi-operator/apis/claim/v1alpha1"
+
+	clusterv1alpha1 "github.com/tmax-cloud/hypercloud-multi-operator/apis/cluster/v1alpha1"
+	"github.com/tmax-cloud/hypercloud-multi-operator/controllers/util"
 	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -99,10 +100,11 @@ func (r *ClusterClaimReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error
 func (r *ClusterClaimReconciler) requeueClusterClaimsForClusterManager(o handler.MapObject) []ctrl.Request {
 	clm := o.Object.(*clusterv1alpha1.ClusterManager)
 	log := r.Log.WithValues("objectMapper", "clusterManagerToClusterClaim", "clusterManager", clm.Name)
+	log.Info("Start to clusterManagerToClusterClaim mapping...")
 
 	//get clusterManager
 	cc := &claimv1alpha1.ClusterClaim{}
-	key := types.NamespacedName{Namespace: clm.Namespace, Name: clm.Name}
+	key := types.NamespacedName{Namespace: clm.Namespace, Name: clm.Labels["parent"]}
 	if err := r.Get(context.TODO(), key, cc); err != nil {
 		if errors.IsNotFound(err) {
 			log.Info("ClusterClaim resource not found. Ignoring since object must be deleted.")
@@ -111,7 +113,10 @@ func (r *ClusterClaimReconciler) requeueClusterClaimsForClusterManager(o handler
 		log.Error(err, "Failed to get ClusterClaim")
 		return nil
 	}
-
+	if cc.Status.Phase != "Success" {
+		log.Info("ClusterClaims for ClusterManager [" + cc.Spec.ClusterName + "] is already delete... Do not update cc status to delete ")
+		return nil
+	}
 	cc.Status.Phase = "Deleted"
 	cc.Status.Reason = "cluster is deleted"
 	err := r.Status().Update(context.TODO(), cc)
@@ -164,7 +169,11 @@ func (r *ClusterClaimReconciler) SetupWithManager(mgr ctrl.Manager) error {
 				return false
 			},
 			DeleteFunc: func(e event.DeleteEvent) bool {
-				return true
+				clm := e.Object.(*clusterv1alpha1.ClusterManager)
+				if val, ok := clm.Labels[util.ClusterTypeKey]; ok && val == util.ClusterTypeCreated {
+					return true
+				}
+				return false
 			},
 			GenericFunc: func(e event.GenericEvent) bool {
 				return false

@@ -6,55 +6,32 @@ metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.3.0
   creationTimestamp: null
-  name: clustermanagers.cluster.tmax.io
+  name: clusterregistrations.cluster.tmax.io
 spec:
   additionalPrinterColumns:
-  - JSONPath: .spec.provider
-    description: provider
-    name: Provider
-    type: string
-  - JSONPath: .spec.version
-    description: k8s version
-    name: Version
-    type: string
-  - JSONPath: .status.ready
-    description: is running
-    name: Ready
-    type: string
-  - JSONPath: .spec.masterNum
-    description: replica number of master
-    name: MasterNum
-    type: string
-  - JSONPath: .status.masterRun
-    description: running of master
-    name: MasterRun
-    type: string
-  - JSONPath: .spec.workerNum
-    description: replica number of worker
-    name: WorkerNum
-    type: string
-  - JSONPath: .status.workerRun
-    description: running of worker
-    name: WorkerRun
-    type: string
   - JSONPath: .status.phase
     description: cluster status phase
     name: Phase
     type: string
+  - JSONPath: .status.reason
+    description: cluster status phase
+    name: Reason
+    type: string
   group: cluster.tmax.io
   names:
-    kind: ClusterManager
-    listKind: ClusterManagerList
-    plural: clustermanagers
+    kind: ClusterRegistration
+    listKind: ClusterRegistrationList
+    plural: clusterregistrations
     shortNames:
-    - clm
-    singular: clustermanager
+    - clr
+    singular: clusterregistration
   scope: Namespaced
   subresources:
     status: {}
   validation:
     openAPIV3Schema:
-      description: ClusterManager is the Schema for the clustermanagers API
+      description: ClusterRegistration is the Schema for the clusterregistrations
+        API
       properties:
         apiVersion:
           description: 'APIVersion defines the versioned schema of this representation
@@ -69,38 +46,25 @@ spec:
         metadata:
           type: object
         spec:
-          description: ClusterManagerSpec defines the desired state of ClusterManager
+          description: ClusterRegistrationSpec defines the desired state of ClusterRegistration
           properties:
-            masterNum:
-              description: The number of master node
-              type: integer
-            masterType:
-              description: The type of VM for master node
+            clusterName:
+              description: 'INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
+                Important: Run "make" to regenerate code after modifying this file
+                The name of the cluster to be created'
               type: string
-            provider:
-              description: The name of cloud provider where VM is created
+            kubeConfig:
+              description: Foo is an example field of ClusterRegistration. Edit ClusterRegistration_types.go
+                to remove/update
               type: string
-            region:
-              description: The region where VM is working
-              type: string
-            sshKey:
-              description: The ssh key info to access VM
-              type: string
-            version:
-              description: The version of kubernetes
-              type: string
-            workerNum:
-              description: The number of worker node
-              type: integer
-            workerType:
-              description: The type of VM for worker node
-              type: string
+          required:
+          - clusterName
           type: object
         status:
-          description: ClusterManagerStatus defines the observed state of ClusterManager
+          description: ClusterRegistrationStatus defines the observed state of ClusterRegistration
           properties:
-            controlPlaneEndpoint:
-              type: string
+            masterNum:
+              type: integer
             masterRun:
               type: integer
             nodeInfo:
@@ -158,19 +122,21 @@ spec:
                 - systemUUID
                 type: object
               type: array
-            observedGeneration:
-              description: ObservedGeneration is the latest generation observed by
-                the controller.
-              format: int64
-              type: integer
             phase:
               type: string
             provider:
+              description: 'INSERT ADDITIONAL STATUS FIELD - define observed state
+                of cluster Important: Run "make" to regenerate code after modifying
+                this file'
               type: string
             ready:
               type: boolean
+            reason:
+              type: string
             version:
               type: string
+            workerNum:
+              type: integer
             workerRun:
               type: integer
           type: object

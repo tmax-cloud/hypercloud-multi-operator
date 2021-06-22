@@ -17,13 +17,10 @@ limitations under the License.
 package main
 
 import (
-	"context"
 	"flag"
 	"os"
 
-	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/types"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
@@ -43,12 +40,12 @@ import (
 	fedmultiv1a1 "sigs.k8s.io/kubefed/pkg/apis/multiclusterdns/v1alpha1"
 
 	console "github.com/tmax-cloud/console-operator/api/v1"
+
 	typesv1beta1 "github.com/tmax-cloud/hypercloud-multi-operator/apis/external/v1beta1"
 
-	clusterController "github.com/tmax-cloud/hypercloud-multi-operator/controllers/capi"
-	federatedServiceController "github.com/tmax-cloud/hypercloud-multi-operator/controllers/fed"
-	k8scontroller "github.com/tmax-cloud/hypercloud-multi-operator/controllers/k8s"
 	controlplanev1 "sigs.k8s.io/cluster-api/controlplane/kubeadm/api/v1alpha3"
+
+	k8scontroller "github.com/tmax-cloud/hypercloud-multi-operator/controllers/k8s"
 )
 
 var (
@@ -97,34 +94,6 @@ func main() {
 		os.Exit(1)
 	}
 
-	// create master cluster proxy config
-	cs := &console.Console{}
-	key := types.NamespacedName{Name: "hypercloud5-multi-cluster", Namespace: "console-system"}
-
-	if err := mgr.GetClient().Get(context.TODO(), key, cs); err != nil {
-		if errors.IsNotFound(err) {
-			setupLog.Info("console resource not found. create console resource.")
-
-			newCs := &console.Console{}
-			newCs.Name = "hypercloud5-multi-cluster"
-			newCs.Namespace = "console-system"
-
-			masterRouter := &console.Router{
-				Server: "https://",
-				Rule:   "PathPrefix(`/api/master/`)",
-				Path:   "/api/master/",
-			}
-
-			newCs.Spec.Configuration.Routers = map[string]*console.Router{
-				"master": masterRouter,
-			}
-
-			if err := mgr.GetClient().Create(context.TODO(), newCs); err != nil {
-				setupLog.Error(err, "problem creating master cluster proxy config")
-			}
-		}
-	}
-
 	if err = (&claimcontroller.ClusterClaimReconciler{
 		Client: mgr.GetClient(),
 		Log:    ctrl.Log.WithName("controllers").WithName("ClusterClaim"),
@@ -150,14 +119,14 @@ func main() {
 		os.Exit(1)
 	}
 
-	if err = (&clusterController.ClusterReconciler{
-		Client: mgr.GetClient(),
-		Log:    ctrl.Log.WithName("controller").WithName("capi/clusterController"),
-		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "capi/clusterController")
-		os.Exit(1)
-	}
+	// if err = (&clusterController.ClusterReconciler{
+	// 	Client: mgr.GetClient(),
+	// 	Log:    ctrl.Log.WithName("controller").WithName("capi/clusterController"),
+	// 	Scheme: mgr.GetScheme(),
+	// }).SetupWithManager(mgr); err != nil {
+	// 	setupLog.Error(err, "unable to create controller", "controller", "capi/clusterController")
+	// 	os.Exit(1)
+	// }
 	if err = (&k8scontroller.SecretReconciler{
 		Client: mgr.GetClient(),
 		Log:    ctrl.Log.WithName("controller").WithName("secretController"),
@@ -166,20 +135,28 @@ func main() {
 		setupLog.Error(err, "unable to create controller", "controller", "secretController")
 		os.Exit(1)
 	}
-	if err = (&k8scontroller.ServiceReconciler{
+	// if err = (&k8scontroller.ServiceReconciler{
+	// 	Client: mgr.GetClient(),
+	// 	Log:    ctrl.Log.WithName("controller").WithName("serviceController"),
+	// 	Scheme: mgr.GetScheme(),
+	// }).SetupWithManager(mgr); err != nil {
+	// 	setupLog.Error(err, "unable to create controller", "controller", "serviceController")
+	// 	os.Exit(1)
+	// }
+	// if err = (&federatedServiceController.FederatedServiceReconciler{
+	// 	Client: mgr.GetClient(),
+	// 	Log:    ctrl.Log.WithName("controller").WithName("fed/federatedserviceController"),
+	// 	Scheme: mgr.GetScheme(),
+	// }).SetupWithManager(mgr); err != nil {
+	// 	setupLog.Error(err, "unable to create controller", "controller", "fed/federatedserviceController")
+	// 	os.Exit(1)
+	// }
+	if err = (&clustercontroller.ClusterRegistrationReconciler{
 		Client: mgr.GetClient(),
-		Log:    ctrl.Log.WithName("controller").WithName("serviceController"),
+		Log:    ctrl.Log.WithName("controllers").WithName("ClusterRegistration"),
 		Scheme: mgr.GetScheme(),
 	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "serviceController")
-		os.Exit(1)
-	}
-	if err = (&federatedServiceController.FederatedServiceReconciler{
-		Client: mgr.GetClient(),
-		Log:    ctrl.Log.WithName("controller").WithName("fed/federatedserviceController"),
-		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "fed/federatedserviceController")
+		setupLog.Error(err, "unable to create controller", "controller", "ClusterRegistration")
 		os.Exit(1)
 	}
 	// if err = (&federatedServiceController.KubeFedClusterReconciler{
@@ -190,6 +167,10 @@ func main() {
 	// 	setupLog.Error(err, "unable to create controller", "controller", "fed/kubefedclusterController")
 	// 	os.Exit(1)
 	// }
+	if err = (&clusterv1alpha1.ClusterRegistration{}).SetupWebhookWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create webhook", "webhook", "ClusterRegistration")
+		os.Exit(1)
+	}
 	// +kubebuilder:scaffold:builder
 
 	setupLog.Info("starting manager")

@@ -4,6 +4,7 @@
 resources:
 - bases/claim.tmax.io_clusterclaims.yaml
 - bases/cluster.tmax.io_clustermanagers.yaml
+- bases/cluster.tmax.io_clusterregistrations.yaml
 # +kubebuilder:scaffold:crdkustomizeresource
 
 patchesStrategicMerge:
@@ -11,12 +12,14 @@ patchesStrategicMerge:
 # patches here are for enabling the conversion webhook for each CRD
 #- patches/webhook_in_clusterclaims.yaml
 #- patches/webhook_in_clustermanagers.yaml
+#- patches/webhook_in_clusterregistrations.yaml
 # +kubebuilder:scaffold:crdkustomizewebhookpatch
 
 # [CERTMANAGER] To enable webhook, uncomment all the sections with [CERTMANAGER] prefix.
 # patches here are for enabling the CA injection for each CRD
 - patches/cainjection_in_clusterclaims.yaml
 - patches/cainjection_in_clustermanagers.yaml
+- patches/cainjection_in_clusterregistrations.yaml
 # +kubebuilder:scaffold:crdkustomizecainjectionpatch
 
 # the following config is for teaching kustomize how to do kustomization for CRDs.

@@ -2,4 +2,5 @@
 resources:
 - claim_v1alpha1_clusterclaim.yaml
 - cluster_v1alpha1_clustermanager.yaml
+- cluster_v1alpha1_clusterregistration.yaml
 # +kubebuilder:scaffold:manifestskustomizesamples
