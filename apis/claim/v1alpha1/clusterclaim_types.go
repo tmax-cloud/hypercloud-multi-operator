@@ -52,6 +52,39 @@ type ClusterClaimSpec struct {
 	// +kubebuilder:validation:Required
 	// The ssh key info to access VM
 	SshKey string `json:"sshKey"`
+	// +kubebuilder:validation:Required
+	// The internal IP address cider block for pods
+	PodCidr string `json:"podCidr,omitempty"`
+	// +kubebuilder:validation:Required
+	// The IP address of vCenter Server Application(VCSA)
+	VcenterIp string `json:"vcenterIp,omitempty"`
+	// +kubebuilder:validation:Required
+	// The user id of VCSA
+	VcenterId string `json:"vcenterId,omitempty"`
+	// +kubebuilder:validation:Required
+	// The password of VCSA
+	VcenterPwd string `json:"vcenterPwd,omitempty"`
+	// +kubebuilder:validation:Required
+	// The TLS thumbprint of machine certificate
+	VcenterThumbprint string `json:"vcenterThumbprint,omitempty"`
+	// +kubebuilder:validation:Required
+	// The name of network
+	VcenterNetwork string `json:"vcenterNetwork,omitempty"`
+	// +kubebuilder:validation:Required
+	// The name of data center
+	VcenterDataCenter string `json:"vcenterDataCenter,omitempty"`
+	// +kubebuilder:validation:Required
+	// The name of data store
+	VcenterDataStore string `json:"vcenterDataStore,omitempty"`
+	// +kubebuilder:validation:Required
+	// The name of folder
+	VcenterFolder string `json:"vcenterFolder,omitempty"`
+	// +kubebuilder:validation:Required
+	// The name of resource pool
+	VcenterResourcePool string `json:"vcenterResourcePool,omitempty"`
+	// +kubebuilder:validation:Required
+	// The IP address of control plane for remote cluster(vip)
+	VcenterKcpIp string `json:vcenterKcpIp,omitempty"`
 }
 
 // ClusterClaimStatus defines the observed state of ClusterClaim
