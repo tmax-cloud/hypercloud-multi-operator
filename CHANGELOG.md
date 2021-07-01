@@ -1,6 +1,25 @@
 # HyperCloud-Multi-Operator changelog!!
 All notable changes to this project will be documented in this file.
 
+<!-------------------- v5.0.16.0 start -------------------->
+
+## HyperCloud-Multi-Operator_5.0.16.0 (2021. 06. 25. (금) 11:12:03 KST)
+
+### Added
+  - [feat] HPCD를 통해 생성되지 않은 클러스터를 등록하는 기능 추가 by chosangwon93
+
+### Changed
+  - [mod] clustermanager가 존재할 때만 배포된 리소스를 삭제할 수 있도록 수정 by chosangwon93
+  - [mod] 등록된 클러스터를 삭제할 때 배포된 role/binding을 제거하도록 수정 by chosangwon93
+
+### Fixed
+
+### CRD yaml
+
+### Etc
+
+<!--------------------- v5.0.16.0 end --------------------->
+
 <!-------------------- v5.0.15.0 start -------------------->
 
 ## HyperCloud-Multi-Operator_5.0.15.0 (2021. 06. 17. (목) 15:10:50 KST)
