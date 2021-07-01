@@ -62,14 +62,14 @@ type ClusterManagerStatus struct {
 	Provider             string                  `json:"provider,omitempty"`
 	Version              string                  `json:"version,omitempty"`
 	Ready                bool                    `json:"ready,omitempty"`
+	ControlPlaneReady    bool                    `json:"controlPlaneReady,omitempty"`
+	AgentReady           bool                    `json:"agentReady,omitempty"`
 	MasterRun            int                     `json:"masterRun,omitempty"`
 	WorkerRun            int                     `json:"workerRun,omitempty"`
 	NodeInfo             []corev1.NodeSystemInfo `json:"nodeInfo,omitempty"`
 	Phase                string                  `json:"phase,omitempty"`
 	ControlPlaneEndpoint string                  `json:"controlPlaneEndpoint,omitempty"`
-	// ObservedGeneration is the latest generation observed by the controller.
-	// +optional
-	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
+	AgentEndpoint        string                  `json:"agentEndpoint,omitempty"`
 }
 type ClusterManagerPhase string
 

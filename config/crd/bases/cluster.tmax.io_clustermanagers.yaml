@@ -99,8 +99,14 @@ spec:
         status:
           description: ClusterManagerStatus defines the observed state of ClusterManager
           properties:
+            agentEndpoint:
+              type: string
+            agentReady:
+              type: boolean
             controlPlaneEndpoint:
               type: string
+            controlPlaneReady:
+              type: boolean
             masterRun:
               type: integer
             nodeInfo:
@@ -158,11 +164,6 @@ spec:
                 - systemUUID
                 type: object
               type: array
-            observedGeneration:
-              description: ObservedGeneration is the latest generation observed by
-                the controller.
-              format: int64
-              type: integer
             phase:
               type: string
             provider:

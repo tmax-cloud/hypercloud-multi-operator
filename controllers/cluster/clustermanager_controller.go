@@ -22,17 +22,26 @@ import (
 	"fmt"
 	"time"
 
+	// "k8s.io/apimachinery/pkg/util/intstr"
+
 	"github.com/go-logr/logr"
 	servicecatalogv1beta1 "github.com/kubernetes-sigs/service-catalog/pkg/apis/servicecatalog/v1beta1"
 	console "github.com/tmax-cloud/console-operator/api/v1"
 	clusterv1alpha1 "github.com/tmax-cloud/hypercloud-multi-operator/apis/cluster/v1alpha1"
 	util "github.com/tmax-cloud/hypercloud-multi-operator/controllers/util"
 	corev1 "k8s.io/api/core/v1"
+	extensionsv1beta1 "k8s.io/api/extensions/v1beta1"
+
+	// networkingv1 "k8s.io/api/networking/v1"
+
+	// "k8s.io/kubernetes/pkg/apis/networking"
+	appsv1 "k8s.io/api/apps/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	kerrors "k8s.io/apimachinery/pkg/util/errors"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1alpha3"
 	controlplanev1 "sigs.k8s.io/cluster-api/controlplane/kubeadm/api/v1alpha3"
 	"sigs.k8s.io/cluster-api/util/patch"
@@ -58,6 +67,7 @@ const (
 	requeueAfter20Sec           = 20 * time.Second
 	requeueAfter30Sec           = 30 * time.Second
 	requeueAfter60Sec           = 60 * time.Second
+	requeueAfter120Sec          = 120 * time.Second
 )
 
 type ClusterParameter struct {
@@ -151,9 +161,8 @@ func (r *ClusterManagerReconciler) Reconcile(req ctrl.Request) (_ ctrl.Result, r
 func (r *ClusterManagerReconciler) reconcileForRegisteredClusterManager(ctx context.Context, clusterManager *clusterv1alpha1.ClusterManager) (ctrl.Result, error) {
 	phases := []func(context.Context, *clusterv1alpha1.ClusterManager) (ctrl.Result, error){
 		r.UpdateClusterManagerStatus,
-		// r.SetOwnerReference,
-		// r.RemoteClusterHealthCheck,
 		r.CreateProxyConfiguration,
+		r.DeployAndUpdateAgentEndpoint,
 	}
 
 	res := ctrl.Result{}
@@ -233,8 +242,10 @@ func (r *ClusterManagerReconciler) UpdateClusterManagerStatus(ctx context.Contex
 			}
 		}
 		clusterManager.Status.Provider = node.Spec.ProviderID
+		clusterManager.Spec.Provider = node.Spec.ProviderID
 	}
 	if clusterManager.Status.Provider == "" {
+		clusterManager.Spec.Provider = "Unknown"
 		clusterManager.Status.Provider = "Unknown"
 	}
 
@@ -250,18 +261,24 @@ func (r *ClusterManagerReconciler) UpdateClusterManagerStatus(ctx context.Contex
 	} else {
 		// err := errors.NewBadRequest("Failed to healthcheck")
 		// log.Error(err, "Failed to healthcheck")
-		// 잠시 오류난걸 수도 있으니까.. 근데 무한장 wait할 수는 없어서 reenqueue 횟수를 지정할 수 있으면 좋겠네
+		// 잠시 오류난걸 수도 있으니까.. 근데 무한장 wait할 수는 없어서 requeue 횟수를 지정할 수 있으면 좋겠네
 		log.Info("Remote cluster is not ready... watit...")
 		return ctrl.Result{RequeueAfter: requeueAfter30Sec}, nil
 	}
 
 	return ctrl.Result{}, nil
 }
+
 func (r *ClusterManagerReconciler) CreateProxyConfiguration(ctx context.Context, clusterManager *clusterv1alpha1.ClusterManager) (ctrl.Result, error) {
 	log := r.Log.WithValues("clustermanager", types.NamespacedName{Name: clusterManager.Name, Namespace: clusterManager.Namespace})
-	log.Info("Start to reconcile CreateProxyConfiguration... ")
+
 	// secret controller에서 clustermanager.status.controleplaneendpint를 채워줄 때 까지 기다림
-	if clusterManager.Status.Ready && clusterManager.Status.ControlPlaneEndpoint != "" {
+
+	if !clusterManager.Status.ControlPlaneReady {
+		// requeue (wait cluster controller)
+		log.Info("ClusterManager controleplane is not ready... requeue after 120 sec")
+		return ctrl.Result{RequeueAfter: requeueAfter120Sec}, nil
+	} else if clusterManager.Status.ControlPlaneEndpoint != "" {
 		log.Info("ClusterManager is ready... create proxy configuration ")
 		proxyConfig := &console.Console{}
 		key := types.NamespacedName{Name: util.ReversePorxyObjectName, Namespace: util.ReversePorxyObjectNamespace}
@@ -307,15 +324,153 @@ func (r *ClusterManagerReconciler) CreateProxyConfiguration(ctx context.Context,
 				proxyConfig.Spec.Configuration.Routers[routerNamespacedName] = router
 			} else {
 				log.Info("Routing config is already existed")
+				return ctrl.Result{}, nil
 			}
+
 			if err := r.Update(context.TODO(), proxyConfig); err != nil {
 				log.Error(err, "Failed to update console object")
 				return ctrl.Result{}, err
 			}
 		}
-	} else {
-		log.Info("ClusterManager is not ready or status.controleplanendpoint is not set.. (wait secret.controllers..)")
+
+	}
+
+	return ctrl.Result{}, nil
+}
+
+func (r *ClusterManagerReconciler) DeployAndUpdateAgentEndpoint(ctx context.Context, clusterManager *clusterv1alpha1.ClusterManager) (ctrl.Result, error) {
+	log := r.Log.WithValues("clustermanager", types.NamespacedName{Name: clusterManager.Name, Namespace: clusterManager.Namespace})
+	// secret controller에서 clustermanager.status.controleplaneendpint를 채워줄 때 까지 기다림
+	if !clusterManager.Status.ControlPlaneReady {
+		// requeue (wait cluster controller)
 		return ctrl.Result{RequeueAfter: requeueAfter60Sec}, nil
+	} else if !clusterManager.Status.AgentReady {
+		kubeconfigSecret := &corev1.Secret{}
+		kubeconfigSecretKey := types.NamespacedName{Name: clusterManager.Name + "-kubeconfig", Namespace: clusterManager.Namespace}
+		if err := r.Get(context.TODO(), kubeconfigSecretKey, kubeconfigSecret); err != nil {
+			if errors.IsNotFound(err) {
+				log.Info("Cannot found kubeconfig secret. Wait to create kubeconfig secret.")
+				return ctrl.Result{RequeueAfter: requeueAfter10Sec}, nil
+			} else {
+				log.Error(err, "Failed to get kubeconfig secret")
+				return ctrl.Result{}, err
+			}
+		}
+
+		remoteClientset, err := util.GetRemoteK8sClient(kubeconfigSecret)
+		if err != nil {
+			log.Error(err, "Failed to get remoteK8sClient")
+			return ctrl.Result{}, err
+		}
+
+		if _, err = remoteClientset.CoreV1().Namespaces().Get(context.TODO(), util.IngressNginxNamespace, metav1.GetOptions{}); err != nil {
+			if errors.IsNotFound(err) {
+				log.Info("Ingress is not installed .. ")
+				return ctrl.Result{RequeueAfter: requeueAfter60Sec}, nil
+			} else {
+				log.Error(err, "Failed to get ingress-nginx namespace from remote cluster")
+				return ctrl.Result{}, err
+			}
+		}
+
+		// ingress controller 존재하는지 먼저 확인하고 없으면 배포부터해.. 그전에 join되었는지도 먼저 확인해야하나...
+
+		if _, err = remoteClientset.CoreV1().Namespaces().Get(context.TODO(), util.IngressNginxNamespace, metav1.GetOptions{}); err != nil {
+			if errors.IsNotFound(err) {
+				log.Info("Cannot found ingress namespace... ingress-nginx is creating... requeue after 30sec")
+				return ctrl.Result{RequeueAfter: requeueAfter60Sec}, nil
+			} else {
+				log.Error(err, "Failed to get ingress-nginx namespace from remote cluster")
+				return ctrl.Result{}, err
+			}
+		} else {
+			var ingressController *appsv1.Deployment
+			if ingressController, err = remoteClientset.AppsV1().Deployments(util.IngressNginxNamespace).Get(context.TODO(), util.IngressNginxDeployment, metav1.GetOptions{}); err != nil {
+				if errors.IsNotFound(err) {
+					log.Info("Cannot found ingress controller... ingress-nginx is creating... requeue after 30sec")
+					return ctrl.Result{RequeueAfter: requeueAfter60Sec}, nil
+				} else {
+					log.Error(err, "Failed to get ingress controller from remote cluster")
+					return ctrl.Result{}, err
+				}
+			} else {
+				// 하나라도 ready라면..
+				if ingressController.Status.ReadyReplicas == 0 {
+					log.Info("Ingress controller is not ready...  requeue after 60sec")
+					return ctrl.Result{RequeueAfter: requeueAfter60Sec}, nil
+				}
+			}
+		}
+
+		var agentIngress *extensionsv1beta1.Ingress
+		if agentIngress, err = remoteClientset.ExtensionsV1beta1().Ingresses(util.KubeFedNamespace).Get(context.TODO(), util.AGENT_INGRESS_NAME, metav1.GetOptions{}); err != nil {
+			if errors.IsNotFound(err) {
+				log.Info("Deploy ingress.... ")
+
+				// create ingress
+				ingress := &extensionsv1beta1.Ingress{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      util.AGENT_INGRESS_NAME,
+						Namespace: util.KubeFedNamespace,
+						Annotations: map[string]string{
+							"nginx.ingress.kubernetes.io/rewrite-target": "/$2",
+						},
+					},
+					Spec: extensionsv1beta1.IngressSpec{
+						Rules: []extensionsv1beta1.IngressRule{
+							{
+								IngressRuleValue: extensionsv1beta1.IngressRuleValue{
+									HTTP: &extensionsv1beta1.HTTPIngressRuleValue{
+										Paths: []extensionsv1beta1.HTTPIngressPath{
+											{
+												Path: "/prometheus(/|$)(.*)",
+												// PathType: extensionsv1beta1.PathTypePrefix,
+												Backend: extensionsv1beta1.IngressBackend{
+													ServiceName: "monitoring-service",
+													ServicePort: intstr.IntOrString{
+														IntVal: 9090,
+													},
+												},
+											},
+											{
+												Path: "/agent(/|$)(.*)",
+												// PathType: extensionsv1beta1.PathType(PathTypePrefix),
+												Backend: extensionsv1beta1.IngressBackend{
+													ServiceName: "hypercloud-multi-agent-service",
+													ServicePort: intstr.IntOrString{
+														IntVal: 80,
+													},
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				}
+
+				if _, err := remoteClientset.ExtensionsV1beta1().Ingresses(util.KubeFedNamespace).Create(context.TODO(), ingress, metav1.CreateOptions{}); err != nil {
+					log.Error(err, "Failed to create agentIngress")
+					return ctrl.Result{}, err
+				}
+
+				log.Info("Wait address to be assigned..  requeue 60sec")
+				return ctrl.Result{RequeueAfter: requeueAfter60Sec}, nil
+			} else {
+				log.Error(err, "Failed to get agent ingress object from remote cluster")
+				return ctrl.Result{}, err
+			}
+		} else {
+			if len(agentIngress.Status.LoadBalancer.Ingress) != 0 && agentIngress.Status.LoadBalancer.Ingress[0].Hostname != "" {
+				clusterManager.Status.AgentEndpoint = agentIngress.Status.LoadBalancer.Ingress[0].Hostname
+				clusterManager.Status.AgentReady = true
+				clusterManager.Status.Ready = true
+			} else {
+				log.Info("Failed to get agent ingress address.. [ " + agentIngress.Status.LoadBalancer.Ingress[0].Hostname + "] requeue 60 sec")
+				return ctrl.Result{RequeueAfter: requeueAfter60Sec}, nil
+			}
+		}
 	}
 
 	return ctrl.Result{}, nil
@@ -357,7 +512,7 @@ func (r *ClusterManagerReconciler) reconcileDeleteForRegisteredClusterManager(ct
 		// delete 를 계~~ 속 보내겠는데...?
 		log.Info("Start to delete kubeconfig secret")
 		if err := r.Delete(context.TODO(), kubeconfigSecret); err != nil {
-			log.Error(err, "Failed to delete serviceInstance")
+			log.Error(err, "Failed to delete kubeconfigSecret")
 			return ctrl.Result{}, err
 		}
 		return ctrl.Result{RequeueAfter: requeueAfter10Sec}, nil
@@ -371,6 +526,7 @@ func (r *ClusterManagerReconciler) reconcile(ctx context.Context, clusterManager
 	phases := []func(context.Context, *clusterv1alpha1.ClusterManager) (ctrl.Result, error){
 		r.CreateServiceInstance,
 		r.CreateProxyConfiguration,
+		r.DeployAndUpdateAgentEndpoint,
 		r.kubeadmControlPlaneUpdate,
 		r.machineDeploymentUpdate,
 	}
@@ -411,22 +567,8 @@ func (r *ClusterManagerReconciler) reconcileDelete(ctx context.Context, clusterM
 			log.Error(err, "Failed to update proxyConfig")
 			return ctrl.Result{}, err
 		}
-
-		// if len(proxyConfig.Spec.Configuration.Routers) == 1 {
-		// 	if err := r.Delete(context.TODO(), proxyConfig); err != nil {
-		// 		log.Error(err, "Failed to delete proxyConfig")
-		// 		return ctrl.Result{}, err
-		// 	}
-		// } else {
-		// 	delete(proxyConfig.Spec.Configuration.Routers, routerNamespacedName)
-		// 	if err := r.Update(context.TODO(), proxyConfig); err != nil {
-		// 		log.Error(err, "Failed to update proxyConfig")
-		// 		return ctrl.Result{}, err
-		// 	}
-		// }
 	}
 
-	// ////////////////////////////
 	kubeconfigSecret := &corev1.Secret{}
 	kubeconfigSecretKey := types.NamespacedName{Name: clusterManager.Name + "-kubeconfig", Namespace: clusterManager.Namespace}
 	if err := r.Get(context.TODO(), kubeconfigSecretKey, kubeconfigSecret); err != nil {
@@ -437,30 +579,31 @@ func (r *ClusterManagerReconciler) reconcileDelete(ctx context.Context, clusterM
 			return ctrl.Result{}, err
 		}
 	} else {
-		// instance가 삭제되었을 때 call 안하도록 처리가 필요함
-		// } else if controllerutil.ContainsFinalizer(kubeconfigSecret, util.SecretFinalizerForClusterManager) {
-		remoteClientset, err := util.GetRemoteK8sClient(kubeconfigSecret)
-		if err != nil {
-			log.Error(err, "Failed to get remoteK8sClient")
+		// // instance가 삭제되었을 때 call 안하도록 처리가 필요함
+		// // } else if controllerutil.ContainsFinalizer(kubeconfigSecret, util.SecretFinalizerForClusterManager) {
+		// remoteClientset, err := util.GetRemoteK8sClient(kubeconfigSecret)
+		// if err != nil {
+		// 	log.Error(err, "Failed to get remoteK8sClient")
+		// 	return ctrl.Result{}, err
+		// }
+
+		// // secret은 존재하는데.. 실제 instance가 없어서 에러 발생
+		// if _, err = remoteClientset.CoreV1().Namespaces().Get(context.TODO(), util.IngressNginxNamespace, metav1.GetOptions{}); err != nil {
+		// 	if errors.IsNotFound(err) {
+		// 		log.Info("Ingress-nginx namespace is already deleted.")
+		// 	} else {
+		// 		log.Info("Failed to get Ingress-nginx namespace... may be instance was deleted before secret was deleted...")
+		// 		// error 처리 필요
+		// 	}
+		// } else {
+		// 	if err := remoteClientset.CoreV1().Namespaces().Delete(context.TODO(), util.IngressNginxNamespace, metav1.DeleteOptions{}); err != nil {
+		// 		log.Error(err, "Failed to delete Ingress-nginx namespace")
+		// 		return ctrl.Result{}, err
+		// 	}
+		// }
+		if err := r.Delete(context.TODO(), kubeconfigSecret); err != nil {
+			log.Error(err, "Failed to delete kubeconfigSecret")
 			return ctrl.Result{}, err
-		}
-
-		// secret은 존재하는데.. 실제 instance가 없어서 에러 발생
-		if _, err = remoteClientset.CoreV1().Namespaces().Get(context.TODO(), util.IngressNginxNamespace, metav1.GetOptions{}); err != nil {
-			if errors.IsNotFound(err) {
-				log.Info("Ingress-nginx namespace is already deleted.")
-			} else {
-				log.Info("Failed to get Ingress-nginx namespace... may be instance was deleted before secret was deleted...")
-				// error 처리 필요
-			}
-		} else {
-			// if err := remoteClientset.CoreV1().Namespaces().Delete(context.TODO(), util.IngressNginxNamespace, metav1.DeleteOptions{}) {
-			// 	log.Error(err, "Failed to delete Ingress-nginx namespace")
-			if err := remoteClientset.CoreV1().Namespaces().Delete(context.TODO(), util.IngressNginxNamespace, metav1.DeleteOptions{}); err != nil {
-				log.Error(err, "Failed to delete Ingress-nginx namespace")
-				return ctrl.Result{}, err
-			}
-
 		}
 	}
 
@@ -499,8 +642,8 @@ func (r *ClusterManagerReconciler) reconcileDelete(ctx context.Context, clusterM
 			return ctrl.Result{}, err
 		}
 	}
-	log.Info("Cluster is deleteing... reenqueue request")
-	return ctrl.Result{RequeueAfter: requeueAfter20Sec}, nil
+	log.Info("Cluster is deleteing... requeue request")
+	return ctrl.Result{RequeueAfter: requeueAfter60Sec}, nil
 }
 
 func (r *ClusterManagerReconciler) reconcilePhase(_ context.Context, clusterManager *clusterv1alpha1.ClusterManager) {
@@ -670,7 +813,7 @@ func (r *ClusterManagerReconciler) requeueClusterManagersForCluster(o handler.Ma
 		}
 	}()
 	// clm.Status.SetTypedPhase(clusterv1alpha1.ClusterManagerPhaseProvisioned)
-	clm.Status.Ready = c.Status.ControlPlaneInitialized
+	clm.Status.ControlPlaneReady = c.Status.ControlPlaneInitialized
 
 	return nil
 }
@@ -765,10 +908,19 @@ func (r *ClusterManagerReconciler) SetupWithManager(mgr ctrl.Manager) error {
 					isFinalized := !controllerutil.ContainsFinalizer(oldclm, util.ClusterManagerFinalizer) && controllerutil.ContainsFinalizer(newclm, util.ClusterManagerFinalizer)
 					isDelete := oldclm.DeletionTimestamp.IsZero() && !newclm.DeletionTimestamp.IsZero()
 					isControlPlaneEndpointUpdate := oldclm.Status.ControlPlaneEndpoint == "" && newclm.Status.ControlPlaneEndpoint != ""
-					if isDelete || isControlPlaneEndpointUpdate || isFinalized {
+					isAgentEndpointUpdate := oldclm.Status.AgentEndpoint == "" && newclm.Status.AgentEndpoint != ""
+					if isDelete || isControlPlaneEndpointUpdate || isFinalized || isAgentEndpointUpdate {
 						return true
 					} else {
 						if newclm.Labels[util.ClusterTypeKey] == util.ClusterTypeCreated {
+							// diff := clusterv1alpha1.ClusterManager{}
+							// olddata, _ := json.Marshal(oldclm)
+							// newdata, _ := json.Marshal(newclm)
+							// mergePatch, _ := jsonpatch.CreateMergePatch(olddata, newdata)
+							// _ = json.Unmarshal(mergePatch, &diff)
+
+							// fmt.Println("###### ")
+							// fmt.Println(string(mergePatch))
 							return true
 						}
 						if newclm.Labels[util.ClusterTypeKey] == util.ClusterTypeRegistered {
@@ -871,138 +1023,4 @@ func (r *ClusterManagerReconciler) SetupWithManager(mgr ctrl.Manager) error {
 			},
 		},
 	)
-}
-
-// func getConfigFromSecret(c client.Client, clusterManager *clusterv1alpha1.ClusterManager) (*restclient.Config, error) {
-// 	secret := &corev1.Secret{}
-
-// 	if err := c.Get(context.TODO(), types.NamespacedName{Name: clusterManager.Name + "-kubeconfig", Namespace: clusterManager.Namespace}, secret); err != nil {
-// 		if errors.IsNotFound(err) {
-// 			log.Info(err, clusterManager.Name+"-Kubeconfig secret is already deleted.")
-// 			return nil, err
-// 		} else {
-// 			log.Info(err, "Failed to get kubeconfig")
-// 			return nil, err
-// 		}
-// 	} else {
-// 		if value, ok := secret.Data["value"]; ok {
-// 			if clientConfig, err := clientcmd.NewClientConfigFromBytes(value); err == nil {
-// 				if restConfig, err := clientConfig.ClientConfig(); err == nil {
-// 					return restConfig, nil
-// 				}
-// 			}
-// 		}
-// 	}
-// 	return nil, errors.NewBadRequest("getClientConfig Error")
-// }
-
-// 걍 따로 함수로 빼자 not ready면 reenqueue하자
-// func (r *ClusterManagerReconciler) RemoteClusterHealthCheck(ctx context.Context, clusterManager *clusterv1alpha1.ClusterManager) (ctrl.Result, error) {
-// 	log := r.Log.WithValues("clustermanager", types.NamespacedName{Name: clusterManager.Name, Namespace: clusterManager.Namespace})
-
-// 	kubeconfigSecret := &corev1.Secret{}
-// 	kubeconfigSecretKey := types.NamespacedName{Name: clusterManager.Name + "-kubeconfig", Namespace: clusterManager.Namespace}
-// 	if err := r.Get(context.TODO(), kubeconfigSecretKey, kubeconfigSecret); err != nil {
-// 		log.Error(err, "Failed to get kubeconfigSecret")
-// 		return ctrl.Result{}, err
-// 	}
-
-// 	remoteClientset, err := util.GetRemoteK8sClient(kubeconfigSecret)
-// 	if err != nil {
-// 		log.Error(err, "Failed to get remoteK8sClient")
-// 		return ctrl.Result{}, err
-// 	}
-
-// 	var resp []byte
-// 	if resp, err = remoteClientset.RESTClient().Get().AbsPath("/readyz").DoRaw(context.TODO()); err != nil {
-// 		log.Error(err, "Failed to get remote cluster status")
-// 		return ctrl.Result{}, err
-// 	}
-// 	if string(resp) == "ok" {
-// 		clusterManager.Status.Ready = true
-// 	} else {
-// 		err := errors.NewBadRequest("Failed to healthcheck")
-// 		log.Error(err, "Failed to healthcheck")
-// 		return ctrl.Result{}, err
-// 	}
-
-// 	return ctrl.Result{}, nil
-// }
-
-// list remote clinet master node by label selector
-// labelSelector := metav1.LabelSelector{MatchLabels: map[string]string{"node-role.kubernetes.io/master": ""}}
-
-// listOptions := metav1.ListOptions{
-// 	LabelSelector: labels.Set(labelSelector.MatchLabels).String(),
-// 	// Limit:         100,
-// }
-
-// func (r *ClusterManagerReconciler) SetOwnerReference(ctx context.Context, clusterManager *clusterv1alpha1.ClusterManager) (ctrl.Result, error) {
-// 	log := r.Log.WithValues("clustermanager", types.NamespacedName{Name: clusterManager.Name, Namespace: clusterManager.Namespace})
-
-// 	kubeconfigSecret := &corev1.Secret{}
-// 	kubeconfigSecretKey := types.NamespacedName{Name: clusterManager.Name + "-kubeconfig", Namespace: clusterManager.Namespace}
-// 	if err := r.Get(context.TODO(), kubeconfigSecretKey, kubeconfigSecret); err != nil {
-// 		log.Error(err, "Failed to get kubeconfigSecret in GetClusterMetadata")
-// 		return ctrl.Result{}, err
-// 	}
-
-// 	// clm := &clusterv1alpha1.ClusterManager{}
-// 	// clmKey := types.NamespacedName{Name: clusterManager.Name, Namespace: clusterManager.Namespace}
-// 	// if err := r.Get(context.TODO(), clmKey, clm); err != nil {
-// 	// 	log.Error(err, "Failed to get kubeconfigSecret in GetClusterMetadata")
-// 	// 	return ctrl.Result{}, err
-// 	// }
-
-// 	if kubeconfigSecret.Annotations == nil {
-// 		kubeconfigSecret.Annotations = map[string]string{
-// 			util.WatchAnnotationKey: util.WatchAnnotationJoinValue,
-// 		}
-// 	} else if _, ok := kubeconfigSecret.Annotations[util.WatchAnnotationKey]; !ok {
-// 		kubeconfigSecret.Annotations[util.WatchAnnotationKey] = util.WatchAnnotationJoinValue
-// 	}
-
-// 	ctrl.SetControllerReference(clusterManager, kubeconfigSecret, r.Scheme)
-// 	if err := r.Update(context.TODO(), kubeconfigSecret); err != nil {
-// 		log.Error(err, "Failed to update kubeconfigSecret")
-// 		return ctrl.Result{}, err
-// 	}
-
-// 	return ctrl.Result{}, nil
-// }
-
-func (r *ClusterManagerReconciler) SetFedJoinAnnotation(ctx context.Context, clusterManager *clusterv1alpha1.ClusterManager) (ctrl.Result, error) {
-	log := r.Log.WithValues("clustermanager", types.NamespacedName{Name: clusterManager.Name, Namespace: clusterManager.Namespace})
-
-	// Join은 clm이 ready여야 가능하다..
-	if !clusterManager.Status.Ready {
-		log.Info("Clustermanager is not ready. cannot join cluster")
-		return ctrl.Result{}, nil
-	}
-
-	kubeconfigSecret := &corev1.Secret{}
-	kubeconfigSecretKey := types.NamespacedName{Name: clusterManager.Name + "-kubeconfig", Namespace: clusterManager.Namespace}
-	if err := r.Get(context.TODO(), kubeconfigSecretKey, kubeconfigSecret); err != nil {
-		log.Error(err, "Failed to get kubeconfigSecret in kubeconfigSecret")
-		return ctrl.Result{}, err
-	} else {
-		if kubeconfigSecret.Annotations == nil {
-			kubeconfigSecret.Annotations = map[string]string{
-				util.WatchAnnotationKey: util.WatchAnnotationJoinValue,
-			}
-		} else {
-			if _, ok := kubeconfigSecret.Annotations[util.WatchAnnotationKey]; !ok {
-				kubeconfigSecret.Annotations[util.WatchAnnotationKey] = util.WatchAnnotationJoinValue
-			} else {
-				return ctrl.Result{}, nil
-			}
-		}
-
-		if err := r.Update(context.TODO(), kubeconfigSecret); err != nil {
-			log.Error(err, "Failed to update kubeconfigSecret")
-			return ctrl.Result{}, err
-		}
-	}
-
-	return ctrl.Result{}, nil
 }

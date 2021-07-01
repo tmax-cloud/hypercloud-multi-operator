@@ -96,6 +96,7 @@ func (r *ClusterRegistrationReconciler) reconcile(ctx context.Context, ClusterRe
 		r.CheckClusterNameDuplication, // remote 상태 확인도~?
 		r.CreateClusterManager,
 		r.CreateKubeconfigSecret,
+		// r.InsertMemberInfo,
 	}
 
 	res := ctrl.Result{}
@@ -114,6 +115,13 @@ func (r *ClusterRegistrationReconciler) reconcile(ctx context.Context, ClusterRe
 	return res, kerrors.NewAggregate(errs)
 }
 
+// func (r *ClusterRegistrationReconciler) InsertMemberInfo(ctx context.Context, ClusterRegistration *clusterv1alpha1.ClusterRegistration) (ctrl.Result, error) {
+// 	log := r.Log.WithValues("ClusterRegistration", types.NamespacedName{Name: ClusterRegistration.Name, Namespace: ClusterRegistration.Namespace})
+// 	log.Info("Start to CheckClusterNameDuplication reconcile for [" + ClusterRegistration.Name + "]")
+
+// 	return ctrl.Result{}, nil
+// }
+
 func (r *ClusterRegistrationReconciler) CheckClusterNameDuplication(ctx context.Context, ClusterRegistration *clusterv1alpha1.ClusterRegistration) (ctrl.Result, error) {
 	log := r.Log.WithValues("ClusterRegistration", types.NamespacedName{Name: ClusterRegistration.Name, Namespace: ClusterRegistration.Namespace})
 	log.Info("Start to CheckClusterNameDuplication reconcile for [" + ClusterRegistration.Name + "]")
@@ -131,7 +139,7 @@ func (r *ClusterRegistrationReconciler) CheckClusterNameDuplication(ctx context.
 	} else {
 		log.Info("ClusterManager [" + clm.Name + "] is already existed")
 		return ctrl.Result{}, err
-		// not reenqueue..
+		// not requeue..
 	}
 	return ctrl.Result{}, nil
 }
@@ -199,6 +207,12 @@ func (r *ClusterRegistrationReconciler) CreateClusterManager(ctx context.Context
 				log.Error(err, "Failed to create "+ClusterRegistration.Spec.ClusterName+" ClusterManager")
 				return ctrl.Result{}, err
 			}
+
+			if err := util.Insert(clm); err != nil {
+				log.Error(err, "Failed to insert cluster info into cluster_member table")
+				return ctrl.Result{}, err
+			}
+
 		} else {
 			log.Error(err, "Failed to get ClusterManager")
 			return ctrl.Result{}, err

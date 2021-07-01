@@ -108,7 +108,7 @@ func (r *SecretReconciler) Reconcile(req ctrl.Request) (_ ctrl.Result, reterr er
 // reconcile handles cluster reconciliation.
 func (r *SecretReconciler) reconcile(ctx context.Context, secret *corev1.Secret) (ctrl.Result, error) {
 	phases := []func(context.Context, *corev1.Secret) (ctrl.Result, error){
-		r.UpdateClusterManagerControleplaneEndpoint,
+		r.UpdateClusterManagerControlPlaneEndpoint,
 		r.KubefedJoin,
 		r.deployRolebinding,
 	}
@@ -262,6 +262,8 @@ func (r *SecretReconciler) KubefedJoin(ctx context.Context, secret *corev1.Secre
 
 	if _, err := kubefedctl.JoinCluster(masterRestConfig, clientRestConfig, constant.KubeFedNamespace, constant.HostClusterName,
 		clusterManagerNamespacedName, "", kubefedConfig.Spec.Scope, false, false); err != nil {
+		// if _, err := kubefedctl.JoinCluster(masterRestConfig, clientRestConfig, secret.GetNamespace(), constant.HostClusterName,
+		// strings.Split(secret.Name, constant.KubeconfigPostfix)[0], "", kubefedConfig.Spec.Scope, false, false); err != nil {
 		log.Error(err, "Failed to join cluster")
 		return ctrl.Result{}, err
 	}
@@ -269,7 +271,7 @@ func (r *SecretReconciler) KubefedJoin(ctx context.Context, secret *corev1.Secre
 	return ctrl.Result{}, nil
 }
 
-func (r *SecretReconciler) UpdateClusterManagerControleplaneEndpoint(ctx context.Context, secret *corev1.Secret) (ctrl.Result, error) {
+func (r *SecretReconciler) UpdateClusterManagerControlPlaneEndpoint(ctx context.Context, secret *corev1.Secret) (ctrl.Result, error) {
 	log := r.Log.WithValues("secret", types.NamespacedName{Name: secret.Name, Namespace: secret.Namespace})
 
 	log.Info("Start to reconcile UpdateClusterManagerControleplaneEndpoint... ")
@@ -298,38 +300,11 @@ func (r *SecretReconciler) UpdateClusterManagerControleplaneEndpoint(ctx context
 				}
 			}()
 			clm.Status.ControlPlaneEndpoint = kubeConfig.Clusters[kubeConfig.Contexts[kubeConfig.CurrentContext].Cluster].Server
-			//create helper for patch
-
-			// if err := r.Status().Update(context.TODO(), clm); err != nil {
-			// 	if errors.IsConflict(err) {
-			// 		log.Info("Retry... because resource is modified.." + err.Error())
-			// 		return ctrl.Result{RequeueAfter: 10 * time.Second}, nil
-			// 	} else {
-			// 		log.Error(err, "Failed to update clustermanager.status.ControlPlaneEndpoint")
-			// 		return ctrl.Result{}, err
-			// 	}
-			// }
 		}
 	}
 
 	return ctrl.Result{}, nil
 }
-
-// delete kfc is necessary?
-// kfc := &fedcore.KubeFedCluster{}
-// kfcKey := types.NamespacedName{Name: clusterName, Namespace: constant.KubeFedNamespace}
-
-// if err := r.Get(context.TODO(), kfcKey, kfc); err == nil {
-// 	r.Delete(context.TODO(), kfc)
-// }
-
-// 1. clm request가 mapping되기 이전에... secret의 삭제인 경우
-// clm이 없을 수도 있고..
-// clm 있어도 (ready가 되기 이전일 수도 있으니까... secret reconcile 수행 안했을 수도 있다.)
-// unjoin 필요가 있는지 clm
-// 2. clm req가 mapping으로 모든 작업이 완료된 이후에 secret의 삭제인 경우
-// clm에 endpoint 넣어주고   (이건 언제 넣어주어도 상관 없으나 clm이 ready인 경우에 join하면서 같이 넣어주면 될 것 같고)
-// kubefed join 해주는 과정 (clm이 ready여야하고.. )  --> kubefedcluster 리소스가 생성되고..
 
 func (r *SecretReconciler) reconcileDelete(ctx context.Context, secret *corev1.Secret) (reconcile.Result, error) {
 	log := r.Log.WithValues("secret", types.NamespacedName{Name: secret.Name, Namespace: secret.Namespace})
@@ -340,7 +315,7 @@ func (r *SecretReconciler) reconcileDelete(ctx context.Context, secret *corev1.S
 	clmKey := types.NamespacedName{Name: strings.Split(secret.Name, constant.KubeconfigPostfix)[0], Namespace: secret.Namespace}
 	if err := r.Get(context.TODO(), clmKey, clm); err != nil {
 		if errors.IsNotFound(err) {
-			log.Info("ClusterMnager is already deleted..")
+			log.Info("ClusterManager is already deleted..")
 		} else {
 			log.Error(err, "Failed to get ClusterManager")
 			return ctrl.Result{}, err
@@ -396,6 +371,8 @@ func (r *SecretReconciler) reconcileDelete(ctx context.Context, secret *corev1.S
 				}
 			}
 		}
+
+		// fed deploy한것도.. 지워야하나..
 	}
 
 	kfc := &fedv1b1.KubeFedCluster{}
@@ -408,10 +385,33 @@ func (r *SecretReconciler) reconcileDelete(ctx context.Context, secret *corev1.S
 			log.Error(err, "Failed to get kubefedCluster")
 			return ctrl.Result{}, err
 		}
-	} else {
+	} else if kfc.Status.Conditions[len(kfc.Status.Conditions)-1].Type == "Offline" {
+		// offline이면 kfc delete
+		log.Info("Cannot unjoin cluster.. because cluster is already delete.. delete directly kubefedcluster object")
 		if err := r.Delete(context.TODO(), kfc); err != nil {
 			log.Error(err, "Failed to delete kubefedCluster")
 			return ctrl.Result{}, err
+		}
+	} else {
+		clientRestConfig, err := getKubeConfig(*secret)
+		if err != nil {
+			log.Error(err, "Unable to get rest config from secret")
+			return ctrl.Result{}, err
+		}
+		masterRestConfig := ctrl.GetConfigOrDie()
+		// cluster
+
+		kubefedConfig := &fedv1b1.KubeFedConfig{}
+		key := types.NamespacedName{Namespace: constant.KubeFedNamespace, Name: "kubefed"}
+
+		if err := r.Get(context.TODO(), key, kubefedConfig); err != nil {
+			log.Error(err, "Failed to get kubefedconfig")
+			return ctrl.Result{}, err
+		}
+
+		if err := kubefedctl.UnjoinCluster(masterRestConfig, clientRestConfig,
+			constant.KubeFedNamespace, constant.HostClusterName, "", clusterManagerNamespacedName, false, false); err != nil {
+			log.Info("ClusterManager [" + strings.Split(secret.Name, constant.KubeconfigPostfix)[0] + "] is already unjoined... " + err.Error())
 		}
 	}
 	controllerutil.RemoveFinalizer(secret, constant.SecretFinalizer)
@@ -437,7 +437,6 @@ func (r *SecretReconciler) requeueSecretForClusterManager(o handler.MapObject) [
 			Name:      clm.Name + constant.KubeconfigPostfix,
 		},
 	})
-
 	return reconcileRequests
 }
 
@@ -485,7 +484,7 @@ func (r *SecretReconciler) SetupWithManager(mgr ctrl.Manager) error {
 			UpdateFunc: func(e event.UpdateEvent) bool {
 				oldclm := e.ObjectOld.(*clusterv1alpha1.ClusterManager)
 				newclm := e.ObjectNew.(*clusterv1alpha1.ClusterManager)
-				if !oldclm.Status.Ready && newclm.Status.Ready {
+				if !oldclm.Status.ControlPlaneReady && newclm.Status.ControlPlaneReady {
 					return true
 				}
 				return false
