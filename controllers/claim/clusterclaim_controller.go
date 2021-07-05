@@ -113,11 +113,11 @@ func (r *ClusterClaimReconciler) requeueClusterClaimsForClusterManager(o handler
 		log.Error(err, "Failed to get ClusterClaim")
 		return nil
 	}
-	if cc.Status.Phase != "Success" {
+	if cc.Status.Phase != "Approved" {
 		log.Info("ClusterClaims for ClusterManager [" + cc.Spec.ClusterName + "] is already delete... Do not update cc status to delete ")
 		return nil
 	}
-	cc.Status.Phase = "Deleted"
+	cc.Status.Phase = "ClusterDeleted"
 	cc.Status.Reason = "cluster is deleted"
 	err := r.Status().Update(context.TODO(), cc)
 	if err != nil {

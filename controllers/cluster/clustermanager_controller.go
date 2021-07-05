@@ -144,6 +144,7 @@ func (r *ClusterManagerReconciler) Reconcile(req ctrl.Request) (_ ctrl.Result, r
 	if clusterManager.Labels[util.ClusterTypeKey] == util.ClusterTypeRegistered {
 		// Handle deletion reconciliation loop.
 		if !clusterManager.ObjectMeta.DeletionTimestamp.IsZero() {
+			clusterManager.Status.Ready = false
 			return r.reconcileDeleteForRegisteredClusterManager(context.TODO(), clusterManager)
 		}
 		return r.reconcileForRegisteredClusterManager(context.TODO(), clusterManager)
@@ -151,6 +152,7 @@ func (r *ClusterManagerReconciler) Reconcile(req ctrl.Request) (_ ctrl.Result, r
 
 	// Handle deletion reconciliation loop.
 	if !clusterManager.ObjectMeta.DeletionTimestamp.IsZero() {
+		clusterManager.Status.Ready = false
 		return r.reconcileDelete(context.TODO(), clusterManager)
 	}
 
@@ -385,7 +387,7 @@ func (r *ClusterManagerReconciler) DeployAndUpdateAgentEndpoint(ctx context.Cont
 			}
 		} else {
 			var ingressController *appsv1.Deployment
-			if ingressController, err = remoteClientset.AppsV1().Deployments(util.IngressNginxNamespace).Get(context.TODO(), util.IngressNginxDeployment, metav1.GetOptions{}); err != nil {
+			if ingressController, err = remoteClientset.AppsV1().Deployments(util.IngressNginxNamespace).Get(context.TODO(), util.IngressNginxName, metav1.GetOptions{}); err != nil {
 				if errors.IsNotFound(err) {
 					log.Info("Cannot found ingress controller... ingress-nginx is creating... requeue after 30sec")
 					return ctrl.Result{RequeueAfter: requeueAfter60Sec}, nil
@@ -503,6 +505,10 @@ func (r *ClusterManagerReconciler) reconcileDeleteForRegisteredClusterManager(ct
 	if err := r.Get(context.TODO(), kubeconfigSecretKey, kubeconfigSecret); err != nil {
 		if errors.IsNotFound(err) {
 			log.Info("Kubeconfig is succesefully delete.. Delete clustermanager finalizer")
+			if err := util.Delete(clusterManager.Namespace, clusterManager.Name); err != nil {
+				log.Error(err, "Failed to delete cluster info from cluster_member table")
+				return ctrl.Result{}, err
+			}
 			controllerutil.RemoveFinalizer(clusterManager, util.ClusterManagerFinalizer)
 		} else {
 			log.Error(err, "Failed to get kubeconfig secret")
@@ -549,6 +555,47 @@ func (r *ClusterManagerReconciler) reconcile(ctx context.Context, clusterManager
 
 func (r *ClusterManagerReconciler) reconcileDelete(ctx context.Context, clusterManager *clusterv1alpha1.ClusterManager) (reconcile.Result, error) {
 	log := r.Log.WithValues("clustermanager", types.NamespacedName{Name: clusterManager.Name, Namespace: clusterManager.Namespace})
+
+	kubeconfigSecret := &corev1.Secret{}
+	kubeconfigSecretKey := types.NamespacedName{Name: clusterManager.Name + "-kubeconfig", Namespace: clusterManager.Namespace}
+	if err := r.Get(context.TODO(), kubeconfigSecretKey, kubeconfigSecret); err != nil {
+		if errors.IsNotFound(err) {
+			log.Info("Kubeconfig Secret is already deleted. Waiting cluster to be deleted...")
+		} else {
+			log.Error(err, "Failed to get kubeconfig secret")
+			return ctrl.Result{}, err
+		}
+	} else {
+		// instance가 삭제되었을 때 call 안하도록 처리가 필요함
+		remoteClientset, err := util.GetRemoteK8sClient(kubeconfigSecret)
+		if err != nil {
+			log.Error(err, "Failed to get remoteK8sClient")
+			return ctrl.Result{}, err
+		}
+
+		// secret은 존재하는데.. 실제 instance가 없어서 에러 발생
+		if _, err = remoteClientset.CoreV1().Services(util.IngressNginxNamespace).Get(context.TODO(), util.IngressNginxName, metav1.GetOptions{}); err != nil {
+			if errors.IsNotFound(err) {
+				log.Info("Ingress-nginx loadbalancer service is already deleted.")
+			} else {
+				// log.Info("Failed to get Ingress-nginx loadbalancer service... may be instance was deleted before secret was deleted...")
+				log.Info("###################### Never excuted... ############################")
+				// error 처리 필요
+			}
+		} else {
+			if err := remoteClientset.CoreV1().Services(util.IngressNginxNamespace).Delete(context.TODO(), util.IngressNginxName, metav1.DeleteOptions{}); err != nil {
+				log.Error(err, "Failed to delete Ingress-nginx loadbalancer service")
+				return ctrl.Result{}, err
+			}
+		}
+		if err := r.Delete(context.TODO(), kubeconfigSecret); err != nil {
+			log.Error(err, "Failed to delete kubeconfigSecret")
+			return ctrl.Result{}, err
+		}
+		log.Info("Wait secret.controller do delete reconcile... requeue after 10sec")
+		return ctrl.Result{RequeueAfter: requeueAfter10Sec}, err
+	}
+
 	routerNamespacedName := clusterManager.Namespace + "-" + clusterManager.Name
 	// Delete (reverse proxy) console object
 	proxyConfig := &console.Console{}
@@ -565,44 +612,6 @@ func (r *ClusterManagerReconciler) reconcileDelete(ctx context.Context, clusterM
 		delete(proxyConfig.Spec.Configuration.Routers, routerNamespacedName)
 		if err := r.Update(context.TODO(), proxyConfig); err != nil {
 			log.Error(err, "Failed to update proxyConfig")
-			return ctrl.Result{}, err
-		}
-	}
-
-	kubeconfigSecret := &corev1.Secret{}
-	kubeconfigSecretKey := types.NamespacedName{Name: clusterManager.Name + "-kubeconfig", Namespace: clusterManager.Namespace}
-	if err := r.Get(context.TODO(), kubeconfigSecretKey, kubeconfigSecret); err != nil {
-		if errors.IsNotFound(err) {
-			log.Info("Kubeconfig Secret is already deleted. Waiting cluster to be deleted...")
-		} else {
-			log.Error(err, "Failed to get kubeconfig secret")
-			return ctrl.Result{}, err
-		}
-	} else {
-		// // instance가 삭제되었을 때 call 안하도록 처리가 필요함
-		// // } else if controllerutil.ContainsFinalizer(kubeconfigSecret, util.SecretFinalizerForClusterManager) {
-		// remoteClientset, err := util.GetRemoteK8sClient(kubeconfigSecret)
-		// if err != nil {
-		// 	log.Error(err, "Failed to get remoteK8sClient")
-		// 	return ctrl.Result{}, err
-		// }
-
-		// // secret은 존재하는데.. 실제 instance가 없어서 에러 발생
-		// if _, err = remoteClientset.CoreV1().Namespaces().Get(context.TODO(), util.IngressNginxNamespace, metav1.GetOptions{}); err != nil {
-		// 	if errors.IsNotFound(err) {
-		// 		log.Info("Ingress-nginx namespace is already deleted.")
-		// 	} else {
-		// 		log.Info("Failed to get Ingress-nginx namespace... may be instance was deleted before secret was deleted...")
-		// 		// error 처리 필요
-		// 	}
-		// } else {
-		// 	if err := remoteClientset.CoreV1().Namespaces().Delete(context.TODO(), util.IngressNginxNamespace, metav1.DeleteOptions{}); err != nil {
-		// 		log.Error(err, "Failed to delete Ingress-nginx namespace")
-		// 		return ctrl.Result{}, err
-		// 	}
-		// }
-		if err := r.Delete(context.TODO(), kubeconfigSecret); err != nil {
-			log.Error(err, "Failed to delete kubeconfigSecret")
 			return ctrl.Result{}, err
 		}
 	}

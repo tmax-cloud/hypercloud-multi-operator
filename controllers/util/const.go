@@ -44,7 +44,7 @@ const (
 	ReversePorxyObjectName             = "reverse-proxy-configuration"
 	ReversePorxyObjectNamespace        = "console-system"
 	IngressNginxNamespace              = "ingress-nginx"
-	IngressNginxDeployment             = "ingress-nginx-controller"
+	IngressNginxName                   = "ingress-nginx-controller"
 	CLUSTER_API_Kind                   = "clustermanagers"
 	CLUSTER_API_GROUP_VERSION          = "cluster.tmax.io/v1alpha1"
 	AGENT_INGRESS_NAME                 = "hypercloud-ingress"
