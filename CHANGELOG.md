@@ -1,6 +1,23 @@
 # HyperCloud-Multi-Operator changelog!!
 All notable changes to this project will be documented in this file.
 
+<!-------------------- v5.0.17.0 start -------------------->
+
+## HyperCloud-Multi-Operator_5.0.17.0 (2021. 07. 01. (목) 17:46:14 KST)
+
+### Added
+  - [feat] 클러스터 등록기능 추가 by chosangwon93
+
+### Changed
+
+### Fixed
+
+### CRD yaml
+
+### Etc
+
+<!--------------------- v5.0.17.0 end --------------------->
+
 <!-------------------- v5.0.16.0 start -------------------->
 
 ## HyperCloud-Multi-Operator_5.0.16.0 (2021. 06. 25. (금) 11:12:03 KST)
