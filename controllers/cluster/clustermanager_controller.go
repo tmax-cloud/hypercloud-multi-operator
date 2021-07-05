@@ -164,7 +164,7 @@ func (r *ClusterManagerReconciler) reconcileForRegisteredClusterManager(ctx cont
 	phases := []func(context.Context, *clusterv1alpha1.ClusterManager) (ctrl.Result, error){
 		r.UpdateClusterManagerStatus,
 		r.CreateProxyConfiguration,
-		r.DeployAndUpdateAgentEndpoint,
+		// r.DeployAndUpdateAgentEndpoint,
 	}
 
 	res := ctrl.Result{}
@@ -259,6 +259,8 @@ func (r *ClusterManagerReconciler) UpdateClusterManagerStatus(ctx context.Contex
 		return ctrl.Result{}, err
 	}
 	if string(resp) == "ok" {
+		clusterManager.Status.ControlPlaneReady = true
+		clusterManager.Status.AgentReady = true
 		clusterManager.Status.Ready = true
 	} else {
 		// err := errors.NewBadRequest("Failed to healthcheck")
