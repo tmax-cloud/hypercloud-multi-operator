@@ -1,6 +1,23 @@
 # HyperCloud-Multi-Operator changelog!!
 All notable changes to this project will be documented in this file.
 
+<!-------------------- v5.0.17.2 start -------------------->
+
+## HyperCloud-Multi-Operator_5.0.17.2 (2021. 07. 06. (화) 20:43:15 KST)
+
+### Added
+
+### Changed
+  - [mod] clustermanager 삭제시 바로 kubefed unjoin하도록 수정 by chosangwon93
+
+### Fixed
+
+### CRD yaml
+
+### Etc
+
+<!--------------------- v5.0.17.2 end --------------------->
+
 <!-------------------- v5.0.17.1 start -------------------->
 
 ## HyperCloud-Multi-Operator_5.0.17.1 (2021. 07. 05. (월) 15:28:45 KST)
