@@ -20,7 +20,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
+
+	fedv1b1 "sigs.k8s.io/kubefed/pkg/apis/core/v1beta1"
 
 	// "k8s.io/apimachinery/pkg/util/intstr"
 
@@ -31,6 +34,8 @@ import (
 	util "github.com/tmax-cloud/hypercloud-multi-operator/controllers/util"
 	corev1 "k8s.io/api/core/v1"
 	extensionsv1beta1 "k8s.io/api/extensions/v1beta1"
+	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/clientcmd"
 
 	// networkingv1 "k8s.io/api/networking/v1"
 
@@ -53,6 +58,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
+	"sigs.k8s.io/kubefed/pkg/kubefedctl"
 	"sigs.k8s.io/yaml"
 )
 
@@ -568,7 +574,47 @@ func (r *ClusterManagerReconciler) reconcileDelete(ctx context.Context, clusterM
 			return ctrl.Result{}, err
 		}
 	} else {
-		// instance가 삭제되었을 때 call 안하도록 처리가 필요함
+		clusterManagerNamespacedName := clusterManager.GetNamespace() + "-" + clusterManager.GetName()
+		kfc := &fedv1b1.KubeFedCluster{}
+		kfcKey := types.NamespacedName{Name: clusterManagerNamespacedName, Namespace: util.KubeFedNamespace}
+		if err := r.Get(context.TODO(), kfcKey, kfc); err != nil {
+			if errors.IsNotFound(err) {
+				log.Info("Cannot found kubefedCluster. Already unjoined")
+				// return ctrl.Result{}, nil
+			} else {
+				log.Error(err, "Failed to get kubefedCluster")
+				return ctrl.Result{}, err
+			}
+		} else if kfc.Status.Conditions[len(kfc.Status.Conditions)-1].Type == "Offline" {
+			// offline이면 kfc delete
+			log.Info("Cannot unjoin cluster.. because cluster is already delete.. delete directly kubefedcluster object")
+			if err := r.Delete(context.TODO(), kfc); err != nil {
+				log.Error(err, "Failed to delete kubefedCluster")
+				return ctrl.Result{}, err
+			}
+		} else {
+			clientRestConfig, err := getKubeConfig(*kubeconfigSecret)
+			if err != nil {
+				log.Error(err, "Unable to get rest config from secret")
+				return ctrl.Result{}, err
+			}
+			masterRestConfig := ctrl.GetConfigOrDie()
+			// cluster
+
+			kubefedConfig := &fedv1b1.KubeFedConfig{}
+			key := types.NamespacedName{Namespace: util.KubeFedNamespace, Name: "kubefed"}
+
+			if err := r.Get(context.TODO(), key, kubefedConfig); err != nil {
+				log.Error(err, "Failed to get kubefedconfig")
+				return ctrl.Result{}, err
+			}
+
+			if err := kubefedctl.UnjoinCluster(masterRestConfig, clientRestConfig,
+				util.KubeFedNamespace, util.HostClusterName, "", clusterManagerNamespacedName, false, false); err != nil {
+				log.Info("ClusterManager [" + strings.Split(kubeconfigSecret.Name, util.KubeconfigPostfix)[0] + "] is already unjoined... " + err.Error())
+			}
+		}
+
 		remoteClientset, err := util.GetRemoteK8sClient(kubeconfigSecret)
 		if err != nil {
 			log.Error(err, "Failed to get remoteK8sClient")
@@ -576,26 +622,22 @@ func (r *ClusterManagerReconciler) reconcileDelete(ctx context.Context, clusterM
 		}
 
 		// secret은 존재하는데.. 실제 instance가 없어서 에러 발생
-		if _, err = remoteClientset.CoreV1().Services(util.IngressNginxNamespace).Get(context.TODO(), util.IngressNginxName, metav1.GetOptions{}); err != nil {
+		if _, err = remoteClientset.CoreV1().Namespaces().Get(context.TODO(), util.IngressNginxNamespace, metav1.GetOptions{}); err != nil {
 			if errors.IsNotFound(err) {
-				log.Info("Ingress-nginx loadbalancer service is already deleted.")
+				log.Info("Ingress-nginx namespace is already deleted.")
 			} else {
-				// log.Info("Failed to get Ingress-nginx loadbalancer service... may be instance was deleted before secret was deleted...")
-				log.Info("###################### Never excuted... ############################")
+
+				log.Info(err.Error())
+				log.Info("Failed to get Ingress-nginx loadbalancer service... may be instance was deleted before secret was deleted...")
+				// log.Info("###################### Never excuted... ############################")
 				// error 처리 필요
 			}
 		} else {
-			if err := remoteClientset.CoreV1().Services(util.IngressNginxNamespace).Delete(context.TODO(), util.IngressNginxName, metav1.DeleteOptions{}); err != nil {
-				log.Error(err, "Failed to delete Ingress-nginx loadbalancer service")
+			if err := remoteClientset.CoreV1().Namespaces().Delete(context.TODO(), util.IngressNginxNamespace, metav1.DeleteOptions{}); err != nil {
+				log.Error(err, "Failed to delete Ingress-nginx namespace")
 				return ctrl.Result{}, err
 			}
 		}
-		if err := r.Delete(context.TODO(), kubeconfigSecret); err != nil {
-			log.Error(err, "Failed to delete kubeconfigSecret")
-			return ctrl.Result{}, err
-		}
-		log.Info("Wait secret.controller do delete reconcile... requeue after 10sec")
-		return ctrl.Result{RequeueAfter: requeueAfter10Sec}, err
 	}
 
 	routerNamespacedName := clusterManager.Namespace + "-" + clusterManager.Name
@@ -1034,4 +1076,14 @@ func (r *ClusterManagerReconciler) SetupWithManager(mgr ctrl.Manager) error {
 			},
 		},
 	)
+}
+func getKubeConfig(secret corev1.Secret) (*rest.Config, error) {
+	if value, ok := secret.Data["value"]; ok {
+		if clientConfig, err := clientcmd.NewClientConfigFromBytes(value); err == nil {
+			if restConfig, err := clientConfig.ClientConfig(); err == nil {
+				return restConfig, nil
+			}
+		}
+	}
+	return nil, errors.NewBadRequest("getClientConfig Error")
 }

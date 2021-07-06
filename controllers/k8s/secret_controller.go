@@ -309,7 +309,7 @@ func (r *SecretReconciler) UpdateClusterManagerControlPlaneEndpoint(ctx context.
 func (r *SecretReconciler) reconcileDelete(ctx context.Context, secret *corev1.Secret) (reconcile.Result, error) {
 	log := r.Log.WithValues("secret", types.NamespacedName{Name: secret.Name, Namespace: secret.Namespace})
 	log.Info("Start to reconcile reconcileDelete... ")
-	clusterManagerNamespacedName := secret.GetNamespace() + "-" + strings.Split(secret.Name, constant.KubeconfigPostfix)[0]
+	// clusterManagerNamespacedName := secret.GetNamespace() + "-" + strings.Split(secret.Name, constant.KubeconfigPostfix)[0]
 
 	clm := &clusterv1alpha1.ClusterManager{}
 	clmKey := types.NamespacedName{Name: strings.Split(secret.Name, constant.KubeconfigPostfix)[0], Namespace: secret.Namespace}
@@ -320,100 +320,98 @@ func (r *SecretReconciler) reconcileDelete(ctx context.Context, secret *corev1.S
 			log.Error(err, "Failed to get ClusterManager")
 			return ctrl.Result{}, err
 		}
-	} else {
-		if val, ok := clm.Labels[util.ClusterTypeKey]; ok && val == util.ClusterTypeRegistered {
-			// delete deployed role/binding
-			remoteClientset, err := util.GetRemoteK8sClient(secret)
-			if err != nil {
-				log.Error(err, "Failed to get remoteK8sClient")
+	} else if val, ok := clm.Labels[util.ClusterTypeKey]; ok && val == util.ClusterTypeRegistered {
+		// delete deployed role/binding
+		remoteClientset, err := util.GetRemoteK8sClient(secret)
+		if err != nil {
+			log.Error(err, "Failed to get remoteK8sClient")
+			return ctrl.Result{}, err
+		}
+
+		if _, err := remoteClientset.RbacV1().ClusterRoleBindings().Get(context.TODO(), "cluster-owner-crb-"+clm.Annotations["owner"], metav1.GetOptions{}); err != nil {
+			if errors.IsNotFound(err) {
+				log.Info("Cannot found cluster-admin crb from remote cluster. Cluster-owner-crb clusterrolebinding is already deleted")
+			} else {
+				log.Error(err, "Failed to get cluster-owner-crb clusterrolebinding from remote cluster")
 				return ctrl.Result{}, err
 			}
-
-			if _, err := remoteClientset.RbacV1().ClusterRoleBindings().Get(context.TODO(), "cluster-owner-crb-"+clm.Annotations["owner"], metav1.GetOptions{}); err != nil {
-				if errors.IsNotFound(err) {
-					log.Info("Cannot found cluster-admin crb from remote cluster. Cluster-owner-crb clusterrolebinding is already deleted")
-				} else {
-					log.Error(err, "Failed to get cluster-owner-crb clusterrolebinding from remote cluster")
-					return ctrl.Result{}, err
-				}
-			} else {
-				if err := remoteClientset.RbacV1().ClusterRoleBindings().Delete(context.TODO(), "cluster-owner-crb-"+clm.Annotations["owner"], metav1.DeleteOptions{}); err != nil {
-					log.Error(err, "Cannnot delete cluster-owner-crb clusterrolebinding")
-					return ctrl.Result{}, err
-				}
-			}
-
-			if _, err := remoteClientset.RbacV1().ClusterRoles().Get(context.TODO(), "developer", metav1.GetOptions{}); err != nil {
-				if errors.IsNotFound(err) {
-					log.Info("Cannot found developer cr from remote cluster.  Developer clusterrole is already deleted")
-				} else {
-					log.Error(err, "Failed to get developer clusterrole from remote cluster")
-					return ctrl.Result{}, err
-				}
-			} else {
-				if err := remoteClientset.RbacV1().ClusterRoles().Delete(context.TODO(), "developer", metav1.DeleteOptions{}); err != nil {
-					log.Error(err, "Cannnot delete developer clusterrole")
-					return ctrl.Result{}, err
-				}
-			}
-
-			if _, err := remoteClientset.RbacV1().ClusterRoles().Get(context.TODO(), "guest", metav1.GetOptions{}); err != nil {
-				if errors.IsNotFound(err) {
-					log.Info("Cannot found guest cr from remote cluster. Guest clusterrole is already deleted")
-				} else {
-					log.Error(err, "Failed to get guest clusterrole from remote cluster")
-					return ctrl.Result{}, err
-				}
-			} else {
-				if err := remoteClientset.RbacV1().ClusterRoles().Delete(context.TODO(), "guest", metav1.DeleteOptions{}); err != nil {
-					log.Error(err, "Cannnot delete guest clusterrole")
-					return ctrl.Result{}, err
-				}
-			}
-		}
-
-		// fed deploy한것도.. 지워야하나..
-	}
-
-	kfc := &fedv1b1.KubeFedCluster{}
-	kfcKey := types.NamespacedName{Name: clusterManagerNamespacedName, Namespace: constant.KubeFedNamespace}
-	if err := r.Get(context.TODO(), kfcKey, kfc); err != nil {
-		if errors.IsNotFound(err) {
-			log.Info("Cannot found kubefedCluster. Already unjoined")
-			// return ctrl.Result{}, nil
 		} else {
-			log.Error(err, "Failed to get kubefedCluster")
-			return ctrl.Result{}, err
-		}
-	} else if kfc.Status.Conditions[len(kfc.Status.Conditions)-1].Type == "Offline" {
-		// offline이면 kfc delete
-		log.Info("Cannot unjoin cluster.. because cluster is already delete.. delete directly kubefedcluster object")
-		if err := r.Delete(context.TODO(), kfc); err != nil {
-			log.Error(err, "Failed to delete kubefedCluster")
-			return ctrl.Result{}, err
-		}
-	} else {
-		clientRestConfig, err := getKubeConfig(*secret)
-		if err != nil {
-			log.Error(err, "Unable to get rest config from secret")
-			return ctrl.Result{}, err
-		}
-		masterRestConfig := ctrl.GetConfigOrDie()
-		// cluster
-
-		kubefedConfig := &fedv1b1.KubeFedConfig{}
-		key := types.NamespacedName{Namespace: constant.KubeFedNamespace, Name: "kubefed"}
-
-		if err := r.Get(context.TODO(), key, kubefedConfig); err != nil {
-			log.Error(err, "Failed to get kubefedconfig")
-			return ctrl.Result{}, err
+			if err := remoteClientset.RbacV1().ClusterRoleBindings().Delete(context.TODO(), "cluster-owner-crb-"+clm.Annotations["owner"], metav1.DeleteOptions{}); err != nil {
+				log.Error(err, "Cannnot delete cluster-owner-crb clusterrolebinding")
+				return ctrl.Result{}, err
+			}
 		}
 
-		if err := kubefedctl.UnjoinCluster(masterRestConfig, clientRestConfig,
-			constant.KubeFedNamespace, constant.HostClusterName, "", clusterManagerNamespacedName, false, false); err != nil {
-			log.Info("ClusterManager [" + strings.Split(secret.Name, constant.KubeconfigPostfix)[0] + "] is already unjoined... " + err.Error())
+		if _, err := remoteClientset.RbacV1().ClusterRoles().Get(context.TODO(), "developer", metav1.GetOptions{}); err != nil {
+			if errors.IsNotFound(err) {
+				log.Info("Cannot found developer cr from remote cluster.  Developer clusterrole is already deleted")
+			} else {
+				log.Error(err, "Failed to get developer clusterrole from remote cluster")
+				return ctrl.Result{}, err
+			}
+		} else {
+			if err := remoteClientset.RbacV1().ClusterRoles().Delete(context.TODO(), "developer", metav1.DeleteOptions{}); err != nil {
+				log.Error(err, "Cannnot delete developer clusterrole")
+				return ctrl.Result{}, err
+			}
+		}
+
+		if _, err := remoteClientset.RbacV1().ClusterRoles().Get(context.TODO(), "guest", metav1.GetOptions{}); err != nil {
+			if errors.IsNotFound(err) {
+				log.Info("Cannot found guest cr from remote cluster. Guest clusterrole is already deleted")
+			} else {
+				log.Error(err, "Failed to get guest clusterrole from remote cluster")
+				return ctrl.Result{}, err
+			}
+		} else {
+			if err := remoteClientset.RbacV1().ClusterRoles().Delete(context.TODO(), "guest", metav1.DeleteOptions{}); err != nil {
+				log.Error(err, "Cannnot delete guest clusterrole")
+				return ctrl.Result{}, err
+			}
 		}
 	}
+
+	// fed deploy한것도.. 지워야하나..
+
+	// kfc := &fedv1b1.KubeFedCluster{}
+	// kfcKey := types.NamespacedName{Name: clusterManagerNamespacedName, Namespace: constant.KubeFedNamespace}
+	// if err := r.Get(context.TODO(), kfcKey, kfc); err != nil {
+	// 	if errors.IsNotFound(err) {
+	// 		log.Info("Cannot found kubefedCluster. Already unjoined")
+	// 		// return ctrl.Result{}, nil
+	// 	} else {
+	// 		log.Error(err, "Failed to get kubefedCluster")
+	// 		return ctrl.Result{}, err
+	// 	}
+	// } else if kfc.Status.Conditions[len(kfc.Status.Conditions)-1].Type == "Offline" {
+	// 	// offline이면 kfc delete
+	// 	log.Info("Cannot unjoin cluster.. because cluster is already delete.. delete directly kubefedcluster object")
+	// 	if err := r.Delete(context.TODO(), kfc); err != nil {
+	// 		log.Error(err, "Failed to delete kubefedCluster")
+	// 		return ctrl.Result{}, err
+	// 	}
+	// } else {
+	// 	clientRestConfig, err := getKubeConfig(*secret)
+	// 	if err != nil {
+	// 		log.Error(err, "Unable to get rest config from secret")
+	// 		return ctrl.Result{}, err
+	// 	}
+	// 	masterRestConfig := ctrl.GetConfigOrDie()
+	// 	// cluster
+
+	// 	kubefedConfig := &fedv1b1.KubeFedConfig{}
+	// 	key := types.NamespacedName{Namespace: constant.KubeFedNamespace, Name: "kubefed"}
+
+	// 	if err := r.Get(context.TODO(), key, kubefedConfig); err != nil {
+	// 		log.Error(err, "Failed to get kubefedconfig")
+	// 		return ctrl.Result{}, err
+	// 	}
+
+	// 	if err := kubefedctl.UnjoinCluster(masterRestConfig, clientRestConfig,
+	// 		constant.KubeFedNamespace, constant.HostClusterName, "", clusterManagerNamespacedName, false, false); err != nil {
+	// 		log.Info("ClusterManager [" + strings.Split(secret.Name, constant.KubeconfigPostfix)[0] + "] is already unjoined... " + err.Error())
+	// 	}
+	// }
 	controllerutil.RemoveFinalizer(secret, constant.SecretFinalizer)
 
 	return ctrl.Result{}, nil
