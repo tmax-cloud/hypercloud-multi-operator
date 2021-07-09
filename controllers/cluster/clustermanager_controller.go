@@ -373,16 +373,6 @@ func (r *ClusterManagerReconciler) DeployAndUpdateAgentEndpoint(ctx context.Cont
 			return ctrl.Result{}, err
 		}
 
-		// if _, err = remoteClientset.CoreV1().Namespaces().Get(context.TODO(), util.IngressNginxNamespace, metav1.GetOptions{}); err != nil {
-		// 	if errors.IsNotFound(err) {
-		// 		log.Info("Ingress is not installed .. ")
-		// 		return ctrl.Result{RequeueAfter: requeueAfter60Sec}, nil
-		// 	} else {
-		// 		log.Error(err, "Failed to get ingress-nginx namespace from remote cluster")
-		// 		return ctrl.Result{}, err
-		// 	}
-		// }
-
 		// ingress controller 존재하는지 먼저 확인하고 없으면 배포부터해.. 그전에 join되었는지도 먼저 확인해야하나...
 
 		if _, err = remoteClientset.CoreV1().Namespaces().Get(context.TODO(), util.IngressNginxNamespace, metav1.GetOptions{}); err != nil {
@@ -626,7 +616,6 @@ func (r *ClusterManagerReconciler) reconcileDelete(ctx context.Context, clusterM
 			if errors.IsNotFound(err) {
 				log.Info("Ingress-nginx namespace is already deleted.")
 			} else {
-
 				log.Info(err.Error())
 				log.Info("Failed to get Ingress-nginx loadbalancer service... may be instance was deleted before secret was deleted...")
 				// log.Info("###################### Never excuted... ############################")

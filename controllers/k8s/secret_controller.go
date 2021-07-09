@@ -454,7 +454,7 @@ func (r *SecretReconciler) SetupWithManager(mgr ctrl.Manager) error {
 					isDelete := osecret.DeletionTimestamp.IsZero() && !nsecret.DeletionTimestamp.IsZero()
 					isFinalized := !controllerutil.ContainsFinalizer(osecret, util.SecretFinalizer) && controllerutil.ContainsFinalizer(nsecret, util.SecretFinalizer)
 
-					if isTarget || isDelete || isFinalized {
+					if isTarget && (isDelete || isFinalized) {
 						return true
 					}
 					return false
