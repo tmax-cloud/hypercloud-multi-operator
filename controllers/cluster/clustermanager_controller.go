@@ -295,7 +295,7 @@ func (r *ClusterManagerReconciler) CreateProxyConfiguration(ctx context.Context,
 
 		router := &console.Router{
 			Server: clusterManager.Status.ControlPlaneEndpoint,
-			Rule:   "PathPrefix(`/api/" + clusterManager.Namespace + "/" + clusterManager.Name + "`)",
+			Rule:   "PathPrefix(`/api/" + clusterManager.Namespace + "/" + clusterManager.Name + "/" + "`)",
 			Path:   "/api/" + clusterManager.Namespace + "/" + clusterManager.Name + "/",
 		}
 		routerNamespacedName := clusterManager.Namespace + "-" + clusterManager.Name

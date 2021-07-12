@@ -50,7 +50,6 @@ func GetRemoteK8sClient(secret *corev1.Secret) (*kubernetes.Clientset, error) {
 	if value, ok := secret.Data["value"]; ok {
 		remoteClientConfig, err := clientcmd.NewClientConfigFromBytes(value)
 		if err != nil {
-
 			return nil, err
 		}
 		remoteRestConfig, err := remoteClientConfig.ClientConfig()
@@ -64,8 +63,7 @@ func GetRemoteK8sClient(secret *corev1.Secret) (*kubernetes.Clientset, error) {
 			return nil, err
 		}
 	} else {
-		err := errors.NewBadRequest("secret does not have a kubeconfig")
-
+		err := errors.NewBadRequest("secret does not have a value")
 		return nil, err
 	}
 	return remoteClientset, nil

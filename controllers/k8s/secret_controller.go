@@ -260,13 +260,38 @@ func (r *SecretReconciler) KubefedJoin(ctx context.Context, secret *corev1.Secre
 		return ctrl.Result{}, err
 	}
 
-	if _, err := kubefedctl.JoinCluster(masterRestConfig, clientRestConfig, constant.KubeFedNamespace, constant.HostClusterName,
-		clusterManagerNamespacedName, "", kubefedConfig.Spec.Scope, false, false); err != nil {
-		// if _, err := kubefedctl.JoinCluster(masterRestConfig, clientRestConfig, secret.GetNamespace(), constant.HostClusterName,
-		// strings.Split(secret.Name, constant.KubeconfigPostfix)[0], "", kubefedConfig.Spec.Scope, false, false); err != nil {
-		log.Error(err, "Failed to join cluster")
-		return ctrl.Result{}, err
+	// fed join 안되었으면 join하는데.. 처음에는 무조건 되겠지.. 확인하고 넘어가자 몇번 돌려주자!
+	kfc := &fedv1b1.KubeFedCluster{}
+	kfcKey := types.NamespacedName{Name: clusterManagerNamespacedName, Namespace: constant.KubeFedNamespace}
+	if err := r.Get(context.TODO(), kfcKey, kfc); err != nil {
+		if errors.IsNotFound(err) {
+			log.Info("Cannot found kubefedCluster. Start join")
+			// 없으면 join해.. 한번 했다해도 kfc 없으면 다시 해
+			if _, err := kubefedctl.JoinCluster(masterRestConfig, clientRestConfig, constant.KubeFedNamespace, constant.HostClusterName,
+				clusterManagerNamespacedName, "", kubefedConfig.Spec.Scope, false, false); err != nil {
+				// if _, err := kubefedctl.JoinCluster(masterRestConfig, clientRestConfig, secret.GetNamespace(), constant.HostClusterName,
+				// strings.Split(secret.Name, constant.KubeconfigPostfix)[0], "", kubefedConfig.Spec.Scope, false, false); err != nil {
+
+				return ctrl.Result{}, err
+			} else {
+				// join 명령어 잘 수행했지만.. 다시 requeue해서 확인한다 제대로 join 되었는지!
+				log.Info("Requeue.. check fed join status....")
+				return ctrl.Result{RequeueAfter: ClusterManagerWaitingRequeueAfter}, nil
+			}
+		} else {
+			log.Error(err, "Failed to get kubefedCluster")
+			return ctrl.Result{}, err
+		}
 	}
+	// else if kfc.Status.Conditions[len(kfc.Status.Conditions)-1].Type != "Ready" {
+	// 	// ready가 아니면 unjoin하고 다시 join해
+	// 	// offline이면 kfc delete
+	// 	// log.Info("Cannot unjoin cluster.. because cluster is already delete.. delete directly kubefedcluster object")
+	// 	// if err := r.Delete(context.TODO(), kfc); err != nil {
+	// 	// 	log.Error(err, "Failed to delete kubefedCluster")
+	// 	// 	return ctrl.Result{}, err
+	// 	// }
+	// }
 
 	return ctrl.Result{}, nil
 }
