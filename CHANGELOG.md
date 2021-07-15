@@ -1,6 +1,24 @@
 # HyperCloud-Multi-Operator changelog!!
 All notable changes to this project will be documented in this file.
 
+<!-------------------- v5.0.18.1 start -------------------->
+
+## HyperCloud-Multi-Operator_5.0.18.1 (2021. 07. 12. (월) 14:16:11 KST)
+
+### Added
+
+### Changed
+  - [mod] proxy rule 생성 시 URL 마지막에 / 붙이도록 추가 by chosangwon93
+
+### Fixed
+
+### CRD yaml
+
+### Etc
+  - [etc] 코드 정리 by chosangwon93
+
+<!--------------------- v5.0.18.1 end --------------------->
+
 <!-------------------- v5.0.18.0 start -------------------->
 
 ## HyperCloud-Multi-Operator_5.0.18.0 (2021. 07. 09. (금) 09:38:11 KST)
