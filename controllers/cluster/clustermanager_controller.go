@@ -480,23 +480,24 @@ func (r *ClusterManagerReconciler) reconcileDeleteForRegisteredClusterManager(ct
 	log := r.Log.WithValues("clustermanager", types.NamespacedName{Name: clusterManager.Name, Namespace: clusterManager.Namespace})
 	log.Info("Start to reconcileDeleteForRegisteredClusterManager reconcile for [" + clusterManager.Name + "]")
 
-	proxyConfig := &console.Console{}
-	key := types.NamespacedName{Name: util.ReversePorxyObjectName, Namespace: util.ReversePorxyObjectNamespace}
-	routerNamespacedName := clusterManager.Namespace + "-" + clusterManager.Name
-	if err := r.Get(context.TODO(), key, proxyConfig); err != nil {
-		if errors.IsNotFound(err) {
-			log.Info("Cannot not found console object. The cluster has never been created.")
-		} else {
-			log.Error(err, "Failed to get console object")
-			return ctrl.Result{}, err
-		}
-	} else {
-		delete(proxyConfig.Spec.Configuration.Routers, routerNamespacedName)
-		if err := r.Update(context.TODO(), proxyConfig); err != nil {
-			log.Error(err, "Failed to update proxyConfig")
-			return ctrl.Result{}, err
-		}
-	}
+	// kubeconfigSecret := &corev1.Secret{}
+	// kubeconfigSecretKey := types.NamespacedName{Name: clusterManager.Name + "-kubeconfig", Namespace: clusterManager.Namespace}
+	// if err := r.Get(context.TODO(), kubeconfigSecretKey, kubeconfigSecret); err != nil {
+	// 	if errors.IsNotFound(err) {
+	// 		log.Info("Kubeconfig is succesefully delete.. Delete clustermanager finalizer")
+	// 		if err := util.Delete(clusterManager.Namespace, clusterManager.Name); err != nil {
+	// 			log.Error(err, "Failed to delete cluster info from cluster_member table")
+	// 			return ctrl.Result{}, err
+	// 		}
+	// 		controllerutil.RemoveFinalizer(clusterManager, util.ClusterManagerFinalizer)
+	// 	} else {
+	// 		log.Error(err, "Failed to get kubeconfig secret")
+	// 		return ctrl.Result{}, err
+	// 	}
+	// } else {
+
+	// }
+	////////////////
 
 	kubeconfigSecret := &corev1.Secret{}
 	kubeconfigSecretKey := types.NamespacedName{Name: clusterManager.Name + "-kubeconfig", Namespace: clusterManager.Namespace}
@@ -513,6 +514,47 @@ func (r *ClusterManagerReconciler) reconcileDeleteForRegisteredClusterManager(ct
 			return ctrl.Result{}, err
 		}
 	} else {
+		clusterManagerNamespacedName := clusterManager.GetNamespace() + "-" + clusterManager.GetName()
+		kfc := &fedv1b1.KubeFedCluster{}
+		kfcKey := types.NamespacedName{Name: clusterManagerNamespacedName, Namespace: util.KubeFedNamespace}
+		if err := r.Get(context.TODO(), kfcKey, kfc); err != nil {
+			if errors.IsNotFound(err) {
+				log.Info("Cannot found kubefedCluster. Already unjoined")
+				// return ctrl.Result{}, nil
+			} else {
+				log.Error(err, "Failed to get kubefedCluster")
+				return ctrl.Result{}, err
+			}
+		} else if kfc.Status.Conditions[len(kfc.Status.Conditions)-1].Type == "Offline" {
+			// offline이면 kfc delete
+			log.Info("Cannot unjoin cluster.. because cluster is already delete.. delete directly kubefedcluster object")
+			if err := r.Delete(context.TODO(), kfc); err != nil {
+				log.Error(err, "Failed to delete kubefedCluster")
+				return ctrl.Result{}, err
+			}
+		} else {
+			clientRestConfig, err := getKubeConfig(*kubeconfigSecret)
+			if err != nil {
+				log.Error(err, "Unable to get rest config from secret")
+				return ctrl.Result{}, err
+			}
+			masterRestConfig := ctrl.GetConfigOrDie()
+			// cluster
+
+			kubefedConfig := &fedv1b1.KubeFedConfig{}
+			key := types.NamespacedName{Namespace: util.KubeFedNamespace, Name: "kubefed"}
+
+			if err := r.Get(context.TODO(), key, kubefedConfig); err != nil {
+				log.Error(err, "Failed to get kubefedconfig")
+				return ctrl.Result{}, err
+			}
+
+			if err := kubefedctl.UnjoinCluster(masterRestConfig, clientRestConfig,
+				util.KubeFedNamespace, util.HostClusterName, "", clusterManagerNamespacedName, false, false); err != nil {
+				log.Info("ClusterManager [" + strings.Split(kubeconfigSecret.Name, util.KubeconfigPostfix)[0] + "] is already unjoined... " + err.Error())
+			}
+		}
+
 		// delete 를 계~~ 속 보내겠는데...?
 		log.Info("Start to delete kubeconfig secret")
 		if err := r.Delete(context.TODO(), kubeconfigSecret); err != nil {
@@ -520,6 +562,26 @@ func (r *ClusterManagerReconciler) reconcileDeleteForRegisteredClusterManager(ct
 			return ctrl.Result{}, err
 		}
 		return ctrl.Result{RequeueAfter: requeueAfter10Sec}, nil
+	}
+
+	///////
+
+	proxyConfig := &console.Console{}
+	key := types.NamespacedName{Name: util.ReversePorxyObjectName, Namespace: util.ReversePorxyObjectNamespace}
+	routerNamespacedName := clusterManager.Namespace + "-" + clusterManager.Name
+	if err := r.Get(context.TODO(), key, proxyConfig); err != nil {
+		if errors.IsNotFound(err) {
+			log.Info("Cannot not found console object. The cluster has never been created.")
+		} else {
+			log.Error(err, "Failed to get console object")
+			return ctrl.Result{}, err
+		}
+	} else {
+		delete(proxyConfig.Spec.Configuration.Routers, routerNamespacedName)
+		if err := r.Update(context.TODO(), proxyConfig); err != nil {
+			log.Error(err, "Failed to update proxyConfig")
+			return ctrl.Result{}, err
+		}
 	}
 
 	return ctrl.Result{}, nil

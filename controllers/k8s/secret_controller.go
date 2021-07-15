@@ -57,7 +57,8 @@ type SecretReconciler struct {
 }
 
 const (
-	ClusterManagerWaitingRequeueAfter = 5 * time.Second
+	requeueAfter5Sec = 5 * time.Second
+	// requeueAfter5Sec = 5 * time.Second
 )
 
 // +kubebuilder:rbac:groups="",resources=secrets;namespaces;,verbs=get;update;patch;list;watch;create;post;delete;
@@ -276,7 +277,7 @@ func (r *SecretReconciler) KubefedJoin(ctx context.Context, secret *corev1.Secre
 			} else {
 				// join 명령어 잘 수행했지만.. 다시 requeue해서 확인한다 제대로 join 되었는지!
 				log.Info("Requeue.. check fed join status....")
-				return ctrl.Result{RequeueAfter: ClusterManagerWaitingRequeueAfter}, nil
+				return ctrl.Result{RequeueAfter: requeueAfter5Sec}, nil
 			}
 		} else {
 			log.Error(err, "Failed to get kubefedCluster")
@@ -310,7 +311,7 @@ func (r *SecretReconciler) UpdateClusterManagerControlPlaneEndpoint(ctx context.
 	if err := r.Get(context.TODO(), clmKey, clm); err != nil {
 		if errors.IsNotFound(err) {
 			log.Info("Cannot found clusterManager")
-			// return ctrl.Result{RequeueAfter: ClusterManagerWaitingRequeueAfter}, nil
+			// return ctrl.Result{RequeueAfter: requeueAfter5Sec}, nil
 		} else {
 			log.Error(err, "Failed to get Secret")
 			return ctrl.Result{}, err
@@ -367,6 +368,20 @@ func (r *SecretReconciler) reconcileDelete(ctx context.Context, secret *corev1.S
 			}
 		}
 
+		if _, err := remoteClientset.RbacV1().ClusterRoleBindings().Get(context.TODO(), "hypercloud-admin-clusterrolebinding", metav1.GetOptions{}); err != nil {
+			if errors.IsNotFound(err) {
+				log.Info("Cannot found cluster-admin crb from remote cluster. Cluster-owner-crb clusterrolebinding is already deleted")
+			} else {
+				log.Error(err, "Failed to get hypercloud-admin-clusterrolebinding from remote cluster")
+				return ctrl.Result{}, err
+			}
+		} else {
+			if err := remoteClientset.RbacV1().ClusterRoleBindings().Delete(context.TODO(), "hypercloud-admin-clusterrolebinding", metav1.DeleteOptions{}); err != nil {
+				log.Error(err, "Cannnot delete hypercloud-admin-clusterrolebinding")
+				return ctrl.Result{}, err
+			}
+		}
+
 		if _, err := remoteClientset.RbacV1().ClusterRoles().Get(context.TODO(), "developer", metav1.GetOptions{}); err != nil {
 			if errors.IsNotFound(err) {
 				log.Info("Cannot found developer cr from remote cluster.  Developer clusterrole is already deleted")
@@ -397,46 +412,8 @@ func (r *SecretReconciler) reconcileDelete(ctx context.Context, secret *corev1.S
 	}
 
 	// fed deploy한것도.. 지워야하나..
+	// 클러스터를 사용중이던 사용자의 crb도 지워야되나.. db에서 읽어서 지워야 하는데?
 
-	// kfc := &fedv1b1.KubeFedCluster{}
-	// kfcKey := types.NamespacedName{Name: clusterManagerNamespacedName, Namespace: constant.KubeFedNamespace}
-	// if err := r.Get(context.TODO(), kfcKey, kfc); err != nil {
-	// 	if errors.IsNotFound(err) {
-	// 		log.Info("Cannot found kubefedCluster. Already unjoined")
-	// 		// return ctrl.Result{}, nil
-	// 	} else {
-	// 		log.Error(err, "Failed to get kubefedCluster")
-	// 		return ctrl.Result{}, err
-	// 	}
-	// } else if kfc.Status.Conditions[len(kfc.Status.Conditions)-1].Type == "Offline" {
-	// 	// offline이면 kfc delete
-	// 	log.Info("Cannot unjoin cluster.. because cluster is already delete.. delete directly kubefedcluster object")
-	// 	if err := r.Delete(context.TODO(), kfc); err != nil {
-	// 		log.Error(err, "Failed to delete kubefedCluster")
-	// 		return ctrl.Result{}, err
-	// 	}
-	// } else {
-	// 	clientRestConfig, err := getKubeConfig(*secret)
-	// 	if err != nil {
-	// 		log.Error(err, "Unable to get rest config from secret")
-	// 		return ctrl.Result{}, err
-	// 	}
-	// 	masterRestConfig := ctrl.GetConfigOrDie()
-	// 	// cluster
-
-	// 	kubefedConfig := &fedv1b1.KubeFedConfig{}
-	// 	key := types.NamespacedName{Namespace: constant.KubeFedNamespace, Name: "kubefed"}
-
-	// 	if err := r.Get(context.TODO(), key, kubefedConfig); err != nil {
-	// 		log.Error(err, "Failed to get kubefedconfig")
-	// 		return ctrl.Result{}, err
-	// 	}
-
-	// 	if err := kubefedctl.UnjoinCluster(masterRestConfig, clientRestConfig,
-	// 		constant.KubeFedNamespace, constant.HostClusterName, "", clusterManagerNamespacedName, false, false); err != nil {
-	// 		log.Info("ClusterManager [" + strings.Split(secret.Name, constant.KubeconfigPostfix)[0] + "] is already unjoined... " + err.Error())
-	// 	}
-	// }
 	controllerutil.RemoveFinalizer(secret, constant.SecretFinalizer)
 
 	return ctrl.Result{}, nil

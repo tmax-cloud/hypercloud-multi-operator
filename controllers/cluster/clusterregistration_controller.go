@@ -97,7 +97,6 @@ func (r *ClusterRegistrationReconciler) reconcile(ctx context.Context, ClusterRe
 		r.CheckClusterNameDuplication,
 		r.CreateClusterManager,
 		r.CreateKubeconfigSecret,
-		// r.InsertMemberInfo,
 	}
 
 	res := ctrl.Result{}
@@ -115,13 +114,6 @@ func (r *ClusterRegistrationReconciler) reconcile(ctx context.Context, ClusterRe
 	}
 	return res, kerrors.NewAggregate(errs)
 }
-
-// func (r *ClusterRegistrationReconciler) InsertMemberInfo(ctx context.Context, ClusterRegistration *clusterv1alpha1.ClusterRegistration) (ctrl.Result, error) {
-// 	log := r.Log.WithValues("ClusterRegistration", types.NamespacedName{Name: ClusterRegistration.Name, Namespace: ClusterRegistration.Namespace})
-// 	log.Info("Start to CheckClusterNameDuplication reconcile for [" + ClusterRegistration.Name + "]")
-
-// 	return ctrl.Result{}, nil
-// }
 
 // func (r *ClusterRegistrationReconciler) Validation(ctx context.Context, ClusterRegistration *clusterv1alpha1.ClusterRegistration) (ctrl.Result, error) {
 // 	log := r.Log.WithValues("ClusterRegistration", types.NamespacedName{Name: ClusterRegistration.Name, Namespace: ClusterRegistration.Namespace})
@@ -161,7 +153,6 @@ func (r *ClusterRegistrationReconciler) CheckClusterNameDuplication(ctx context.
 	clmKey := types.NamespacedName{Name: ClusterRegistration.Spec.ClusterName, Namespace: ClusterRegistration.Namespace}
 	if err := r.Get(context.TODO(), clmKey, &clm); err != nil {
 		if errors.IsNotFound(err) {
-			// panic(builtinerr.New("123"))
 			log.Info("ClusterManager [" + ClusterRegistration.Spec.ClusterName + "] does not exist. Duplication condition is passed")
 		} else {
 			log.Error(err, "Failed to get clusterManager")
