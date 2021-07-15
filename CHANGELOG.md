@@ -1,6 +1,23 @@
 # HyperCloud-Multi-Operator changelog!!
 All notable changes to this project will be documented in this file.
 
+<!-------------------- v5.0.19.0 start -------------------->
+
+## HyperCloud-Multi-Operator_5.0.19.0 (2021. 07. 15. (목) 17:21:19 KST)
+
+### Added
+
+### Changed
+
+### Fixed
+
+### CRD yaml
+
+### Etc
+  - [etc] 불필요한 컨틀로러 제거 by chosangwon93
+
+<!--------------------- v5.0.19.0 end --------------------->
+
 <!-------------------- v5.0.18.1 start -------------------->
 
 ## HyperCloud-Multi-Operator_5.0.18.1 (2021. 07. 12. (월) 14:16:11 KST)
