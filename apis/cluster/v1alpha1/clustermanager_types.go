@@ -84,7 +84,7 @@ type ProviderVsphereSpec struct {
 	// The name of resource pool
 	VcenterResourcePool string `json:"vcenterResourcePool,omitempty"`
 	// The IP address of control plane for remote cluster(vip)
-	VcenterKcpIp string `json:vcenterKcpIp,omitempty"`
+	VcenterKcpIp string `json:"vcenterKcpIp,omitempty"`
 }
 
 // ClusterManagerStatus defines the observed state of ClusterManager

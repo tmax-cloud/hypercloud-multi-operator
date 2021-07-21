@@ -84,7 +84,7 @@ type ClusterClaimSpec struct {
 	VcenterResourcePool string `json:"vcenterResourcePool,omitempty"`
 	// +kubebuilder:validation:Required
 	// The IP address of control plane for remote cluster(vip)
-	VcenterKcpIp string `json:vcenterKcpIp,omitempty"`
+	VcenterKcpIp string `json:"vcenterKcpIp,omitempty"`
 }
 
 // ClusterClaimStatus defines the observed state of ClusterClaim
