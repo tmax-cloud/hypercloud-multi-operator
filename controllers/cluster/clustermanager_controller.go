@@ -192,7 +192,7 @@ func (r *ClusterManagerReconciler) reconcileForRegisteredClusterManager(ctx cont
 func (r *ClusterManagerReconciler) UpdateClusterManagerStatus(ctx context.Context, clusterManager *clusterv1alpha1.ClusterManager) (ctrl.Result, error) {
 	log := r.Log.WithValues("clustermanager", types.NamespacedName{Name: clusterManager.Name, Namespace: clusterManager.Namespace})
 	log.Info("Start to UpdateClusterManagerStatus")
-	// secret이 만들어진걸 여기서 알 수 있을까?? controller는 cache를 공유할까?
+
 	kubeconfigSecret := &corev1.Secret{}
 	kubeconfigSecretKey := types.NamespacedName{Name: clusterManager.Name + "-kubeconfig", Namespace: clusterManager.Namespace}
 	if err := r.Get(context.TODO(), kubeconfigSecretKey, kubeconfigSecret); err != nil {
@@ -204,7 +204,7 @@ func (r *ClusterManagerReconciler) UpdateClusterManagerStatus(ctx context.Contex
 			return ctrl.Result{}, err
 		}
 	}
-	// clr 가져오지 말고 여기서 바로 secret으로부터 remote cluster의 정보를 가져옥자
+
 
 	remoteClientset, err := util.GetRemoteK8sClient(kubeconfigSecret)
 	if err != nil {
@@ -232,7 +232,6 @@ func (r *ClusterManagerReconciler) UpdateClusterManagerStatus(ctx context.Contex
 		return ctrl.Result{}, err
 	}
 
-	// delete update에 대해서만 들어와서 초기화 굳이 필요 없을 듯
 	clusterManager.Spec.MasterNum = 0
 	clusterManager.Status.MasterRun = 0
 	clusterManager.Spec.WorkerNum = 0
@@ -1017,14 +1016,7 @@ func (r *ClusterManagerReconciler) SetupWithManager(mgr ctrl.Manager) error {
 						return true
 					} else {
 						if newclm.Labels[util.ClusterTypeKey] == util.ClusterTypeCreated {
-							// diff := clusterv1alpha1.ClusterManager{}
-							// olddata, _ := json.Marshal(oldclm)
-							// newdata, _ := json.Marshal(newclm)
-							// mergePatch, _ := jsonpatch.CreateMergePatch(olddata, newdata)
-							// _ = json.Unmarshal(mergePatch, &diff)
 
-							// fmt.Println("###### ")
-							// fmt.Println(string(mergePatch))
 							return true
 						}
 						if newclm.Labels[util.ClusterTypeKey] == util.ClusterTypeRegistered {
