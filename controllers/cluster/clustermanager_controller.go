@@ -77,6 +77,7 @@ const (
 )
 
 type ClusterParameter struct {
+	Namespace         string
 	ClusterName       string
 	AWSRegion         string
 	SshKey            string
@@ -778,6 +779,7 @@ func (r *ClusterManagerReconciler) CreateServiceInstance(ctx context.Context, cl
 	if err := r.Get(context.TODO(), serviceInstanceKey, serviceInstance); err != nil {
 		if errors.IsNotFound(err) {
 			clusterParameter := ClusterParameter{
+				Namespace:         clusterManager.Namespace,
 				ClusterName:       clusterManager.Name,
 				AWSRegion:         clusterManager.Spec.Region,
 				SshKey:            clusterManager.Spec.SshKey,
