@@ -1,6 +1,24 @@
 # HyperCloud-Multi-Operator changelog!!
 All notable changes to this project will be documented in this file.
 
+<!-------------------- v5.0.21.0 start -------------------->
+
+## HyperCloud-Multi-Operator_5.0.21.0 (2021. 07. 29. (목) 15:33:04 KST)
+
+### Added
+  - [feat] cluster template parameter에 namespace가 추가되어 operator에 처리로직 추가 by soohwan kim
+
+### Changed
+
+### Fixed
+
+### CRD yaml
+
+### Etc
+  - [etc] image 이름 정책 변경, operator-sdk환경변수 추가 by soohwan kim
+
+<!--------------------- v5.0.21.0 end --------------------->
+
 <!-------------------- v5.0.20.0 start -------------------->
 
 ## HyperCloud-Multi-Operator_5.0.20.0 (2021. 07. 22. (목) 14:19:23 KST)
