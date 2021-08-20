@@ -77,7 +77,7 @@ func (r *ClusterClaim) ValidateUpdate(old runtime.Object) error {
 		return nil
 	}
 
-	if oldClusterClaim.Status.Phase == "Success" || oldClusterClaim.Status.Phase == "Rejected" || oldClusterClaim.Status.Phase == "Deleted" {
+	if oldClusterClaim.Status.Phase == "Approved" || oldClusterClaim.Status.Phase == "Rejected" || oldClusterClaim.Status.Phase == "ClusterDeleted" {
 		if !reflect.DeepEqual(oldClusterClaim.Spec, r.Spec) {
 			return errors.New("Cannot modify clusterClaim after approval")
 		}

@@ -128,10 +128,10 @@ spec:
               enum:
               - Awaiting
               - Admitted
-              - Success
+              - Approved
               - Rejected
               - Error
-              - Deleted
+              - ClusterDeleted
               type: string
             reason:
               type: string

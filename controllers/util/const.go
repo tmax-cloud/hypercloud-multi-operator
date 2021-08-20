@@ -24,6 +24,8 @@ const (
 	KubeconfigPostfix                  = "-kubeconfig"
 	ClusterNamespace                   = "default"
 	KubeFedNamespace                   = "kube-federation-system"
+	MonitoringNamespace                = "monitoring"
+	HypercloudNamespace                = "hypercloud5-system"
 	HostClusterName                    = "hostcluster"
 	FederatedConfigMapName             = "hypercloud-multi-agent-agentconfig"
 	FederatedConfigMapNamespace        = "hypercloud-multi-agent-system"
@@ -42,6 +44,9 @@ const (
 	ReversePorxyObjectName             = "reverse-proxy-configuration"
 	ReversePorxyObjectNamespace        = "console-system"
 	IngressNginxNamespace              = "ingress-nginx"
+	IngressNginxName                   = "ingress-nginx-controller"
 	CLUSTER_API_Kind                   = "clustermanagers"
 	CLUSTER_API_GROUP_VERSION          = "cluster.tmax.io/v1alpha1"
+	AGENT_INGRESS_NAME                 = "hypercloud-ingress"
+	// FE_SYSTEM_NAMESPACE        = "kube-federation-system"
 )

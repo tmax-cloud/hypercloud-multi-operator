@@ -93,7 +93,8 @@ func (r *ClusterRegistrationReconciler) Reconcile(req ctrl.Request) (_ ctrl.Resu
 func (r *ClusterRegistrationReconciler) reconcile(ctx context.Context, ClusterRegistration *clusterv1alpha1.ClusterRegistration) (ctrl.Result, error) {
 
 	phases := []func(context.Context, *clusterv1alpha1.ClusterRegistration) (ctrl.Result, error){
-		r.CheckClusterNameDuplication, // remote 상태 확인도~?
+		// r.Validation, // remote 상태 확인도~?
+		r.CheckClusterNameDuplication,
 		r.CreateClusterManager,
 		r.CreateKubeconfigSecret,
 	}
@@ -114,6 +115,36 @@ func (r *ClusterRegistrationReconciler) reconcile(ctx context.Context, ClusterRe
 	return res, kerrors.NewAggregate(errs)
 }
 
+// func (r *ClusterRegistrationReconciler) Validation(ctx context.Context, ClusterRegistration *clusterv1alpha1.ClusterRegistration) (ctrl.Result, error) {
+// 	log := r.Log.WithValues("ClusterRegistration", types.NamespacedName{Name: ClusterRegistration.Name, Namespace: ClusterRegistration.Namespace})
+// 	log.Info("Start to CheckKubeconfigValidation reconcile for [" + ClusterRegistration.Name + "]")
+
+// 	// 클러스터 이름 중복 먼저 하고
+// 	clm := clusterv1alpha1.ClusterManager{}
+// 	clmKey := types.NamespacedName{Name: ClusterRegistration.Spec.ClusterName, Namespace: ClusterRegistration.Namespace}
+// 	if err := r.Get(context.TODO(), clmKey, &clm); err != nil {
+// 		if errors.IsNotFound(err) {
+// 			// panic(builtinerr.New("123"))
+// 			log.Info("ClusterManager [" + ClusterRegistration.Spec.ClusterName + "] does not exist. Duplication condition is passed")
+// 		} else {
+// 			log.Error(err, "Failed to get clusterManager")
+// 			return ctrl.Result{}, err
+// 		}
+// 	} else {
+// 		log.Info("ClusterManager [" + clm.Name + "] is already existed")
+// 		return ctrl.Result{}, err
+// 		// not requeue..
+// 	}
+
+// 	// yaml validation 한번 해주고..
+
+// 	// secret 만들어서 restclinet 얻어와 보고..
+
+// 	// 클러스터 살아있는지 확인해 보고 ..
+
+// 	return ctrl.Result{}, nil
+// }
+
 func (r *ClusterRegistrationReconciler) CheckClusterNameDuplication(ctx context.Context, ClusterRegistration *clusterv1alpha1.ClusterRegistration) (ctrl.Result, error) {
 	log := r.Log.WithValues("ClusterRegistration", types.NamespacedName{Name: ClusterRegistration.Name, Namespace: ClusterRegistration.Namespace})
 	log.Info("Start to CheckClusterNameDuplication reconcile for [" + ClusterRegistration.Name + "]")
@@ -122,7 +153,6 @@ func (r *ClusterRegistrationReconciler) CheckClusterNameDuplication(ctx context.
 	clmKey := types.NamespacedName{Name: ClusterRegistration.Spec.ClusterName, Namespace: ClusterRegistration.Namespace}
 	if err := r.Get(context.TODO(), clmKey, &clm); err != nil {
 		if errors.IsNotFound(err) {
-			// panic(builtinerr.New("123"))
 			log.Info("ClusterManager [" + ClusterRegistration.Spec.ClusterName + "] does not exist. Duplication condition is passed")
 		} else {
 			log.Error(err, "Failed to get clusterManager")
@@ -131,7 +161,7 @@ func (r *ClusterRegistrationReconciler) CheckClusterNameDuplication(ctx context.
 	} else {
 		log.Info("ClusterManager [" + clm.Name + "] is already existed")
 		return ctrl.Result{}, err
-		// not reenqueue..
+		// not requeue..
 	}
 	return ctrl.Result{}, nil
 }
@@ -200,6 +230,12 @@ func (r *ClusterRegistrationReconciler) CreateClusterManager(ctx context.Context
 				log.Error(err, "Failed to create "+ClusterRegistration.Spec.ClusterName+" ClusterManager")
 				return ctrl.Result{}, err
 			}
+
+			if err := util.Insert(clm); err != nil {
+				log.Error(err, "Failed to insert cluster info into cluster_member table")
+				return ctrl.Result{}, err
+			}
+
 		} else {
 			log.Error(err, "Failed to get ClusterManager")
 			return ctrl.Result{}, err

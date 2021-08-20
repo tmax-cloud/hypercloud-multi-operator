@@ -1,6 +1,189 @@
 # HyperCloud-Multi-Operator changelog!!
 All notable changes to this project will be documented in this file.
 
+<!-------------------- v5.0.24.0 start -------------------->
+
+## HyperCloud-Multi-Operator_5.0.24.0 (2021. 08. 19. (목) 17:02:50 KST)
+
+### Added
+
+### Changed
+
+### Fixed
+
+### CRD yaml
+
+### Etc
+
+<!--------------------- v5.0.24.0 end --------------------->
+
+<!-------------------- v5.0.23.0 start -------------------->
+
+## HyperCloud-Multi-Operator_5.0.23.0 (2021. 08. 12. (목) 13:05:48 KST)
+
+### Added
+
+### Changed
+
+### Fixed
+
+### CRD yaml
+
+### Etc
+
+<!--------------------- v5.0.23.0 end --------------------->
+
+<!-------------------- v5.0.22.0 start -------------------->
+
+## HyperCloud-Multi-Operator_5.0.22.0 (2021. 08. 05. (목) 15:16:23 KST)
+
+### Added
+
+### Changed
+
+### Fixed
+
+### CRD yaml
+
+### Etc
+
+<!--------------------- v5.0.22.0 end --------------------->
+
+<!-------------------- v5.0.21.0 start -------------------->
+
+## HyperCloud-Multi-Operator_5.0.21.0 (2021. 07. 29. (목) 15:33:04 KST)
+
+### Added
+  - [feat] cluster template parameter에 namespace가 추가되어 operator에 처리로직 추가 by soohwan kim
+
+### Changed
+
+### Fixed
+
+### CRD yaml
+
+### Etc
+  - [etc] image 이름 정책 변경, operator-sdk환경변수 추가 by soohwan kim
+
+<!--------------------- v5.0.21.0 end --------------------->
+
+<!-------------------- v5.0.20.0 start -------------------->
+
+## HyperCloud-Multi-Operator_5.0.20.0 (2021. 07. 22. (목) 14:19:23 KST)
+
+### Added
+
+### Changed
+
+### Fixed
+
+### CRD yaml
+
+### Etc
+
+<!--------------------- v5.0.20.0 end --------------------->
+
+<!-------------------- v5.0.19.0 start -------------------->
+
+## HyperCloud-Multi-Operator_5.0.19.0 (2021. 07. 15. (목) 17:21:19 KST)
+
+### Added
+
+### Changed
+
+### Fixed
+
+### CRD yaml
+
+### Etc
+  - [etc] 불필요한 컨틀로러 제거 by chosangwon93
+
+<!--------------------- v5.0.19.0 end --------------------->
+
+<!-------------------- v5.0.18.1 start -------------------->
+
+## HyperCloud-Multi-Operator_5.0.18.1 (2021. 07. 12. (월) 14:16:11 KST)
+
+### Added
+
+### Changed
+  - [mod] proxy rule 생성 시 URL 마지막에 / 붙이도록 추가 by chosangwon93
+
+### Fixed
+
+### CRD yaml
+
+### Etc
+  - [etc] 코드 정리 by chosangwon93
+
+<!--------------------- v5.0.18.1 end --------------------->
+
+<!-------------------- v5.0.18.0 start -------------------->
+
+## HyperCloud-Multi-Operator_5.0.18.0 (2021. 07. 09. (금) 09:38:11 KST)
+
+### Added
+
+### Changed
+
+### Fixed
+
+### CRD yaml
+
+### Etc
+
+<!--------------------- v5.0.18.0 end --------------------->
+
+<!-------------------- v5.0.17.2 start -------------------->
+
+## HyperCloud-Multi-Operator_5.0.17.2 (2021. 07. 06. (화) 20:43:15 KST)
+
+### Added
+
+### Changed
+  - [mod] clustermanager 삭제시 바로 kubefed unjoin하도록 수정 by chosangwon93
+
+### Fixed
+
+### CRD yaml
+
+### Etc
+
+<!--------------------- v5.0.17.2 end --------------------->
+
+<!-------------------- v5.0.17.1 start -------------------->
+
+## HyperCloud-Multi-Operator_5.0.17.1 (2021. 07. 05. (월) 15:28:45 KST)
+
+### Added
+
+### Changed
+
+### Fixed
+
+### CRD yaml
+
+### Etc
+
+<!--------------------- v5.0.17.1 end --------------------->
+
+<!-------------------- v5.0.17.0 start -------------------->
+
+## HyperCloud-Multi-Operator_5.0.17.0 (2021. 07. 01. (목) 17:46:14 KST)
+
+### Added
+  - [feat] 클러스터 등록기능 추가 by chosangwon93
+
+### Changed
+
+### Fixed
+
+### CRD yaml
+
+### Etc
+
+<!--------------------- v5.0.17.0 end --------------------->
+
 <!-------------------- v5.0.16.0 start -------------------->
 
 ## HyperCloud-Multi-Operator_5.0.16.0 (2021. 06. 25. (금) 11:12:03 KST)
