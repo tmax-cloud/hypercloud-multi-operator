@@ -61,7 +61,7 @@ const (
 )
 
 type AwsParameter struct {
-	Namespace		  string
+	Namespace         string
 	ClusterName       string
 	MasterNum         int
 	WorkerNum         int
@@ -74,7 +74,7 @@ type AwsParameter struct {
 }
 
 type VsphereParameter struct {
-	Namespace			string
+	Namespace           string
 	ClusterName         string
 	MasterNum           int
 	WorkerNum           int
@@ -557,7 +557,7 @@ func (r *ClusterManagerReconciler) CreateServiceInstance(ctx context.Context, cl
 			switch strings.ToUpper(clusterManager.Spec.Provider) {
 			case "AWS":
 				AwsParameter := AwsParameter{
-					Namespace: 		   clusterManager.Namespace,
+					Namespace:         clusterManager.Namespace,
 					ClusterName:       clusterManager.Name,
 					MasterNum:         clusterManager.Spec.MasterNum,
 					WorkerNum:         clusterManager.Spec.WorkerNum,
@@ -580,7 +580,7 @@ func (r *ClusterManagerReconciler) CreateServiceInstance(ctx context.Context, cl
 
 			case "VSPHERE":
 				VsphereParameter := VsphereParameter{
-					Namespace: 		     clusterManager.Namespace,
+					Namespace:           clusterManager.Namespace,
 					ClusterName:         clusterManager.Name,
 					MasterNum:           clusterManager.Spec.MasterNum,
 					WorkerNum:           clusterManager.Spec.WorkerNum,

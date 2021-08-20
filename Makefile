@@ -1,4 +1,4 @@
-#Diffrent OS?
+# Need when errors like "fork/exec /usr/local/kubebuilder/bin/etcd: no such file or directory" occurred
 SHELL := /bin/bash
 
 # Current Operator version

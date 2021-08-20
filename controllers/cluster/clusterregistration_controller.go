@@ -187,6 +187,7 @@ func (r *ClusterRegistrationReconciler) CreateClusterManager(ctx context.Context
 					Namespace: ClusterRegistration.Namespace,
 					Annotations: map[string]string{
 						"owner": ClusterRegistration.Annotations["creator"],
+						"creator": ClusterRegistration.Annotations["creator"],
 					},
 					Labels: map[string]string{
 						util.ClusterTypeKey: util.ClusterTypeRegistered,
