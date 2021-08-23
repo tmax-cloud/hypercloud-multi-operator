@@ -18,6 +18,8 @@ package controllers
 
 import (
 	"context"
+	b64 "encoding/base64"
+	"strings"
 
 	"github.com/go-logr/logr"
 	clusterv1alpha1 "github.com/tmax-cloud/hypercloud-multi-operator/apis/cluster/v1alpha1"
@@ -174,6 +176,21 @@ func (r *ClusterRegistrationReconciler) CreateKubeconfigSecret(ctx context.Conte
 	if err := r.Get(context.TODO(), kubeconfigSecretKey, kubeconfigSecret); err != nil {
 		if errors.IsNotFound(err) {
 			log.Info("Cannot found kubeconfigSecret, starting to create kubeconfigSecret for [" + ClusterRegistration.Name + "-kubeconfig" + "]")
+
+			// Added by shkim at 21.08.20
+			// Last modified by shkim at 21.08.20
+			// extract base64 string before decode
+			pivot := strings.Index(ClusterRegistration.Spec.KubeConfig, "base64,")
+			if pivot == -1 {
+				log.Info("Cannot parse ClusterRegistration.Spec.KubeConfig, target string \"base64,\" isn't exist")
+			}
+			// decode base64 encoded kubeconfig file
+			var encodedKubeConfig []byte
+			if encodedKubeConfig, err = b64.StdEncoding.DecodeString(ClusterRegistration.Spec.KubeConfig[pivot+7:]); err != nil {
+				log.Error(err, "Failed to decode ClusterRegistration.Spec.KubeConfig")
+				return ctrl.Result{}, err
+			}
+
 			kubeconfigSecret = &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      ClusterRegistration.Spec.ClusterName + "-kubeconfig",
@@ -183,7 +200,7 @@ func (r *ClusterRegistrationReconciler) CreateKubeconfigSecret(ctx context.Conte
 					},
 				},
 				StringData: map[string]string{
-					"value": ClusterRegistration.Spec.KubeConfig,
+					"value": string(encodedKubeConfig),
 				},
 			}
 
@@ -216,7 +233,7 @@ func (r *ClusterRegistrationReconciler) CreateClusterManager(ctx context.Context
 					Name:      ClusterRegistration.Spec.ClusterName,
 					Namespace: ClusterRegistration.Namespace,
 					Annotations: map[string]string{
-						"owner": ClusterRegistration.Annotations["creator"],
+						"owner":   ClusterRegistration.Annotations["creator"],
 						"creator": ClusterRegistration.Annotations["creator"],
 					},
 					Labels: map[string]string{

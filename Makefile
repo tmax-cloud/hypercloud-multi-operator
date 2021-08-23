@@ -1,7 +1,4 @@
-<<<<<<< HEAD
 # Need when errors like "fork/exec /usr/local/kubebuilder/bin/etcd: no such file or directory" occurred
-=======
->>>>>>> master
 SHELL := /bin/bash
 
 # Current Operator version

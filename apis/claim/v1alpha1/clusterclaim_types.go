@@ -26,12 +26,6 @@ import (
 // ClusterClaimSpec defines the desired state of ClusterClaim
 type ClusterClaimSpec struct {
 	// +kubebuilder:validation:Required
-	// The name of cloud provider where VM is created
-	Provider string `json:"provider"`
-	// +kubebuilder:validation:Required
-	// The region where VM is working
-	Region string `json:"region"`
-	// +kubebuilder:validation:Required
 	// The name of the cluster to be created
 	ClusterName string `json:"clusterName"`
 	// +kubebuilder:validation:Required
@@ -41,17 +35,32 @@ type ClusterClaimSpec struct {
 	// The number of master node
 	MasterNum int `json:"masterNum"`
 	// +kubebuilder:validation:Required
-	// The type of VM for master node
-	MasterType string `json:"masterType"`
-	// +kubebuilder:validation:Required
 	// The number of worker node
 	WorkerNum int `json:"workerNum"`
 	// +kubebuilder:validation:Required
-	// The type of VM for worker node
-	WorkerType string `json:"workerType"`
+	// Provider AWS spec
+	ProviderAwsSpec AwsClaimSpec `json:"ProviderAwsSpec,omitempty"`
+	// +kubebuilder:validation:Required
+	// Provider vSphere spec
+	ProviderVsphereSpec VsphereClaimSpec `json:"ProviderVsphereSpec,omitempty"`
+}
+
+type AwsClaimSpec struct {
 	// +kubebuilder:validation:Required
 	// The ssh key info to access VM
 	SshKey string `json:"sshKey"`
+	// +kubebuilder:validation:Required
+	// The region where VM is working
+	Region string `json:"region"`
+	// +kubebuilder:validation:Required
+	// The type of VM for master node
+	MasterType string `json:"masterType"`
+	// +kubebuilder:validation:Required
+	// The type of VM for worker node
+	WorkerType string `json:"workerType"`
+}
+
+type VsphereClaimSpec struct {
 	// +kubebuilder:validation:Required
 	// The internal IP address cider block for pods
 	PodCidr string `json:"podCidr,omitempty"`

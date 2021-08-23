@@ -76,19 +76,15 @@ const (
 	requeueAfter120Sec          = 120 * time.Second
 )
 
-<<<<<<< HEAD
 type AwsParameter struct {
-=======
-type ClusterParameter struct {
->>>>>>> master
 	Namespace         string
 	ClusterName       string
 	MasterNum         int
 	WorkerNum         int
 	Owner             string
 	KubernetesVersion string
-	Region            string
 	SshKey            string
+	Region            string
 	MasterType        string
 	WorkerType        string
 }
@@ -229,7 +225,6 @@ func (r *ClusterManagerReconciler) UpdateClusterManagerStatus(ctx context.Contex
 			return ctrl.Result{}, err
 		}
 	}
-
 
 	remoteClientset, err := util.GetRemoteK8sClient(kubeconfigSecret)
 	if err != nil {
@@ -813,8 +808,8 @@ func (r *ClusterManagerReconciler) CreateServiceInstance(ctx context.Context, cl
 					WorkerNum:         clusterManager.Spec.WorkerNum,
 					Owner:             clusterManager.Annotations["owner"],
 					KubernetesVersion: clusterManager.Spec.Version,
-					Region:            clusterManager.AwsSpec.Region,
 					SshKey:            clusterManager.AwsSpec.SshKey,
+					Region:            clusterManager.AwsSpec.Region,
 					MasterType:        clusterManager.AwsSpec.MasterType,
 					WorkerType:        clusterManager.AwsSpec.WorkerType,
 				}

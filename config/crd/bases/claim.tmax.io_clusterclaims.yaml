@@ -48,76 +48,81 @@ spec:
         spec:
           description: ClusterClaimSpec defines the desired state of ClusterClaim
           properties:
+            ProviderAwsSpec:
+              description: Provider AWS spec
+              properties:
+                masterType:
+                  description: The type of VM for master node
+                  type: string
+                region:
+                  description: The region where VM is working
+                  type: string
+                sshKey:
+                  description: The ssh key info to access VM
+                  type: string
+                workerType:
+                  description: The type of VM for worker node
+                  type: string
+              required:
+              - masterType
+              - region
+              - sshKey
+              - workerType
+              type: object
+            ProviderVsphereSpec:
+              description: Provider vSphere spec
+              properties:
+                podCidr:
+                  description: The internal IP address cider block for pods
+                  type: string
+                vcenterDataCenter:
+                  description: The name of data center
+                  type: string
+                vcenterDataStore:
+                  description: The name of data store
+                  type: string
+                vcenterFolder:
+                  description: The name of folder
+                  type: string
+                vcenterId:
+                  description: The user id of VCSA
+                  type: string
+                vcenterIp:
+                  description: The IP address of vCenter Server Application(VCSA)
+                  type: string
+                vcenterKcpIp:
+                  description: The IP address of control plane for remote cluster(vip)
+                  type: string
+                vcenterNetwork:
+                  description: The name of network
+                  type: string
+                vcenterPwd:
+                  description: The password of VCSA
+                  type: string
+                vcenterResourcePool:
+                  description: The name of resource pool
+                  type: string
+                vcenterThumbprint:
+                  description: The TLS thumbprint of machine certificate
+                  type: string
+              type: object
             clusterName:
               description: The name of the cluster to be created
               type: string
             masterNum:
               description: The number of master node
               type: integer
-            masterType:
-              description: The type of VM for master node
-              type: string
-            podCidr:
-              description: The internal IP address cider block for pods
-              type: string
-            provider:
-              description: The name of cloud provider where VM is created
-              type: string
-            region:
-              description: The region where VM is working
-              type: string
-            sshKey:
-              description: The ssh key info to access VM
-              type: string
-            vcenterDataCenter:
-              description: The name of data center
-              type: string
-            vcenterDataStore:
-              description: The name of data store
-              type: string
-            vcenterFolder:
-              description: The name of folder
-              type: string
-            vcenterId:
-              description: The user id of VCSA
-              type: string
-            vcenterIp:
-              description: The IP address of vCenter Server Application(VCSA)
-              type: string
-            vcenterKcpIp:
-              description: The IP address of control plane for remote cluster(vip)
-              type: string
-            vcenterNetwork:
-              description: The name of network
-              type: string
-            vcenterPwd:
-              description: The password of VCSA
-              type: string
-            vcenterResourcePool:
-              description: The name of resource pool
-              type: string
-            vcenterThumbprint:
-              description: The TLS thumbprint of machine certificate
-              type: string
             version:
               description: The version of kubernetes
               type: string
             workerNum:
               description: The number of worker node
               type: integer
-            workerType:
-              description: The type of VM for worker node
-              type: string
           required:
           - clusterName
           - masterNum
-          - masterType
-          - provider
-          - region
-          - sshKey
           - version
           - workerNum
-          - workerType
           type: object
         status:
           description: ClusterClaimStatus defines the observed state of ClusterClaim
