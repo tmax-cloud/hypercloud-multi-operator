@@ -32,6 +32,9 @@ type ClusterClaimSpec struct {
 	// The version of kubernetes
 	Version string `json:"version"`
 	// +kubebuilder:validation:Required
+	// The version of kubernetes
+	Provider string `json:"provider"`
+	// +kubebuilder:validation:Required
 	// The number of master node
 	MasterNum int `json:"masterNum"`
 	// +kubebuilder:validation:Required
