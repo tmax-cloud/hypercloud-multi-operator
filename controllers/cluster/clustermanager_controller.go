@@ -30,8 +30,8 @@ import (
 	"github.com/go-logr/logr"
 	servicecatalogv1beta1 "github.com/kubernetes-sigs/service-catalog/pkg/apis/servicecatalog/v1beta1"
 	console "github.com/tmax-cloud/console-operator/api/v1"
-	clusterv1alpha1 "github.com/tmax-cloud/hypercloud-multi-operator/apis/cluster/v1alpha1"
-	util "github.com/tmax-cloud/hypercloud-multi-operator/controllers/util"
+	clusterv1alpha1 "github.com/tmax-cloud/hypercloud-multi-operator/v2/apis/cluster/v1alpha1"
+	util "github.com/tmax-cloud/hypercloud-multi-operator/v2/controllers/util"
 	corev1 "k8s.io/api/core/v1"
 	extensionsv1beta1 "k8s.io/api/extensions/v1beta1"
 	"k8s.io/client-go/rest"
@@ -99,7 +99,7 @@ type VsphereParameter struct {
 	PodCidr             string
 	VcenterIp           string
 	VcenterId           string
-	VcenterPwd          string
+	VcenterPassword     string
 	VcenterThumbprint   string
 	VcenterNetwork      string
 	VcenterDataCenter   string
@@ -107,6 +107,10 @@ type VsphereParameter struct {
 	VcenterFolder       string
 	VcenterResourcePool string
 	VcenterKcpIp        string
+	VcenterCpuNum       int
+	VcenterMemSize      int
+	VcenterDiskSize     int
+	VcenterTemplate     string
 }
 
 // ClusterManagerReconciler reconciles a ClusterManager object
@@ -804,10 +808,10 @@ func (r *ClusterManagerReconciler) CreateServiceInstance(ctx context.Context, cl
 				AwsParameter := AwsParameter{
 					Namespace:         clusterManager.Namespace,
 					ClusterName:       clusterManager.Name,
-					MasterNum:         clusterManager.Spec.MasterNum,
-					WorkerNum:         clusterManager.Spec.WorkerNum,
 					Owner:             clusterManager.Annotations["owner"],
 					KubernetesVersion: clusterManager.Spec.Version,
+					MasterNum:         clusterManager.Spec.MasterNum,
+					WorkerNum:         clusterManager.Spec.WorkerNum,
 					SshKey:            clusterManager.AwsSpec.SshKey,
 					Region:            clusterManager.AwsSpec.Region,
 					MasterType:        clusterManager.AwsSpec.MasterType,
@@ -827,14 +831,14 @@ func (r *ClusterManagerReconciler) CreateServiceInstance(ctx context.Context, cl
 				VsphereParameter := VsphereParameter{
 					Namespace:           clusterManager.Namespace,
 					ClusterName:         clusterManager.Name,
-					MasterNum:           clusterManager.Spec.MasterNum,
-					WorkerNum:           clusterManager.Spec.WorkerNum,
 					Owner:               clusterManager.Annotations["owner"],
 					KubernetesVersion:   clusterManager.Spec.Version,
+					MasterNum:           clusterManager.Spec.MasterNum,
+					WorkerNum:           clusterManager.Spec.WorkerNum,
 					PodCidr:             clusterManager.VsphereSpec.PodCidr,
 					VcenterIp:           clusterManager.VsphereSpec.VcenterIp,
 					VcenterId:           clusterManager.VsphereSpec.VcenterId,
-					VcenterPwd:          clusterManager.VsphereSpec.VcenterPwd,
+					VcenterPassword:     clusterManager.VsphereSpec.VcenterPassword,
 					VcenterThumbprint:   clusterManager.VsphereSpec.VcenterThumbprint,
 					VcenterNetwork:      clusterManager.VsphereSpec.VcenterNetwork,
 					VcenterDataCenter:   clusterManager.VsphereSpec.VcenterDataCenter,
@@ -842,8 +846,15 @@ func (r *ClusterManagerReconciler) CreateServiceInstance(ctx context.Context, cl
 					VcenterFolder:       clusterManager.VsphereSpec.VcenterFolder,
 					VcenterResourcePool: clusterManager.VsphereSpec.VcenterResourcePool,
 					VcenterKcpIp:        clusterManager.VsphereSpec.VcenterKcpIp,
+					VcenterCpuNum:       clusterManager.VsphereSpec.VcenterCpuNum,
+					VcenterMemSize:      clusterManager.VsphereSpec.VcenterMemSize,
+					VcenterDiskSize:     clusterManager.VsphereSpec.VcenterDiskSize,
+					VcenterTemplate:     clusterManager.VsphereSpec.VcenterTemplate,
 				}
 
+				log.Info("***********************************VcenterId: " + VsphereParameter.VcenterId + "**********************************************")
+				log.Info("***********************************clm.VcenterTemplate: " + clusterManager.VsphereSpec.VcenterTemplate + "**********************************************")
+				log.Info("***********************************VcenterTemplate: " + VsphereParameter.VcenterTemplate + "**********************************************")
 				byte, err = json.Marshal(&VsphereParameter)
 				if err != nil {
 					log.Error(err, "Failed to marshal cluster parameters")
@@ -854,6 +865,7 @@ func (r *ClusterManagerReconciler) CreateServiceInstance(ctx context.Context, cl
 				ClusterServicePlanExternalName = "capi-vsphere-template-plan-default"
 			}
 
+			//log.Info(string(json.Unmarshal(&byte)))
 			newServiceInstance := &servicecatalogv1beta1.ServiceInstance{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      clusterManager.Name,
@@ -992,7 +1004,12 @@ func (r *ClusterManagerReconciler) requeueClusterManagersForKubeadmControlPlane(
 
 	//get ClusterManager
 	clm := &clusterv1alpha1.ClusterManager{}
-	key := types.NamespacedName{Namespace: cp.Namespace, Name: cp.Name[0 : len(cp.Name)-len("-control-plane")]}
+	CpName := cp.Name
+	pivot := strings.Index(cp.Name, "-control-plane")
+	if pivot != -1 {
+		CpName = cp.Name[0:pivot]
+	}
+	key := types.NamespacedName{Namespace: cp.Namespace, Name: CpName}
 	if err := r.Get(context.TODO(), key, clm); err != nil {
 		if errors.IsNotFound(err) {
 			log.Info("ClusterManager resource not found. Ignoring since object must be deleted.")

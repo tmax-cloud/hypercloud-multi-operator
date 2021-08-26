@@ -70,7 +70,7 @@ type ProviderVsphereSpec struct {
 	// The user id of VCSA
 	VcenterId string `json:"vcenterId,omitempty"`
 	// The password of VCSA
-	VcenterPwd string `json:"vcenterPwd,omitempty"`
+	VcenterPassword string `json:"vcenterPassword,omitempty"`
 	// The TLS thumbprint of machine certificate
 	VcenterThumbprint string `json:"vcenterThumbprint,omitempty"`
 	// The name of network
@@ -85,6 +85,14 @@ type ProviderVsphereSpec struct {
 	VcenterResourcePool string `json:"vcenterResourcePool,omitempty"`
 	// The IP address of control plane for remote cluster(vip)
 	VcenterKcpIp string `json:"vcenterKcpIp,omitempty"`
+	// The number of cpus for vm
+	VcenterCpuNum int `json:"vcenterCpuNum,omitempty"`
+	// The memory size for vm
+	VcenterMemSize int `json:"vcenterMemSize,omitempty"`
+	// The disk size for vm
+	VcenterDiskSize int `json:"vcenterDiskSize,omitempty"`
+	// The template name for cloud init
+	VcenterTemplate string `json:"vcenterTemplate,omitempty"`
 }
 
 // ClusterManagerStatus defines the observed state of ClusterManager

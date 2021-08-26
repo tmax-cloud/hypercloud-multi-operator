@@ -75,7 +75,7 @@ type VsphereClaimSpec struct {
 	VcenterId string `json:"vcenterId,omitempty"`
 	// +kubebuilder:validation:Required
 	// The password of VCSA
-	VcenterPwd string `json:"vcenterPwd,omitempty"`
+	VcenterPwd string `json:"vcenterPassword,omitempty"`
 	// +kubebuilder:validation:Required
 	// The TLS thumbprint of machine certificate
 	VcenterThumbprint string `json:"vcenterThumbprint,omitempty"`
@@ -97,6 +97,18 @@ type VsphereClaimSpec struct {
 	// +kubebuilder:validation:Required
 	// The IP address of control plane for remote cluster(vip)
 	VcenterKcpIp string `json:"vcenterKcpIp,omitempty"`
+	// +kubebuilder:validation:Required
+	// The number of cpus for vm
+	VcenterCpuNum int `json:"vcenterCpuNum,omitempty"`
+	// +kubebuilder:validation:Required
+	// The memory size for vm
+	VcenterMemSize int `json:"vcenterMemSize,omitempty"`
+	// +kubebuilder:validation:Required
+	// The disk size for vm
+	VcenterDiskSize int `json:"vcenterDiskSize,omitempty"`
+	// +kubebuilder:validation:Required
+	// The template name for cloud init
+	VcenterTemplate string `json:"vcenterTemplate,omitempty"`
 }
 
 // ClusterClaimStatus defines the observed state of ClusterClaim

@@ -22,8 +22,8 @@ import (
 	"strings"
 
 	"github.com/go-logr/logr"
-	clusterv1alpha1 "github.com/tmax-cloud/hypercloud-multi-operator/apis/cluster/v1alpha1"
-	util "github.com/tmax-cloud/hypercloud-multi-operator/controllers/util"
+	clusterv1alpha1 "github.com/tmax-cloud/hypercloud-multi-operator/v2/apis/cluster/v1alpha1"
+	util "github.com/tmax-cloud/hypercloud-multi-operator/v2/controllers/util"
 
 	// yaml "gopkg.in/yaml.v2"
 
@@ -180,14 +180,15 @@ func (r *ClusterRegistrationReconciler) CreateKubeconfigSecret(ctx context.Conte
 			// Added by shkim at 21.08.20
 			// Last modified by shkim at 21.08.20
 			// extract base64 string before decode
-			pivot := strings.Index(ClusterRegistration.Spec.KubeConfig, "base64,")
+			pivot := strings.Index(ClusterRegistration.Spec.KubeConfig, "YXBpVmVyc")
 			if pivot == -1 {
-				log.Info("Cannot parse ClusterRegistration.Spec.KubeConfig, target string \"base64,\" isn't exist")
+				log.Info("Cannot parse ClusterRegistration.Spec.KubeConfig, target string \"YXBpVmVyc\"(base64 encoded string for \"apiVersion\") isn't exist")
+				pivot = 0
 			}
 			// decode base64 encoded kubeconfig file
 			var encodedKubeConfig []byte
-			if encodedKubeConfig, err = b64.StdEncoding.DecodeString(ClusterRegistration.Spec.KubeConfig[pivot+7:]); err != nil {
-				log.Error(err, "Failed to decode ClusterRegistration.Spec.KubeConfig")
+			if encodedKubeConfig, err = b64.StdEncoding.DecodeString(ClusterRegistration.Spec.KubeConfig[pivot:]); err != nil {
+				log.Error(err, "Failed to decode ClusterRegistration.Spec.KubeConfig, maybe wrong kubeconfig file")
 				return ctrl.Result{}, err
 			}
 

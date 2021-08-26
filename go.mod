@@ -10,6 +10,7 @@ require (
 	github.com/onsi/gomega v1.10.1
 	github.com/prometheus/common v0.10.0
 	github.com/tmax-cloud/console-operator v0.0.0-20210202020310-14940831c3ba
+	github.com/tmax-cloud/hypercloud-multi-operator v0.0.0-20210819080251-b7be58f76449
 	k8s.io/api v0.18.6
 	k8s.io/apimachinery v0.18.6
 	k8s.io/client-go v0.18.6

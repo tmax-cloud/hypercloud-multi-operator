@@ -75,12 +75,18 @@ spec:
                 podCidr:
                   description: The internal IP address cider block for pods
                   type: string
+                vcenterCpuNum:
+                  description: The number of cpus for vm
+                  type: integer
                 vcenterDataCenter:
                   description: The name of data center
                   type: string
                 vcenterDataStore:
                   description: The name of data store
                   type: string
+                vcenterDiskSize:
+                  description: The disk size for vm
+                  type: integer
                 vcenterFolder:
                   description: The name of folder
                   type: string
@@ -93,6 +99,9 @@ spec:
                 vcenterKcpIp:
                   description: The IP address of control plane for remote cluster(vip)
                   type: string
+                vcenterMemSize:
+                  description: The memory size for vm
+                  type: integer
                 vcenterNetwork:
                   description: The name of network
                   type: string
@@ -101,6 +110,9 @@ spec:
                   type: string
                 vcenterResourcePool:
                   description: The name of resource pool
+                  type: string
+                vcenterTemplate:
+                  description: The template name for cloud init
                   type: string
                 vcenterThumbprint:
                   description: The TLS thumbprint of machine certificate
@@ -112,6 +124,9 @@ spec:
             masterNum:
               description: The number of master node
               type: integer
+            provider:
+              description: The version of kubernetes
+              type: string
             version:
               description: The version of kubernetes
               type: string
@@ -121,6 +136,7 @@ spec:
           required:
           - clusterName
           - masterNum
+          - provider
           - version
           - workerNum
           type: object

@@ -22,13 +22,13 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
-	clusterv1alpha1 "github.com/tmax-cloud/hypercloud-multi-operator/apis/cluster/v1alpha1"
+	clusterv1alpha1 "github.com/tmax-cloud/hypercloud-multi-operator/v2/apis/cluster/v1alpha1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	kerrors "k8s.io/apimachinery/pkg/util/errors"
 
-	// "github.com/tmax-cloud/hypercloud-multi-operator/controllers/util"
-	"github.com/tmax-cloud/hypercloud-multi-operator/controllers/util"
-	constant "github.com/tmax-cloud/hypercloud-multi-operator/controllers/util"
+	// "github.com/tmax-cloud/hypercloud-multi-operator/v2/controllers/util"
+	"github.com/tmax-cloud/hypercloud-multi-operator/v2/controllers/util"
+	constant "github.com/tmax-cloud/hypercloud-multi-operator/v2/controllers/util"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
