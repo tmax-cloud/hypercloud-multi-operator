@@ -75,7 +75,7 @@ type VsphereClaimSpec struct {
 	VcenterId string `json:"vcenterId,omitempty"`
 	// +kubebuilder:validation:Required
 	// The password of VCSA
-	VcenterPwd string `json:"vcenterPassword,omitempty"`
+	VcenterPassword string `json:"vcenterPassword,omitempty"`
 	// +kubebuilder:validation:Required
 	// The TLS thumbprint of machine certificate
 	VcenterThumbprint string `json:"vcenterThumbprint,omitempty"`
