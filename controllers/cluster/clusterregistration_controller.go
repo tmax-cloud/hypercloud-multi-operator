@@ -174,6 +174,22 @@ func (r *ClusterRegistrationReconciler) CreateKubeconfigSecret(ctx context.Conte
 	if err := r.Get(context.TODO(), kubeconfigSecretKey, kubeconfigSecret); err != nil {
 		if errors.IsNotFound(err) {
 			log.Info("Cannot found kubeconfigSecret, starting to create kubeconfigSecret for [" + ClusterRegistration.Name + "-kubeconfig" + "]")
+
+			// Added by shkim at 21.08.20
+			// Last modified by shkim at 21.08.20
+			// extract base64 string before decode
+			pivot := strings.Index(ClusterRegistration.Spec.KubeConfig, "YXBpVmVyc")
+			if pivot == -1 {
+				log.Info("Cannot parse ClusterRegistration.Spec.KubeConfig, target string \"YXBpVmVyc\"(base64 encoded string for \"apiVersion\") isn't exist")
+				pivot = 0
+			}
+			// decode base64 encoded kubeconfig file
+			var encodedKubeConfig []byte
+			if encodedKubeConfig, err = b64.StdEncoding.DecodeString(ClusterRegistration.Spec.KubeConfig[pivot:]); err != nil {
+				log.Error(err, "Failed to decode ClusterRegistration.Spec.KubeConfig, maybe wrong kubeconfig file")
+				return ctrl.Result{}, err
+			}
+
 			kubeconfigSecret = &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      ClusterRegistration.Spec.ClusterName + "-kubeconfig",
@@ -183,7 +199,7 @@ func (r *ClusterRegistrationReconciler) CreateKubeconfigSecret(ctx context.Conte
 					},
 				},
 				StringData: map[string]string{
-					"value": ClusterRegistration.Spec.KubeConfig,
+					"value": string(encodedKubeConfig),
 				},
 			}
 
