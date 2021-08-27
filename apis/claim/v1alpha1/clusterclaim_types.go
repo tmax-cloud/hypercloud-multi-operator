@@ -26,32 +26,89 @@ import (
 // ClusterClaimSpec defines the desired state of ClusterClaim
 type ClusterClaimSpec struct {
 	// +kubebuilder:validation:Required
-	// The name of cloud provider where VM is created
-	Provider string `json:"provider"`
-	// +kubebuilder:validation:Required
-	// The region where VM is working
-	Region string `json:"region"`
-	// +kubebuilder:validation:Required
 	// The name of the cluster to be created
 	ClusterName string `json:"clusterName"`
 	// +kubebuilder:validation:Required
 	// The version of kubernetes
 	Version string `json:"version"`
 	// +kubebuilder:validation:Required
+	// The version of kubernetes
+	Provider string `json:"provider"`
+	// +kubebuilder:validation:Required
 	// The number of master node
 	MasterNum int `json:"masterNum"`
-	// +kubebuilder:validation:Required
-	// The type of VM for master node
-	MasterType string `json:"masterType"`
 	// +kubebuilder:validation:Required
 	// The number of worker node
 	WorkerNum int `json:"workerNum"`
 	// +kubebuilder:validation:Required
-	// The type of VM for worker node
-	WorkerType string `json:"workerType"`
+	// Provider AWS spec
+	ProviderAwsSpec AwsClaimSpec `json:"ProviderAwsSpec,omitempty"`
+	// +kubebuilder:validation:Required
+	// Provider vSphere spec
+	ProviderVsphereSpec VsphereClaimSpec `json:"ProviderVsphereSpec,omitempty"`
+}
+
+type AwsClaimSpec struct {
 	// +kubebuilder:validation:Required
 	// The ssh key info to access VM
 	SshKey string `json:"sshKey"`
+	// +kubebuilder:validation:Required
+	// The region where VM is working
+	Region string `json:"region"`
+	// +kubebuilder:validation:Required
+	// The type of VM for master node
+	MasterType string `json:"masterType"`
+	// +kubebuilder:validation:Required
+	// The type of VM for worker node
+	WorkerType string `json:"workerType"`
+}
+
+type VsphereClaimSpec struct {
+	// +kubebuilder:validation:Required
+	// The internal IP address cider block for pods
+	PodCidr string `json:"podCidr,omitempty"`
+	// +kubebuilder:validation:Required
+	// The IP address of vCenter Server Application(VCSA)
+	VcenterIp string `json:"vcenterIp,omitempty"`
+	// +kubebuilder:validation:Required
+	// The user id of VCSA
+	VcenterId string `json:"vcenterId,omitempty"`
+	// +kubebuilder:validation:Required
+	// The password of VCSA
+	VcenterPassword string `json:"vcenterPassword,omitempty"`
+	// +kubebuilder:validation:Required
+	// The TLS thumbprint of machine certificate
+	VcenterThumbprint string `json:"vcenterThumbprint,omitempty"`
+	// +kubebuilder:validation:Required
+	// The name of network
+	VcenterNetwork string `json:"vcenterNetwork,omitempty"`
+	// +kubebuilder:validation:Required
+	// The name of data center
+	VcenterDataCenter string `json:"vcenterDataCenter,omitempty"`
+	// +kubebuilder:validation:Required
+	// The name of data store
+	VcenterDataStore string `json:"vcenterDataStore,omitempty"`
+	// +kubebuilder:validation:Required
+	// The name of folder
+	VcenterFolder string `json:"vcenterFolder,omitempty"`
+	// +kubebuilder:validation:Required
+	// The name of resource pool
+	VcenterResourcePool string `json:"vcenterResourcePool,omitempty"`
+	// +kubebuilder:validation:Required
+	// The IP address of control plane for remote cluster(vip)
+	VcenterKcpIp string `json:"vcenterKcpIp,omitempty"`
+	// +kubebuilder:validation:Required
+	// The number of cpus for vm
+	VcenterCpuNum int `json:"vcenterCpuNum,omitempty"`
+	// +kubebuilder:validation:Required
+	// The memory size for vm
+	VcenterMemSize int `json:"vcenterMemSize,omitempty"`
+	// +kubebuilder:validation:Required
+	// The disk size for vm
+	VcenterDiskSize int `json:"vcenterDiskSize,omitempty"`
+	// +kubebuilder:validation:Required
+	// The template name for cloud init
+	VcenterTemplate string `json:"vcenterTemplate,omitempty"`
 }
 
 // ClusterClaimStatus defines the observed state of ClusterClaim

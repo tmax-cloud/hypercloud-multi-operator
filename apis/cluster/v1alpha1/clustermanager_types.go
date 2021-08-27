@@ -41,20 +41,58 @@ type ResourceType struct {
 type ClusterManagerSpec struct {
 	// The name of cloud provider where VM is created
 	Provider string `json:"provider,omitempty"`
-	// The region where VM is working
-	Region string `json:"region,omitempty"`
 	// The version of kubernetes
 	Version string `json:"version,omitempty"`
 	// The number of master node
 	MasterNum int `json:"masterNum,omitempty"`
-	// The type of VM for master node
-	MasterType string `json:"masterType,omitempty"`
 	// The number of worker node
 	WorkerNum int `json:"workerNum,omitempty"`
-	// The type of VM for worker node
-	WorkerType string `json:"workerType,omitempty"`
+}
+
+// ProviderAwsSpec defines
+type ProviderAwsSpec struct {
+	// The region where VM is working
+	Region string `json:"region,omitempty"`
 	// The ssh key info to access VM
 	SshKey string `json:"sshKey,omitempty"`
+	// The type of VM for master node
+	MasterType string `json:"masterType,omitempty"`
+	// The type of VM for worker node
+	WorkerType string `json:"workerType,omitempty"`
+}
+
+// ProviderVsphereSpec defines
+type ProviderVsphereSpec struct {
+	// The internal IP address cider block for pods
+	PodCidr string `json:"podCidr,omitempty"`
+	// The IP address of vCenter Server Application(VCSA)
+	VcenterIp string `json:"vcenterIp,omitempty"`
+	// The user id of VCSA
+	VcenterId string `json:"vcenterId,omitempty"`
+	// The password of VCSA
+	VcenterPassword string `json:"vcenterPassword,omitempty"`
+	// The TLS thumbprint of machine certificate
+	VcenterThumbprint string `json:"vcenterThumbprint,omitempty"`
+	// The name of network
+	VcenterNetwork string `json:"vcenterNetwork,omitempty"`
+	// The name of data center
+	VcenterDataCenter string `json:"vcenterDataCenter,omitempty"`
+	// The name of data store
+	VcenterDataStore string `json:"vcenterDataStore,omitempty"`
+	// The name of folder
+	VcenterFolder string `json:"vcenterFolder,omitempty"`
+	// The name of resource pool
+	VcenterResourcePool string `json:"vcenterResourcePool,omitempty"`
+	// The IP address of control plane for remote cluster(vip)
+	VcenterKcpIp string `json:"vcenterKcpIp,omitempty"`
+	// The number of cpus for vm
+	VcenterCpuNum int `json:"vcenterCpuNum,omitempty"`
+	// The memory size for vm
+	VcenterMemSize int `json:"vcenterMemSize,omitempty"`
+	// The disk size for vm
+	VcenterDiskSize int `json:"vcenterDiskSize,omitempty"`
+	// The template name for cloud init
+	VcenterTemplate string `json:"vcenterTemplate,omitempty"`
 }
 
 // ClusterManagerStatus defines the observed state of ClusterManager
@@ -126,8 +164,10 @@ type ClusterManager struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec   ClusterManagerSpec   `json:"spec,omitempty"`
-	Status ClusterManagerStatus `json:"status,omitempty"`
+	Spec        ClusterManagerSpec   `json:"spec,omitempty"`
+	AwsSpec     ProviderAwsSpec      `json:"awsSpec,omitempty"`
+	VsphereSpec ProviderVsphereSpec  `json:"vsphereSpec,omitempty"`
+	Status      ClusterManagerStatus `json:"status,omitempty"`
 }
 
 // +kubebuilder:object:root=true

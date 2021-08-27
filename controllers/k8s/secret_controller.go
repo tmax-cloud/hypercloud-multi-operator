@@ -26,7 +26,6 @@ import (
 	rbacv1 "k8s.io/api/rbac/v1"
 	kerrors "k8s.io/apimachinery/pkg/util/errors"
 
-	// "github.com/tmax-cloud/hypercloud-multi-operator/controllers/util"
 	"github.com/tmax-cloud/hypercloud-multi-operator/controllers/util"
 	constant "github.com/tmax-cloud/hypercloud-multi-operator/controllers/util"
 	corev1 "k8s.io/api/core/v1"

@@ -76,17 +76,41 @@ const (
 	requeueAfter120Sec          = 120 * time.Second
 )
 
-type ClusterParameter struct {
+type AwsParameter struct {
 	Namespace         string
 	ClusterName       string
-	AWSRegion         string
-	SshKey            string
 	MasterNum         int
-	MasterType        string
 	WorkerNum         int
-	WorkerType        string
 	Owner             string
 	KubernetesVersion string
+	SshKey            string
+	Region            string
+	MasterType        string
+	WorkerType        string
+}
+
+type VsphereParameter struct {
+	Namespace           string
+	ClusterName         string
+	MasterNum           int
+	WorkerNum           int
+	Owner               string
+	KubernetesVersion   string
+	PodCidr             string
+	VcenterIp           string
+	VcenterId           string
+	VcenterPassword     string
+	VcenterThumbprint   string
+	VcenterNetwork      string
+	VcenterDataCenter   string
+	VcenterDataStore    string
+	VcenterFolder       string
+	VcenterResourcePool string
+	VcenterKcpIp        string
+	VcenterCpuNum       int
+	VcenterMemSize      int
+	VcenterDiskSize     int
+	VcenterTemplate     string
 }
 
 // ClusterManagerReconciler reconciles a ClusterManager object
@@ -205,7 +229,6 @@ func (r *ClusterManagerReconciler) UpdateClusterManagerStatus(ctx context.Contex
 			return ctrl.Result{}, err
 		}
 	}
-
 
 	remoteClientset, err := util.GetRemoteK8sClient(kubeconfigSecret)
 	if err != nil {
@@ -778,25 +801,68 @@ func (r *ClusterManagerReconciler) CreateServiceInstance(ctx context.Context, cl
 	serviceInstanceKey := types.NamespacedName{Name: clusterManager.Name, Namespace: clusterManager.Namespace}
 	if err := r.Get(context.TODO(), serviceInstanceKey, serviceInstance); err != nil {
 		if errors.IsNotFound(err) {
-			clusterParameter := ClusterParameter{
-				Namespace:         clusterManager.Namespace,
-				ClusterName:       clusterManager.Name,
-				AWSRegion:         clusterManager.Spec.Region,
-				SshKey:            clusterManager.Spec.SshKey,
-				MasterNum:         clusterManager.Spec.MasterNum,
-				MasterType:        clusterManager.Spec.MasterType,
-				WorkerNum:         clusterManager.Spec.WorkerNum,
-				WorkerType:        clusterManager.Spec.WorkerType,
-				Owner:             clusterManager.Annotations["owner"],
-				KubernetesVersion: clusterManager.Spec.Version,
+			var byte []byte
+			var ClusterServiceClassExternalName, ClusterServicePlanExternalName string
+			switch strings.ToUpper(clusterManager.Spec.Provider) {
+			case "AWS":
+				AwsParameter := AwsParameter{
+					Namespace:         clusterManager.Namespace,
+					ClusterName:       clusterManager.Name,
+					Owner:             clusterManager.Annotations["owner"],
+					KubernetesVersion: clusterManager.Spec.Version,
+					MasterNum:         clusterManager.Spec.MasterNum,
+					WorkerNum:         clusterManager.Spec.WorkerNum,
+					SshKey:            clusterManager.AwsSpec.SshKey,
+					Region:            clusterManager.AwsSpec.Region,
+					MasterType:        clusterManager.AwsSpec.MasterType,
+					WorkerType:        clusterManager.AwsSpec.WorkerType,
+				}
+
+				byte, err = json.Marshal(&AwsParameter)
+				if err != nil {
+					log.Error(err, "Failed to marshal cluster parameters")
+					return ctrl.Result{}, err
+				}
+
+				ClusterServiceClassExternalName = "capi-aws-template"
+				ClusterServicePlanExternalName = "capi-aws-template-plan-default"
+
+			case "VSPHERE":
+				VsphereParameter := VsphereParameter{
+					Namespace:           clusterManager.Namespace,
+					ClusterName:         clusterManager.Name,
+					Owner:               clusterManager.Annotations["owner"],
+					KubernetesVersion:   clusterManager.Spec.Version,
+					MasterNum:           clusterManager.Spec.MasterNum,
+					WorkerNum:           clusterManager.Spec.WorkerNum,
+					PodCidr:             clusterManager.VsphereSpec.PodCidr,
+					VcenterIp:           clusterManager.VsphereSpec.VcenterIp,
+					VcenterId:           clusterManager.VsphereSpec.VcenterId,
+					VcenterPassword:     clusterManager.VsphereSpec.VcenterPassword,
+					VcenterThumbprint:   clusterManager.VsphereSpec.VcenterThumbprint,
+					VcenterNetwork:      clusterManager.VsphereSpec.VcenterNetwork,
+					VcenterDataCenter:   clusterManager.VsphereSpec.VcenterDataCenter,
+					VcenterDataStore:    clusterManager.VsphereSpec.VcenterDataStore,
+					VcenterFolder:       clusterManager.VsphereSpec.VcenterFolder,
+					VcenterResourcePool: clusterManager.VsphereSpec.VcenterResourcePool,
+					VcenterKcpIp:        clusterManager.VsphereSpec.VcenterKcpIp,
+					VcenterCpuNum:       clusterManager.VsphereSpec.VcenterCpuNum,
+					VcenterMemSize:      clusterManager.VsphereSpec.VcenterMemSize,
+					VcenterDiskSize:     clusterManager.VsphereSpec.VcenterDiskSize,
+					VcenterTemplate:     clusterManager.VsphereSpec.VcenterTemplate,
+				}
+
+				byte, err = json.Marshal(&VsphereParameter)
+				if err != nil {
+					log.Error(err, "Failed to marshal cluster parameters")
+					return ctrl.Result{}, err
+				}
+
+				ClusterServiceClassExternalName = "capi-vsphere-template"
+				ClusterServicePlanExternalName = "capi-vsphere-template-plan-default"
 			}
 
-			byte, err := json.Marshal(&clusterParameter)
-			if err != nil {
-				log.Error(err, "Failed to marshal cluster parameters")
-				return ctrl.Result{}, err
-			}
-
+			//log.Info(string(json.Unmarshal(&byte)))
 			newServiceInstance := &servicecatalogv1beta1.ServiceInstance{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      clusterManager.Name,
@@ -804,8 +870,8 @@ func (r *ClusterManagerReconciler) CreateServiceInstance(ctx context.Context, cl
 				},
 				Spec: servicecatalogv1beta1.ServiceInstanceSpec{
 					PlanReference: servicecatalogv1beta1.PlanReference{
-						ClusterServiceClassExternalName: "capi-aws-template",
-						ClusterServicePlanExternalName:  "capi-aws-template-plan-default",
+						ClusterServiceClassExternalName: ClusterServiceClassExternalName,
+						ClusterServicePlanExternalName:  ClusterServicePlanExternalName,
 					},
 					Parameters: &runtime.RawExtension{
 						Raw: byte,
@@ -935,7 +1001,12 @@ func (r *ClusterManagerReconciler) requeueClusterManagersForKubeadmControlPlane(
 
 	//get ClusterManager
 	clm := &clusterv1alpha1.ClusterManager{}
-	key := types.NamespacedName{Namespace: cp.Namespace, Name: cp.Name[0 : len(cp.Name)-len("-control-plane")]}
+	CpName := cp.Name
+	pivot := strings.Index(cp.Name, "-control-plane")
+	if pivot != -1 {
+		CpName = cp.Name[0:pivot]
+	}
+	key := types.NamespacedName{Namespace: cp.Namespace, Name: CpName}
 	if err := r.Get(context.TODO(), key, clm); err != nil {
 		if errors.IsNotFound(err) {
 			log.Info("ClusterManager resource not found. Ignoring since object must be deleted.")

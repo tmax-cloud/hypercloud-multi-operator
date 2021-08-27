@@ -18,6 +18,8 @@ package controllers
 
 import (
 	"context"
+	b64 "encoding/base64"
+	"strings"
 
 	"github.com/go-logr/logr"
 	clusterv1alpha1 "github.com/tmax-cloud/hypercloud-multi-operator/apis/cluster/v1alpha1"
@@ -232,7 +234,8 @@ func (r *ClusterRegistrationReconciler) CreateClusterManager(ctx context.Context
 					Name:      ClusterRegistration.Spec.ClusterName,
 					Namespace: ClusterRegistration.Namespace,
 					Annotations: map[string]string{
-						"owner": ClusterRegistration.Annotations["creator"],
+						"owner":   ClusterRegistration.Annotations["creator"],
+						"creator": ClusterRegistration.Annotations["creator"],
 					},
 					Labels: map[string]string{
 						util.ClusterTypeKey: util.ClusterTypeRegistered,
