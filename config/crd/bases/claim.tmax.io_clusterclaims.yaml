@@ -105,7 +105,7 @@ spec:
                 vcenterNetwork:
                   description: The name of network
                   type: string
-                vcenterPwd:
+                vcenterPassword:
                   description: The password of VCSA
                   type: string
                 vcenterResourcePool:

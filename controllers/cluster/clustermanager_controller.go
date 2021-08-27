@@ -852,9 +852,6 @@ func (r *ClusterManagerReconciler) CreateServiceInstance(ctx context.Context, cl
 					VcenterTemplate:     clusterManager.VsphereSpec.VcenterTemplate,
 				}
 
-				log.Info("***********************************VcenterId: " + VsphereParameter.VcenterId + "**********************************************")
-				log.Info("***********************************clm.VcenterTemplate: " + clusterManager.VsphereSpec.VcenterTemplate + "**********************************************")
-				log.Info("***********************************VcenterTemplate: " + VsphereParameter.VcenterTemplate + "**********************************************")
 				byte, err = json.Marshal(&VsphereParameter)
 				if err != nil {
 					log.Error(err, "Failed to marshal cluster parameters")
