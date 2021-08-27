@@ -465,6 +465,7 @@ spec:
             kubeConfig:
               description: Foo is an example field of ClusterRegistration. Edit ClusterRegistration_types.go
                 to remove/update
+              format: data-url
               type: string
           required:
           - clusterName
