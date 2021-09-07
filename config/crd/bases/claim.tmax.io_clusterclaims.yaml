@@ -63,11 +63,6 @@ spec:
                 workerType:
                   description: The type of VM for worker node
                   type: string
-              required:
-              - masterType
-              - region
-              - sshKey
-              - workerType
               type: object
             ProviderVsphereSpec:
               description: Provider vSphere spec
