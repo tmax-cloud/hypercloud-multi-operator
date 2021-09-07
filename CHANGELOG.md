@@ -1,6 +1,26 @@
 # HyperCloud-Multi-Operator changelog!!
 All notable changes to this project will be documented in this file.
 
+<!-------------------- v5.0.25.1 start -------------------->
+
+## HyperCloud-Multi-Operator_5.0.25.1 (2021. 09. 07. (화) 13:25:15 KST)
+
+### Added
+
+### Changed
+
+### Fixed
+  - [ims][269425] vsphere cluster claim bug fix by soohwan kim
+  - [ims][268314] kubeconfig file업로드를 위한 clusterregistration.spec.kubeconfig.format: data-url 추가 by soohwan kim
+
+### CRD yaml
+
+### Etc
+  - [etc] push.sh script update, crd update by soohwan kim
+  - [etc] spec.kubeconfig.format: data-url 추가 by GitHub
+
+<!--------------------- v5.0.25.1 end --------------------->
+
 <!-------------------- v5.0.25.0 start -------------------->
 
 ## HyperCloud-Multi-Operator_5.0.25.0 (2021. 08. 27. (금) 18:55:57 KST)
