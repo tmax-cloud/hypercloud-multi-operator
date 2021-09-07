@@ -1,6 +1,33 @@
 # HyperCloud-Multi-Operator changelog!!
 All notable changes to this project will be documented in this file.
 
+<!-------------------- v5.0.25.0 start -------------------->
+
+## HyperCloud-Multi-Operator_5.0.25.0 (2021. 08. 27. (금) 18:55:57 KST)
+
+### Added
+  - [Feat] Cluster Claim Spec하위절 구조 변경 by soohwan kim
+  - [feat] vsphere cluster claim기능 추가 by soohwan kim
+
+### Changed
+  - [Mod] cluster claim, cluster manager 일부스펙 수정 by soohwan kim
+
+### Fixed
+  - [ims][268314] 클러스터 등록시 base64인코딩된 kubeconfig파일을 받아서 secret생성 하도록 로직 수정 by soohwan kim
+
+### CRD yaml
+
+### Etc
+  - [etc] 테스트 레포 태그 제거 by soohwan kim
+  - [etc] commit_rule.md 추가 by soohwan kim
+  - [Etc] capi template file추가 by soohwan kim
+  - [Etc] cluster claim property name 에러 수정, 불필요한 로깅 제거 by soohwan kim
+  - [Etc] 스펙명 오타 수정 by soohwan kim
+  - [etc] cluster manager spec에 provider 복구 by soohwan kim
+  - [Etc] 코드 indenent mismatch 수정, Makefile 주석 수정 by soohwan kim
+
+<!--------------------- v5.0.25.0 end --------------------->
+
 <!-------------------- v5.0.24.0 start -------------------->
 
 ## HyperCloud-Multi-Operator_5.0.24.0 (2021. 08. 19. (목) 17:02:50 KST)
