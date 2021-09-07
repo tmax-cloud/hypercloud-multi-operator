@@ -21,9 +21,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
-// NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
-
 // type NodeInfo struct {
 // 	Name      string         `json:"name,omitempty"`
 // 	Ip        string         `json:"ip,omitempty"`
@@ -39,12 +36,16 @@ type ResourceType struct {
 
 // ClusterManagerSpec defines the desired state of ClusterManager
 type ClusterManagerSpec struct {
+	// +kubebuilder:validation:Required
 	// The name of cloud provider where VM is created
 	Provider string `json:"provider,omitempty"`
+	// +kubebuilder:validation:Required
 	// The version of kubernetes
 	Version string `json:"version,omitempty"`
+	// +kubebuilder:validation:Required
 	// The number of master node
 	MasterNum int `json:"masterNum,omitempty"`
+	// +kubebuilder:validation:Required
 	// The number of worker node
 	WorkerNum int `json:"workerNum,omitempty"`
 }
@@ -158,7 +159,6 @@ func (c *ClusterManagerStatus) SetTypedPhase(p ClusterManagerPhase) {
 // +kubebuilder:printcolumn:name="WorkerNum",type="string",JSONPath=".spec.workerNum",description="replica number of worker"
 // +kubebuilder:printcolumn:name="WorkerRun",type="string",JSONPath=".status.workerRun",description="running of worker"
 // +kubebuilder:printcolumn:name="Phase",type="string",JSONPath=".status.phase",description="cluster status phase"
-
 // ClusterManager is the Schema for the clustermanagers API
 type ClusterManager struct {
 	metav1.TypeMeta   `json:",inline"`
@@ -171,7 +171,6 @@ type ClusterManager struct {
 }
 
 // +kubebuilder:object:root=true
-
 // ClusterManagerList contains a list of ClusterManager
 type ClusterManagerList struct {
 	metav1.TypeMeta `json:",inline"`

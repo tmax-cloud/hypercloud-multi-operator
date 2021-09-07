@@ -256,6 +256,10 @@ func (r *ClusterManagerReconciler) UpdateClusterManagerStatus(ctx context.Contex
 		return ctrl.Result{}, err
 	}
 
+	// var machineList *clusterv1.machineList
+	// if machineList, err =
+	// todo - shkim
+	// node list가 아닌 machine list를 불러서 ready체크를 해야 확실하지 않을까?
 	clusterManager.Spec.MasterNum = 0
 	clusterManager.Status.MasterRun = 0
 	clusterManager.Spec.WorkerNum = 0
@@ -485,13 +489,25 @@ func (r *ClusterManagerReconciler) DeployAndUpdateAgentEndpoint(ctx context.Cont
 				return ctrl.Result{}, err
 			}
 		} else {
-			if len(agentIngress.Status.LoadBalancer.Ingress) != 0 && agentIngress.Status.LoadBalancer.Ingress[0].Hostname != "" {
-				clusterManager.Status.AgentEndpoint = agentIngress.Status.LoadBalancer.Ingress[0].Hostname
+			if len(agentIngress.Status.LoadBalancer.Ingress) == 0 {
+				log.Info("Failed to get agent ingress address: \"agentIngress.Status.LoadBalancer.Ingress\" is not exist. requeue 60 sec")
+				return ctrl.Result{RequeueAfter: requeueAfter60Sec}, nil
+			}
+
+			switch strings.ToUpper(clusterManager.Spec.Provider) {
+			case "AWS":
+				if agentIngress.Status.LoadBalancer.Ingress[0].Hostname != "" {
+					clusterManager.Status.AgentEndpoint = agentIngress.Status.LoadBalancer.Ingress[0].Hostname
+					clusterManager.Status.AgentReady = true
+					clusterManager.Status.Ready = true
+				} else {
+					log.Info("Failed to get agent ingress address: \"agentIngress.Status.LoadBalancer.Ingress[0].Hostname\" is empty string. requeue 60 sec")
+					return ctrl.Result{RequeueAfter: requeueAfter60Sec}, nil
+				}
+			case "VSPHERE":
+				clusterManager.Status.AgentEndpoint = clusterManager.VsphereSpec.VcenterKcpIp + ":30080"
 				clusterManager.Status.AgentReady = true
 				clusterManager.Status.Ready = true
-			} else {
-				log.Info("Failed to get agent ingress address.. [ " + agentIngress.Status.LoadBalancer.Ingress[0].Hostname + "] requeue 60 sec")
-				return ctrl.Result{RequeueAfter: requeueAfter60Sec}, nil
 			}
 		}
 	}

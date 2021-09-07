@@ -49,64 +49,45 @@ type ClusterClaimSpec struct {
 }
 
 type AwsClaimSpec struct {
-	// +kubebuilder:validation:Required
 	// The ssh key info to access VM
-	SshKey string `json:"sshKey"`
-	// +kubebuilder:validation:Required
+	SshKey string `json:"sshKey,omitempty"`
 	// The region where VM is working
-	Region string `json:"region"`
-	// +kubebuilder:validation:Required
+	Region string `json:"region,omitempty"`
 	// The type of VM for master node
-	MasterType string `json:"masterType"`
-	// +kubebuilder:validation:Required
+	MasterType string `json:"masterType,omitempty"`
 	// The type of VM for worker node
-	WorkerType string `json:"workerType"`
+	WorkerType string `json:"workerType,omitempty"`
 }
 
 type VsphereClaimSpec struct {
-	// +kubebuilder:validation:Required
 	// The internal IP address cider block for pods
 	PodCidr string `json:"podCidr,omitempty"`
-	// +kubebuilder:validation:Required
 	// The IP address of vCenter Server Application(VCSA)
 	VcenterIp string `json:"vcenterIp,omitempty"`
-	// +kubebuilder:validation:Required
 	// The user id of VCSA
 	VcenterId string `json:"vcenterId,omitempty"`
-	// +kubebuilder:validation:Required
 	// The password of VCSA
 	VcenterPassword string `json:"vcenterPassword,omitempty"`
-	// +kubebuilder:validation:Required
 	// The TLS thumbprint of machine certificate
 	VcenterThumbprint string `json:"vcenterThumbprint,omitempty"`
-	// +kubebuilder:validation:Required
 	// The name of network
 	VcenterNetwork string `json:"vcenterNetwork,omitempty"`
-	// +kubebuilder:validation:Required
 	// The name of data center
 	VcenterDataCenter string `json:"vcenterDataCenter,omitempty"`
-	// +kubebuilder:validation:Required
 	// The name of data store
 	VcenterDataStore string `json:"vcenterDataStore,omitempty"`
-	// +kubebuilder:validation:Required
 	// The name of folder
 	VcenterFolder string `json:"vcenterFolder,omitempty"`
-	// +kubebuilder:validation:Required
 	// The name of resource pool
 	VcenterResourcePool string `json:"vcenterResourcePool,omitempty"`
-	// +kubebuilder:validation:Required
 	// The IP address of control plane for remote cluster(vip)
 	VcenterKcpIp string `json:"vcenterKcpIp,omitempty"`
-	// +kubebuilder:validation:Required
 	// The number of cpus for vm
 	VcenterCpuNum int `json:"vcenterCpuNum,omitempty"`
-	// +kubebuilder:validation:Required
 	// The memory size for vm
 	VcenterMemSize int `json:"vcenterMemSize,omitempty"`
-	// +kubebuilder:validation:Required
 	// The disk size for vm
 	VcenterDiskSize int `json:"vcenterDiskSize,omitempty"`
-	// +kubebuilder:validation:Required
 	// The template name for cloud init
 	VcenterTemplate string `json:"vcenterTemplate,omitempty"`
 }

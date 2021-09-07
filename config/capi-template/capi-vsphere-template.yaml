@@ -38,7 +38,7 @@ objects:
     controlPlaneRef:
       apiVersion: controlplane.cluster.x-k8s.io/v1alpha3
       kind: KubeadmControlPlane
-      name: '${ClusterName}'
+      name: '${ClusterName}-control-plane'
     infrastructureRef:
       apiVersion: infrastructure.cluster.x-k8s.io/v1alpha3
       kind: VSphereCluster
@@ -100,7 +100,7 @@ objects:
 - apiVersion: controlplane.cluster.x-k8s.io/v1alpha3
   kind: KubeadmControlPlane
   metadata:
-    name: '${ClusterName}'
+    name: '${ClusterName}-control-plane'
     namespace: '${Namespace}'
   spec:
     infrastructureTemplate:
@@ -210,7 +210,7 @@ objects:
       - cp /etc/kubernetes/admin.conf $HOME/.kube/config
       - chown $UESR:$USER $HOME/.kube/config
       - kubectl apply -f https://docs.projectcalico.org/manifests/calico.yaml
-      - kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/controller-v0.41.0/deploy/static/provider/aws/deploy.yaml
+      - kubectl apply -f https://github.com/tmax-cloud/capi-template-ingress/releases/download/v0.41.0/ingress-nodeport.yaml
       useExperimentalRetryJoin: true
       users:
       - name: root
@@ -285,23 +285,23 @@ objects:
         cluster.x-k8s.io/cluster-name: '${ClusterName}'
     resources:
     - kind: Secret
-      name: vsphere-csi-controller
+      name: ${ClusterName}-vsphere-csi-controller
     - kind: ConfigMap
-      name: vsphere-csi-controller-role
+      name: ${ClusterName}-vsphere-csi-controller-role
     - kind: ConfigMap
-      name: vsphere-csi-controller-binding
+      name: ${ClusterName}-vsphere-csi-controller-binding
     - kind: Secret
-      name: csi-vsphere-config
+      name: ${ClusterName}-csi-vsphere-config
     - kind: ConfigMap
-      name: csi.vsphere.vmware.com
+      name: ${ClusterName}-csi.vsphere.vmware.com
     - kind: ConfigMap
-      name: vsphere-csi-node
+      name: ${ClusterName}-vsphere-csi-node
     - kind: ConfigMap
-      name: vsphere-csi-controller
+      name: ${ClusterName}-vsphere-csi-controller
 - apiVersion: v1
   kind: Secret
   metadata:
-    name: vsphere-csi-controller
+    name: ${ClusterName}-vsphere-csi-controller
     namespace: '${Namespace}'
   stringData:
     data: |
@@ -420,7 +420,7 @@ objects:
         - list
   kind: ConfigMap
   metadata:
-    name: vsphere-csi-controller-role
+    name: ${ClusterName}-vsphere-csi-controller-role
     namespace: '${Namespace}'
 - apiVersion: v1
   data:
@@ -439,12 +439,12 @@ objects:
         namespace: kube-system
   kind: ConfigMap
   metadata:
-    name: vsphere-csi-controller-binding
+    name: ${ClusterName}-vsphere-csi-controller-binding
     namespace: '${Namespace}'
 - apiVersion: v1
   kind: Secret
   metadata:
-    name: csi-vsphere-config
+    name: ${ClusterName}-csi-vsphere-config
     namespace: '${Namespace}'
   stringData:
     data: |
@@ -480,7 +480,7 @@ objects:
         attachRequired: true
   kind: ConfigMap
   metadata:
-    name: csi.vsphere.vmware.com
+    name: ${ClusterName}-csi.vsphere.vmware.com
     namespace: '${Namespace}'
 - apiVersion: v1
   data:
@@ -612,7 +612,7 @@ objects:
           type: RollingUpdate
   kind: ConfigMap
   metadata:
-    name: vsphere-csi-node
+    name: ${ClusterName}-vsphere-csi-node
     namespace: '${Namespace}'
 - apiVersion: v1
   data:
@@ -736,7 +736,7 @@ objects:
               name: socket-dir
   kind: ConfigMap
   metadata:
-    name: vsphere-csi-controller
+    name: ${ClusterName}-vsphere-csi-controller
     namespace: '${Namespace}'
 - apiVersion: v1
   data:
@@ -750,7 +750,7 @@ objects:
         namespace: kube-system
   kind: ConfigMap
   metadata:
-    name: internal-feature-states.csi.vsphere.vmware.com
+    name: ${ClusterName}-internal-feature-states.csi.vsphere.vmware.com
     namespace: '${Namespace}'
 parameters:
 - description: namespace
