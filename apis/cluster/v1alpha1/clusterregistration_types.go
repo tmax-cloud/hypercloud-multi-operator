@@ -21,24 +21,20 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
-// NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
-
 // ClusterRegistrationSpec defines the desired state of ClusterRegistration
 type ClusterRegistrationSpec struct {
-	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
-	// The name of the cluster to be created
+	// +kubebuilder:validation:Required
+	// The name of the cluster to be registered
 	ClusterName string `json:"clusterName"`
-	// Foo is an example field of ClusterRegistration. Edit ClusterRegistration_types.go to remove/update
-	KubeConfig string `json:"kubeConfig,omitempty"`
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:Format:="data-url"
+	// The kubeconfig file of the cluster to be registered
+	KubeConfig string `json:"kubeConfig"`
 	// WithPrometheus string `json:"withPrometheus,omitempty"`
 }
 
 // ClusterRegistrationStatus defines the observed state of ClusterRegistration
 type ClusterRegistrationStatus struct {
-	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
 	Provider  string                  `json:"provider,omitempty"`
 	Version   string                  `json:"version,omitempty"`
 	Ready     bool                    `json:"ready,omitempty"`
@@ -90,7 +86,6 @@ func (c *ClusterRegistrationStatus) SetTypedPhase(p ClusterRegistrationPhase) {
 // +kubebuilder:resource:path=clusterregistrations,scope=Namespaced,shortName=clr
 // +kubebuilder:printcolumn:name="Phase",type="string",JSONPath=".status.phase",description="cluster status phase"
 // +kubebuilder:printcolumn:name="Reason",type="string",JSONPath=".status.reason",description="cluster status phase"
-
 // ClusterRegistration is the Schema for the clusterregistrations API
 type ClusterRegistration struct {
 	metav1.TypeMeta   `json:",inline"`
@@ -101,7 +96,6 @@ type ClusterRegistration struct {
 }
 
 // +kubebuilder:object:root=true
-
 // ClusterRegistrationList contains a list of ClusterRegistration
 type ClusterRegistrationList struct {
 	metav1.TypeMeta `json:",inline"`
