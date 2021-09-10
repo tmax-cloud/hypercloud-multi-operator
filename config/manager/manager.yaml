@@ -20,6 +20,9 @@ spec:
         - /manager
         args:
         - --enable-leader-election
+        env:
+        - name: TZ
+          value: Asia/Seoul
         image: controller:latest
         name: manager
         resources:
