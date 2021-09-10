@@ -5,7 +5,7 @@ ckmaster="192.168.9.194"
 testdir="/root/shkim"
 repo="$(pwd | tr "/" " " | awk '{print $NF}')"
 branch="$(git symbolic-ref --short -q HEAD)"
-latest=1
+latest=0
 for tag in $(curl -X GET http://"$registry"/v2/"$repo"-"$branch"/tags/list 2>/dev/null | jq '.tags[]' | sed 's/\"//g' | sed 's/v//g' | sed 's/.0//g')
 do
     if [ "$latest" -lt "$tag" ]; then
