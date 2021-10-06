@@ -49,6 +49,8 @@ type ClusterRegistrationStatus struct {
 
 type ClusterRegistrationPhase string
 
+type ClusterRegistrationReason string
+
 const (
 	// ClusterRegistrationPhasePending is the first state a Cluster is assigned by
 	// Cluster API Cluster controller after being created.
@@ -75,23 +77,43 @@ const (
 
 	// ClusterRegistrationPhaseUnknown is returned if the Cluster state cannot be determined.
 	ClusterRegistrationPhaseUnknown = ClusterRegistrationPhase("Unknown")
+
+	// ClusterRegistrationPhaseValidating
+	ClusterRegistrationPhaseValidating = ClusterRegistrationPhase("Validating")
+
+	// ClusterRegistrationPhaseValidated
+	ClusterRegistrationPhaseValidated = ClusterRegistrationPhase("Validated")
+
+	// ClusterRegistrationReasonClusterNotFound is returned if the Cluster not found
+	ClusterRegistrationReasonClusterNotFound = ClusterRegistrationReason("ClusterNotFound")
+
+	// ClusterRegistrationReasonClusterNotFound is returned if the Input Kubeconfig is invalid
+	ClusterRegistrationReasonInvalidKubeconfig = ClusterRegistrationReason("InvalidKubeconfig")
+
+	// ClusterRegistrationReasonClusterNameDuplicated is returned if the cluster name is duplicated
+	ClusterRegistrationReasonClusterNameDuplicated = ClusterRegistrationReason("ClusterNameDuplicated")
 )
 
 func (c *ClusterRegistrationStatus) SetTypedPhase(p ClusterRegistrationPhase) {
 	c.Phase = string(p)
 }
 
+func (c *ClusterRegistrationStatus) SetTypedReason(p ClusterRegistrationReason) {
+	c.Reason = string(p)
+}
+
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:path=clusterregistrations,scope=Namespaced,shortName=clr
 // +kubebuilder:printcolumn:name="Phase",type="string",JSONPath=".status.phase",description="cluster status phase"
-// +kubebuilder:printcolumn:name="Reason",type="string",JSONPath=".status.reason",description="cluster status phase"
+// +kubebuilder:printcolumn:name="Reason",type="string",JSONPath=".status.reason",description="cluster status reason"
+// +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
 // ClusterRegistration is the Schema for the clusterregistrations API
 type ClusterRegistration struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec   ClusterRegistrationSpec   `json:"spec,omitempty"`
+	Spec   ClusterRegistrationSpec   `json:"spec"`
 	Status ClusterRegistrationStatus `json:"status,omitempty"`
 }
 

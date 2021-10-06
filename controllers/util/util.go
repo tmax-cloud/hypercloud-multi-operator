@@ -45,7 +45,6 @@ func Goid() int {
 }
 
 func GetRemoteK8sClient(secret *corev1.Secret) (*kubernetes.Clientset, error) {
-
 	var remoteClientset *kubernetes.Clientset
 	if value, ok := secret.Data["value"]; ok {
 		remoteClientConfig, err := clientcmd.NewClientConfigFromBytes(value)
@@ -54,18 +53,35 @@ func GetRemoteK8sClient(secret *corev1.Secret) (*kubernetes.Clientset, error) {
 		}
 		remoteRestConfig, err := remoteClientConfig.ClientConfig()
 		if err != nil {
-
 			return nil, err
 		}
 		remoteClientset, err = kubernetes.NewForConfig(remoteRestConfig)
 		if err != nil {
-
 			return nil, err
 		}
 	} else {
 		err := errors.NewBadRequest("secret does not have a value")
 		return nil, err
 	}
+	return remoteClientset, nil
+}
+
+func GetRemoteK8sClientByKubeConfig(kubeConfig []byte) (*kubernetes.Clientset, error) {
+	var remoteClientset *kubernetes.Clientset
+
+	remoteClientConfig, err := clientcmd.NewClientConfigFromBytes(kubeConfig)
+	if err != nil {
+		return nil, err
+	}
+	remoteRestConfig, err := remoteClientConfig.ClientConfig()
+	if err != nil {
+		return nil, err
+	}
+	remoteClientset, err = kubernetes.NewForConfig(remoteRestConfig)
+	if err != nil {
+		return nil, err
+	}
+
 	return remoteClientset, nil
 }
 

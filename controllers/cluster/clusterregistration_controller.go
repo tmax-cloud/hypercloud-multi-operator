@@ -19,7 +19,7 @@ package controllers
 import (
 	"context"
 	b64 "encoding/base64"
-	"strings"
+	// "strconv"
 
 	"github.com/go-logr/logr"
 	clusterv1alpha1 "github.com/tmax-cloud/hypercloud-multi-operator/apis/cluster/v1alpha1"
@@ -44,8 +44,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 )
-
-var clm clusterv1alpha1.ClusterManager
 
 // ClusterRegistrationReconciler reconciles a ClusterRegistration object
 type ClusterRegistrationReconciler struct {
@@ -93,10 +91,9 @@ func (r *ClusterRegistrationReconciler) Reconcile(req ctrl.Request) (_ ctrl.Resu
 
 // reconcile handles cluster reconciliation.
 func (r *ClusterRegistrationReconciler) reconcile(ctx context.Context, ClusterRegistration *clusterv1alpha1.ClusterRegistration) (ctrl.Result, error) {
-
 	phases := []func(context.Context, *clusterv1alpha1.ClusterRegistration) (ctrl.Result, error){
-		// r.Validation, // remote 상태 확인도~?
-		r.CheckClusterNameDuplication,
+		r.CheckValidation,
+		//r.CheckClusterNameDuplication,
 		r.CreateClusterManager,
 		r.CreateKubeconfigSecret,
 	}
@@ -114,12 +111,74 @@ func (r *ClusterRegistrationReconciler) reconcile(ctx context.Context, ClusterRe
 		}
 		res = util.LowestNonZeroResult(res, phaseResult)
 	}
+
 	return res, kerrors.NewAggregate(errs)
 }
+func (r *ClusterRegistrationReconciler) CheckValidation(ctx context.Context, ClusterRegistration *clusterv1alpha1.ClusterRegistration) (ctrl.Result, error) {
+	defer func() (ctrl.Result, error) {
+		recover()
+		//log.Info("Failed to get nodes for [" + ClusterRegistration.Spec.ClusterName + "]")
+		ClusterRegistration.Status.SetTypedPhase(clusterv1alpha1.ClusterRegistrationPhaseFailed)
+		ClusterRegistration.Status.SetTypedReason(clusterv1alpha1.ClusterRegistrationReasonClusterNotFound)
+		return ctrl.Result{Requeue: false}, nil
+	}()
 
-// func (r *ClusterRegistrationReconciler) Validation(ctx context.Context, ClusterRegistration *clusterv1alpha1.ClusterRegistration) (ctrl.Result, error) {
+	log := r.Log.WithValues("ClusterRegistration", types.NamespacedName{Name: ClusterRegistration.Name, Namespace: ClusterRegistration.Namespace})
+	log.Info("Start to CheckValidation reconcile for [" + ClusterRegistration.Name + "]")
+	ClusterRegistration.Status.SetTypedPhase(clusterv1alpha1.ClusterRegistrationPhaseValidating)
+
+	// decode base64 encoded kubeconfig file
+	if encodedKubeConfig, err := b64.StdEncoding.DecodeString(ClusterRegistration.Spec.KubeConfig); err != nil {
+		log.Error(err, "Failed to decode ClusterRegistration.Spec.KubeConfig, maybe wrong kubeconfig file")
+		ClusterRegistration.Status.SetTypedPhase(clusterv1alpha1.ClusterRegistrationPhaseFailed)
+		ClusterRegistration.Status.SetTypedReason(clusterv1alpha1.ClusterRegistrationReasonInvalidKubeconfig)
+		return ctrl.Result{Requeue: false}, err
+	} else {
+		// validate remote cluster
+		log.Info("Start to CheckKubeconfigValidation reconcile for [" + ClusterRegistration.Name + "]")
+		if remoteClientset, err := util.GetRemoteK8sClientByKubeConfig(encodedKubeConfig); err != nil {
+			log.Error(err, "Failed to get client for ["+ClusterRegistration.Spec.ClusterName+"]")
+			return ctrl.Result{}, err
+		} else {
+			// todo - shkim
+			// nodelist가 아닌 api-server call검증 api는 따로 없나...?
+			if nodeList, err := remoteClientset.CoreV1().Nodes().List(context.TODO(), metav1.ListOptions{}); err != nil {
+				if len(nodeList.Items) == 0 {
+					// this may cause functinon panic
+					// go to recover()
+					log.Info("Failed to get nodes for [" + ClusterRegistration.Spec.ClusterName + "]")
+					//ClusterRegistration.Status.SetTypedPhase(clusterv1alpha1.ClusterRegistrationPhaseFailed)
+					//ClusterRegistration.Status.SetTypedReason(clusterv1alpha1.ClusterRegistrationReasonClusterNotFound)
+					//return ctrl.Result{Requeue: false}, err
+				}
+			}
+		}
+	}
+
+	// validate cluster manger duplication
+	clm := clusterv1alpha1.ClusterManager{}
+	clmKey := types.NamespacedName{Name: ClusterRegistration.Spec.ClusterName, Namespace: ClusterRegistration.Namespace}
+	if err := r.Get(context.TODO(), clmKey, &clm); err != nil {
+		if errors.IsNotFound(err) {
+			log.Info("ClusterManager [" + ClusterRegistration.Spec.ClusterName + "] does not exist. Duplication condition is passed")
+		} else {
+			log.Error(err, "Failed to get clusterManager")
+			return ctrl.Result{}, err
+		}
+	} else {
+		log.Info("ClusterManager [" + clm.Name + "] is already existed")
+		ClusterRegistration.Status.SetTypedPhase(clusterv1alpha1.ClusterRegistrationPhaseFailed)
+		ClusterRegistration.Status.SetTypedReason(clusterv1alpha1.ClusterRegistrationReasonClusterNameDuplicated)
+		return ctrl.Result{Requeue: false}, err
+	}
+
+	ClusterRegistration.Status.SetTypedPhase(clusterv1alpha1.ClusterRegistrationPhaseValidated)
+	return ctrl.Result{}, nil
+}
+
+// func (r *ClusterRegistrationReconciler) CheckClusterValidation(ctx context.Context, ClusterRegistration *clusterv1alpha1.ClusterRegistration) (ctrl.Result, error) {
 // 	log := r.Log.WithValues("ClusterRegistration", types.NamespacedName{Name: ClusterRegistration.Name, Namespace: ClusterRegistration.Namespace})
-// 	log.Info("Start to CheckKubeconfigValidation reconcile for [" + ClusterRegistration.Name + "]")
+// 	log.Info("Start to CheckClusterValidation reconcile for [" + ClusterRegistration.Name + "]")
 
 // 	// 클러스터 이름 중복 먼저 하고
 // 	clm := clusterv1alpha1.ClusterManager{}
@@ -147,62 +206,39 @@ func (r *ClusterRegistrationReconciler) reconcile(ctx context.Context, ClusterRe
 // 	return ctrl.Result{}, nil
 // }
 
-func (r *ClusterRegistrationReconciler) CheckClusterNameDuplication(ctx context.Context, ClusterRegistration *clusterv1alpha1.ClusterRegistration) (ctrl.Result, error) {
-	log := r.Log.WithValues("ClusterRegistration", types.NamespacedName{Name: ClusterRegistration.Name, Namespace: ClusterRegistration.Namespace})
-	log.Info("Start to CheckClusterNameDuplication reconcile for [" + ClusterRegistration.Name + "]")
-
-	clm := clusterv1alpha1.ClusterManager{}
-	clmKey := types.NamespacedName{Name: ClusterRegistration.Spec.ClusterName, Namespace: ClusterRegistration.Namespace}
-	if err := r.Get(context.TODO(), clmKey, &clm); err != nil {
-		if errors.IsNotFound(err) {
-			log.Info("ClusterManager [" + ClusterRegistration.Spec.ClusterName + "] does not exist. Duplication condition is passed")
-		} else {
-			log.Error(err, "Failed to get clusterManager")
-			return ctrl.Result{}, err
-		}
-	} else {
-		log.Info("ClusterManager [" + clm.Name + "] is already existed")
-		return ctrl.Result{}, err
-		// not requeue..
-	}
-	return ctrl.Result{}, nil
-}
-
 func (r *ClusterRegistrationReconciler) CreateKubeconfigSecret(ctx context.Context, ClusterRegistration *clusterv1alpha1.ClusterRegistration) (ctrl.Result, error) {
 	log := r.Log.WithValues("ClusterRegistration", types.NamespacedName{Name: ClusterRegistration.Name, Namespace: ClusterRegistration.Namespace})
+	log.Info("Wait for ClusterRegistration validation.....")
+
+	if ClusterRegistration.Status.Phase == string(clusterv1alpha1.ClusterRegistrationPhaseFailed) {
+		return ctrl.Result{}, nil
+	} else if ClusterRegistration.Status.Phase != string(clusterv1alpha1.ClusterRegistrationPhaseValidated) {
+		return ctrl.Result{Requeue: true}, nil
+	}
+
 	log.Info("Start to CreateKubeconfigSecret reconcile for [" + ClusterRegistration.Name + "]")
+
 	kubeconfigSecret := &corev1.Secret{}
 	kubeconfigSecretKey := types.NamespacedName{Name: ClusterRegistration.Spec.ClusterName + "-kubeconfig", Namespace: ClusterRegistration.Namespace}
 	if err := r.Get(context.TODO(), kubeconfigSecretKey, kubeconfigSecret); err != nil {
 		if errors.IsNotFound(err) {
 			log.Info("Cannot found kubeconfigSecret, starting to create kubeconfigSecret for [" + ClusterRegistration.Name + "-kubeconfig" + "]")
-
-			// Added by shkim at 21.08.20
-			// Last modified by shkim at 21.08.20
-			// extract base64 string before decode
-			pivot := strings.Index(ClusterRegistration.Spec.KubeConfig, "YXBpVmVyc")
-			if pivot == -1 {
-				log.Info("Cannot parse ClusterRegistration.Spec.KubeConfig, target string \"YXBpVmVyc\"(base64 encoded string for \"apiVersion\") isn't exist")
-				pivot = 0
-			}
-			// decode base64 encoded kubeconfig file
-			var encodedKubeConfig []byte
-			if encodedKubeConfig, err = b64.StdEncoding.DecodeString(ClusterRegistration.Spec.KubeConfig[pivot:]); err != nil {
+			if encodedKubeConfig, err := b64.StdEncoding.DecodeString(ClusterRegistration.Spec.KubeConfig); err != nil {
 				log.Error(err, "Failed to decode ClusterRegistration.Spec.KubeConfig, maybe wrong kubeconfig file")
 				return ctrl.Result{}, err
-			}
-
-			kubeconfigSecret = &corev1.Secret{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      ClusterRegistration.Spec.ClusterName + "-kubeconfig",
-					Namespace: ClusterRegistration.Namespace,
-					Finalizers: []string{
-						util.SecretFinalizer,
+			} else {
+				kubeconfigSecret = &corev1.Secret{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      ClusterRegistration.Spec.ClusterName + "-kubeconfig",
+						Namespace: ClusterRegistration.Namespace,
+						Finalizers: []string{
+							util.SecretFinalizer,
+						},
 					},
-				},
-				StringData: map[string]string{
-					"value": string(encodedKubeConfig),
-				},
+					StringData: map[string]string{
+						"value": string(encodedKubeConfig),
+					},
+				}
 			}
 
 			if err = r.Create(context.TODO(), kubeconfigSecret); err != nil {
@@ -215,7 +251,8 @@ func (r *ClusterRegistrationReconciler) CreateKubeconfigSecret(ctx context.Conte
 		}
 	} else {
 		log.Info("Kubeconfig secret is already exist")
-		return ctrl.Result{}, nil
+		// 왜 시크릿이 이미 존재하지...? 케이스 정리부터 필요한거같기도
+		// 이미 존재하는 경우에는 어떻게 처리할까...?
 	}
 
 	return ctrl.Result{}, nil
@@ -223,8 +260,16 @@ func (r *ClusterRegistrationReconciler) CreateKubeconfigSecret(ctx context.Conte
 
 func (r *ClusterRegistrationReconciler) CreateClusterManager(ctx context.Context, ClusterRegistration *clusterv1alpha1.ClusterRegistration) (ctrl.Result, error) {
 	log := r.Log.WithValues("ClusterRegistration", types.NamespacedName{Name: ClusterRegistration.Name, Namespace: ClusterRegistration.Namespace})
+	log.Info("Wait for ClusterRegistration validation.....")
+
+	if ClusterRegistration.Status.Phase == string(clusterv1alpha1.ClusterRegistrationPhaseFailed) {
+		return ctrl.Result{}, nil
+	} else if ClusterRegistration.Status.Phase != string(clusterv1alpha1.ClusterRegistrationPhaseValidated) {
+		return ctrl.Result{Requeue: true}, nil
+	}
 
 	log.Info("Start to CreateClusterManager reconcile for [" + ClusterRegistration.Name + "]")
+
 	clm := &clusterv1alpha1.ClusterManager{}
 	clmKey := types.NamespacedName{Name: ClusterRegistration.Spec.ClusterName, Namespace: ClusterRegistration.Namespace}
 	if err := r.Get(context.TODO(), clmKey, clm); err != nil {
@@ -245,7 +290,7 @@ func (r *ClusterRegistrationReconciler) CreateClusterManager(ctx context.Context
 				Spec: clusterv1alpha1.ClusterManagerSpec{},
 			}
 			if err = r.Create(context.TODO(), clm); err != nil {
-				log.Error(err, "Failed to create "+ClusterRegistration.Spec.ClusterName+" ClusterManager")
+				log.Error(err, "Failed to create ClusterManager for ["+ClusterRegistration.Spec.ClusterName+"]")
 				return ctrl.Result{}, err
 			}
 
@@ -260,13 +305,15 @@ func (r *ClusterRegistrationReconciler) CreateClusterManager(ctx context.Context
 		}
 	} else {
 		log.Info("Cannot create ClusterManager. ClusterManager is already exsist")
+		// 왜 clm 이미 존재하지...? 케이스 정리부터 필요한거같기도
+		// 이미 존재하는 경우에는 어떻게 처리할까...?
 	}
 
 	return ctrl.Result{}, nil
 }
 
 func (r *ClusterRegistrationReconciler) reconcilePhase(_ context.Context, ClusterRegistration *clusterv1alpha1.ClusterRegistration) {
-	if ClusterRegistration.Status.Phase == "" {
+	if ClusterRegistration.Status.Phase == "validated" {
 		ClusterRegistration.Status.SetTypedPhase(clusterv1alpha1.ClusterRegistrationPhaseSuccess)
 	}
 }
@@ -274,7 +321,6 @@ func (r *ClusterRegistrationReconciler) reconcilePhase(_ context.Context, Cluste
 func (r *ClusterRegistrationReconciler) requeueClusterRegistrationsForClusterManager(o handler.MapObject) []ctrl.Request {
 	clm := o.Object.(*clusterv1alpha1.ClusterManager)
 	log := r.Log.WithValues("ClusterRegistration-ObjectMapper", "clusterManagerToClusterClusterRegistrations", "ClusterRegistration", clm.Name)
-
 	//get clusterManager
 	clr := &clusterv1alpha1.ClusterRegistration{}
 	key := types.NamespacedName{Namespace: clm.Namespace, Name: clm.Labels["parent"]}
