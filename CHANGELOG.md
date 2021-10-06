@@ -1,6 +1,25 @@
 # HyperCloud-Multi-Operator changelog!!
 All notable changes to this project will be documented in this file.
 
+<!-------------------- v5.0.25.2 start -------------------->
+
+## HyperCloud-Multi-Operator_5.0.25.2 (2021. 09. 10. (금) 17:17:27 KST)
+
+### Added
+
+### Changed
+
+### Fixed
+
+### CRD yaml
+
+### Etc
+  - [etc] cluster template update(tsb 0.2.0 호환) by soohwan kim
+  - [etc] push.sh 버전 관리 버그 픽스 by soohwan kim
+  - [etc] manager에 Seoul region time zone configuration 추가 by soohwan kim
+
+<!--------------------- v5.0.25.2 end --------------------->
+
 <!-------------------- v5.0.25.1 start -------------------->
 
 ## HyperCloud-Multi-Operator_5.0.25.1 (2021. 09. 07. (화) 13:25:15 KST)
