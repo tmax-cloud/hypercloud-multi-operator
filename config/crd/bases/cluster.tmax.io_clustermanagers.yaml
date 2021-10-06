@@ -76,6 +76,11 @@ spec:
             workerType:
               description: The type of VM for worker node
               type: string
+          required:
+          - masterType
+          - region
+          - sshKey
+          - workerType
           type: object
         kind:
           description: 'Kind is a string value representing the REST resource this
@@ -99,6 +104,11 @@ spec:
             workerNum:
               description: The number of worker node
               type: integer
+          required:
+          - masterNum
+          - provider
+          - version
+          - workerNum
           type: object
         status:
           description: ClusterManagerStatus defines the observed state of ClusterManager
@@ -228,6 +238,8 @@ spec:
               description: The TLS thumbprint of machine certificate
               type: string
           type: object
+      required:
+      - spec
       type: object
   version: v1alpha1
   versions:
