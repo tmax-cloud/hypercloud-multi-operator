@@ -103,7 +103,7 @@ type ClusterClaimStatus struct {
 
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
-// +kubebuilder:resource:shortName=cc,scope=Namespaced
+// +kubebuilder:resource:path=clusterclaims,shortName=cc,scope=Namespaced
 // +kubebuilder:printcolumn:name="Status",type=string,JSONPath=`.status.phase`
 // +kubebuilder:printcolumn:name="Reason",type=string,JSONPath=`.status.reason`
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
@@ -112,7 +112,7 @@ type ClusterClaim struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec   ClusterClaimSpec   `json:"spec,omitempty"`
+	Spec   ClusterClaimSpec   `json:"spec"`
 	Status ClusterClaimStatus `json:"status,omitempty"`
 }
 
