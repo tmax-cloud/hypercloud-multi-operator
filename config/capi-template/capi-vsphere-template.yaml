@@ -882,4 +882,5 @@ parameters:
   value: 3
   valueType: number
 recommend: true
+shortDescription: Cluster template for CAPI provider vSphere
 urlDescription: ""

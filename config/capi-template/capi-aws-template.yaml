@@ -227,4 +227,5 @@ parameters:
   value: t3.large
   valueType: string
 recommend: true
+shortDescription: Cluster template for CAPI provider AWS
 urlDescription: ""
