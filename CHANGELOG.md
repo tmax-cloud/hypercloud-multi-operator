@@ -1,6 +1,27 @@
 # HyperCloud-Multi-Operator changelog!!
 All notable changes to this project will be documented in this file.
 
+<!-------------------- v5.0.25.3 start -------------------->
+
+## HyperCloud-Multi-Operator_5.0.25.3 (2021. 10. 06. (수) 11:02:59 KST)
+
+### Added
+  - [feat] 등록하고자 하는 cluster validation 기능 추가 by soohwan kim
+
+### Changed
+
+### Fixed
+
+### CRD yaml
+
+### Etc
+  - [etc] CRD spec변경 빌드 by soohwan kim
+  - [etc] CRD required spec 수정 by soohwan kim
+  - [etc] push script 분리 by soohwan kim
+  - [etc] CAPI template short description 추가 by soohwan kim
+
+<!--------------------- v5.0.25.3 end --------------------->
+
 <!-------------------- v5.0.25.2 start -------------------->
 
 ## HyperCloud-Multi-Operator_5.0.25.2 (2021. 09. 10. (금) 17:17:27 KST)
