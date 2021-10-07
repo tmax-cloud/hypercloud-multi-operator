@@ -52,18 +52,14 @@ type ClusterManagerSpec struct {
 
 // ProviderAwsSpec defines
 type ProviderAwsSpec struct {
-	// +kubebuilder:validation:Required
 	// The region where VM is working
-	Region string `json:"region"`
-	// +kubebuilder:validation:Required
+	Region string `json:"region,omitempty"`
 	// The ssh key info to access VM
-	SshKey string `json:"sshKey"`
-	// +kubebuilder:validation:Required
+	SshKey string `json:"sshKey,omitempty"`
 	// The type of VM for master node
-	MasterType string `json:"masterType"`
-	// +kubebuilder:validation:Required
+	MasterType string `json:"masterType,omitempty"`
 	// The type of VM for worker node
-	WorkerType string `json:"workerType"`
+	WorkerType string `json:"workerType,omitempty"`
 }
 
 // ProviderVsphereSpec defines
