@@ -48,8 +48,17 @@ spec:
         spec:
           description: ClusterClaimSpec defines the desired state of ClusterClaim
           properties:
-            ProviderAwsSpec:
-              description: Provider AWS spec
+            clusterName:
+              description: The name of the cluster to be created
+              type: string
+            masterNum:
+              description: The number of master node
+              type: integer
+            provider:
+              description: The version of kubernetes
+              type: string
+            providerAwsSpec:
+              description: Provider Aws Spec
               properties:
                 masterType:
                   description: The type of VM for master node
@@ -64,8 +73,8 @@ spec:
                   description: The type of VM for worker node
                   type: string
               type: object
-            ProviderVsphereSpec:
-              description: Provider vSphere spec
+            providerVsphereSpec:
+              description: Provider vSphere Spec
               properties:
                 podCidr:
                   description: The internal IP address cider block for pods
@@ -113,15 +122,6 @@ spec:
                   description: The TLS thumbprint of machine certificate
                   type: string
               type: object
-            clusterName:
-              description: The name of the cluster to be created
-              type: string
-            masterNum:
-              description: The number of master node
-              type: integer
-            provider:
-              description: The version of kubernetes
-              type: string
             version:
               description: The version of kubernetes
               type: string
