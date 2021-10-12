@@ -1,6 +1,22 @@
 # HyperCloud-Multi-Operator changelog!!
 All notable changes to this project will be documented in this file.
 
+<!-------------------- v5.0.25.5 start -------------------->
+
+## HyperCloud-Multi-Operator_5.0.25.5 (2021. 10. 12. (화) 15:41:51 KST)
+
+### Added
+
+### Changed
+
+### Fixed
+
+### CRD yaml
+
+### Etc
+
+<!--------------------- v5.0.25.5 end --------------------->
+
 <!-------------------- v5.0.25.4 start -------------------->
 
 ## HyperCloud-Multi-Operator_5.0.25.4 (2021. 10. 07. (목) 15:44:21 KST)
