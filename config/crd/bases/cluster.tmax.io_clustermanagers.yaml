@@ -76,11 +76,6 @@ spec:
             workerType:
               description: The type of VM for worker node
               type: string
-          required:
-          - masterType
-          - region
-          - sshKey
-          - workerType
           type: object
         kind:
           description: 'Kind is a string value representing the REST resource this
