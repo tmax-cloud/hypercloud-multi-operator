@@ -52,37 +52,28 @@ type ClusterRegistrationPhase string
 type ClusterRegistrationReason string
 
 const (
-	// ClusterRegistrationPhasePending is the first state a Cluster is assigned by
-	// Cluster API Cluster controller after being created.
-	ClusterRegistrationPhasePending = ClusterRegistrationPhase("Pending")
-
-	// ClusterRegistrationPhaseProvisioning is the state when the Cluster has a provider infrastructure
-	// object associated and can start provisioning.
-	ClusterRegistrationPhaseProvisioning = ClusterRegistrationPhase("Provisioning")
-
+	// ClusterRegistrationPhaseSuccess is the state when cluster is registered successfully
 	ClusterRegistrationPhaseSuccess = ClusterRegistrationPhase("Success")
 
-	// ClusterRegistrationPhaseProvisioned is the state when its
-	// infrastructure has been created and configured.
-	ClusterRegistrationPhaseProvisioned = ClusterRegistrationPhase("Provisioned")
-
-	// ClusterRegistrationPhaseDeleting is the Cluster state when a delete
-	// request has been sent to the API Server,
-	// but its infrastructure has not yet been fully deleted.
-	ClusterRegistrationPhaseDeleting = ClusterRegistrationPhase("Deleting")
-
-	// ClusterRegistrationPhaseFailed is the Cluster state when the system
-	// might require user intervention.
+	// ClusterRegistrationPhaseFailed is the when failed to register cluster
+	// Cluster registration failure can occur in following cases
+	// 1. kubeconfig is invalid
+	// 2. cluster is invalid
 	ClusterRegistrationPhaseFailed = ClusterRegistrationPhase("Failed")
-
-	// ClusterRegistrationPhaseUnknown is returned if the Cluster state cannot be determined.
-	ClusterRegistrationPhaseUnknown = ClusterRegistrationPhase("Unknown")
 
 	// ClusterRegistrationPhaseValidating
 	ClusterRegistrationPhaseValidating = ClusterRegistrationPhase("Validating")
 
 	// ClusterRegistrationPhaseValidated
 	ClusterRegistrationPhaseValidated = ClusterRegistrationPhase("Validated")
+
+	// ClusterRegistrationPhaseDeleting is the Cluster state when a delete
+	// request has been sent to the API Server,
+	// but its infrastructure has not yet been fully deleted.
+	ClusterRegistrationPhaseDeleting = ClusterRegistrationPhase("Deleting")
+
+	// ClusterRegistrationPhaseUnknown is returned if the Cluster state cannot be determined.
+	ClusterRegistrationPhaseUnknown = ClusterRegistrationPhase("Unknown")
 
 	// ClusterRegistrationReasonClusterNotFound is returned if the Cluster not found
 	ClusterRegistrationReasonClusterNotFound = ClusterRegistrationReason("ClusterNotFound")

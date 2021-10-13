@@ -2,9 +2,11 @@ package util
 
 import (
 	"fmt"
+	"math/rand"
 	"runtime"
 	"strconv"
 	"strings"
+	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -101,4 +103,16 @@ func GetK8sClient() (*kubernetes.Clientset, error) {
 		panic(err.Error())
 	}
 	return Clientset, nil
+}
+
+func CreateSuffixString() string {
+	rand.Seed(time.Now().UnixNano())
+	var letters = []rune("0123456789abcdefghijklmnopqrstuvwxyz")
+
+	s := make([]rune, SUFFIX_DIGIT)
+	for i := range s {
+		s[i] = letters[rand.Intn(len(letters))]
+	}
+
+	return string(s)
 }

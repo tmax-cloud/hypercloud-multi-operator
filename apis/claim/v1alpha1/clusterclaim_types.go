@@ -40,12 +40,10 @@ type ClusterClaimSpec struct {
 	// +kubebuilder:validation:Required
 	// The number of worker node
 	WorkerNum int `json:"workerNum"`
-	// +kubebuilder:validation:Required
-	// Provider AWS spec
-	ProviderAwsSpec AwsClaimSpec `json:"ProviderAwsSpec,omitempty"`
-	// +kubebuilder:validation:Required
-	// Provider vSphere spec
-	ProviderVsphereSpec VsphereClaimSpec `json:"ProviderVsphereSpec,omitempty"`
+	// Provider Aws Spec
+	ProviderAwsSpec AwsClaimSpec `json:"providerAwsSpec,omitempty"`
+	// Provider vSphere Spec
+	ProviderVsphereSpec VsphereClaimSpec `json:"providerVsphereSpec,omitempty"`
 }
 
 type AwsClaimSpec struct {
@@ -117,7 +115,6 @@ type ClusterClaim struct {
 }
 
 // +kubebuilder:object:root=true
-
 // ClusterClaimList contains a list of ClusterClaim
 type ClusterClaimList struct {
 	metav1.TypeMeta `json:",inline"`

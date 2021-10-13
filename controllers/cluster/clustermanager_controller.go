@@ -750,9 +750,10 @@ func (r *ClusterManagerReconciler) reconcileDelete(ctx context.Context, clusterM
 		}
 	}
 
+	// aaa
 	// delete serviceinstance
 	serviceInstance := &servicecatalogv1beta1.ServiceInstance{}
-	serviceInstanceKey := types.NamespacedName{Name: clusterManager.Name, Namespace: clusterManager.Namespace}
+	serviceInstanceKey := types.NamespacedName{Name: clusterManager.Name + "-" + clusterManager.Annotations["ServiceInstance/suffix"], Namespace: clusterManager.Namespace}
 
 	if err := r.Get(context.TODO(), serviceInstanceKey, serviceInstance); err != nil {
 		if errors.IsNotFound(err) {
@@ -813,6 +814,11 @@ func (r *ClusterManagerReconciler) reconcilePhase(_ context.Context, clusterMana
 
 func (r *ClusterManagerReconciler) CreateServiceInstance(ctx context.Context, clusterManager *clusterv1alpha1.ClusterManager) (ctrl.Result, error) {
 	log := r.Log.WithValues("clustermanager", types.NamespacedName{Name: clusterManager.Name, Namespace: clusterManager.Namespace})
+
+	if clusterManager.Annotations["ServiceInstance/suffix"] != "" {
+		return ctrl.Result{}, nil
+	}
+
 	serviceInstance := &servicecatalogv1beta1.ServiceInstance{}
 	serviceInstanceKey := types.NamespacedName{Name: clusterManager.Name, Namespace: clusterManager.Namespace}
 	if err := r.Get(context.TODO(), serviceInstanceKey, serviceInstance); err != nil {
@@ -842,7 +848,6 @@ func (r *ClusterManagerReconciler) CreateServiceInstance(ctx context.Context, cl
 
 				ClusterServiceClassExternalName = "capi-aws-template"
 				ClusterServicePlanExternalName = "capi-aws-template-plan-default"
-
 			case "VSPHERE":
 				VsphereParameter := VsphereParameter{
 					Namespace:           clusterManager.Namespace,
@@ -878,10 +883,10 @@ func (r *ClusterManagerReconciler) CreateServiceInstance(ctx context.Context, cl
 				ClusterServicePlanExternalName = "capi-vsphere-template-plan-default"
 			}
 
-			//log.Info(string(json.Unmarshal(&byte)))
+			generatedSuffix := util.CreateSuffixString()
 			newServiceInstance := &servicecatalogv1beta1.ServiceInstance{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      clusterManager.Name,
+					Name:      clusterManager.Name + "-" + generatedSuffix,
 					Namespace: clusterManager.Namespace,
 				},
 				Spec: servicecatalogv1beta1.ServiceInstanceSpec{
@@ -901,6 +906,7 @@ func (r *ClusterManagerReconciler) CreateServiceInstance(ctx context.Context, cl
 				log.Error(err, "Failed to create "+clusterManager.Name+" serviceInstance")
 				return ctrl.Result{}, err
 			}
+			clusterManager.Annotations["ServiceInstance/suffix"] = generatedSuffix
 		} else {
 			log.Error(err, "Failed to get serviceInstance")
 			return ctrl.Result{}, err
