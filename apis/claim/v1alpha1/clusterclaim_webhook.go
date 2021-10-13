@@ -37,6 +37,8 @@ func (r *ClusterClaim) SetupWebhookWithManager(mgr ctrl.Manager) error {
 
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
 
+// +kubebuilder:webhook:path=/mutate-claim-tmax-io-v1alpha1-clusterclaim,mutating=true,failurePolicy=fail,groups=claim.tmax.io,resources=clusterclaims,verbs=update,versions=v1alpha1,name=mclusterclaim.kb.io
+
 var _ webhook.Defaulter = &ClusterClaim{}
 
 // Default implements webhook.Defaulter so a webhook will be registered for the type
