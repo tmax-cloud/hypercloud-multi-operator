@@ -1,6 +1,25 @@
 # HyperCloud-Multi-Operator changelog!!
 All notable changes to this project will be documented in this file.
 
+<!-------------------- v5.0.25.8 start -------------------->
+
+## HyperCloud-Multi-Operator_5.0.25.8 (2021. 10. 13. (수) 15:36:07 KST)
+
+### Added
+
+### Changed
+
+### Fixed
+  - [ims][271798] service instance 이름 중복을 피하기 위해 random string을 suffix로 붙여주는 기능 추가 by soohwan kim
+
+### CRD yaml
+
+### Etc
+  - [etc] bug fix by soohwan kim
+  - [etc] bug fix by soohwan kim
+
+<!--------------------- v5.0.25.8 end --------------------->
+
 <!-------------------- v5.0.25.7 start -------------------->
 
 ## HyperCloud-Multi-Operator_5.0.25.7 (2021. 10. 12. (화) 16:49:14 KST)
