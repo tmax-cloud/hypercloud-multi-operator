@@ -138,13 +138,10 @@ func (r *ClusterRegistrationReconciler) CheckValidation(ctx context.Context, Clu
 					// this may cause functinon panic
 					// go to defer func
 					log.Info("Failed to get nodes for [" + ClusterRegistration.Spec.ClusterName + "]")
-					//ClusterRegistration.Status.SetTypedPhase(clusterv1alpha1.ClusterRegistrationPhaseFailed)
-					//ClusterRegistration.Status.SetTypedReason(clusterv1alpha1.ClusterRegistrationReasonClusterNotFound)
-					//return ctrl.Result{Requeue: false}, err
+					panic(err)					
 				}
 				defer func() (ctrl.Result, error) {
 					recover()
-					//log.Info("Failed to get nodes for [" + ClusterRegistration.Spec.ClusterName + "]")
 					ClusterRegistration.Status.SetTypedPhase(clusterv1alpha1.ClusterRegistrationPhaseFailed)
 					ClusterRegistration.Status.SetTypedReason(clusterv1alpha1.ClusterRegistrationReasonClusterNotFound)
 					return ctrl.Result{Requeue: false}, nil

@@ -11,23 +11,6 @@ webhooks:
     service:
       name: webhook-service
       namespace: system
-      path: /mutate-claim-tmax-io-v1alpha1-clusterclaim
-  failurePolicy: Fail
-  name: mclusterclaim.kb.io
-  rules:
-  - apiGroups:
-    - claim.tmax.io
-    apiVersions:
-    - v1alpha1
-    operations:
-    - UPDATE
-    resources:
-    - clusterclaims
-- clientConfig:
-    caBundle: Cg==
-    service:
-      name: webhook-service
-      namespace: system
       path: /validate-claim-tmax-io-v1alpha1-clusterclaim
   failurePolicy: Fail
   name: vclusterclaim.kb.io
