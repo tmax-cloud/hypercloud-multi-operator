@@ -27,10 +27,10 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
-	claimv1alpha1 "github.com/tmax-cloud/hypercloud-multi-operator/apis/claim/v1alpha1"
-	clusterv1alpha1 "github.com/tmax-cloud/hypercloud-multi-operator/apis/cluster/v1alpha1"
-	claimcontroller "github.com/tmax-cloud/hypercloud-multi-operator/controllers/claim"
-	clustercontroller "github.com/tmax-cloud/hypercloud-multi-operator/controllers/cluster"
+	claimv1alpha1 "github.com/tmax-cloud/hypercloud-multi-operator/v5/apis/claim/v1alpha1"
+	clusterv1alpha1 "github.com/tmax-cloud/hypercloud-multi-operator/v5/apis/cluster/v1alpha1"
+	claimcontroller "github.com/tmax-cloud/hypercloud-multi-operator/v5/controllers/claim"
+	clustercontroller "github.com/tmax-cloud/hypercloud-multi-operator/v5/controllers/cluster"
 
 	// +kubebuilder:scaffold:imports
 	servicecatalogv1beta1 "github.com/kubernetes-sigs/service-catalog/pkg/apis/servicecatalog/v1beta1"
@@ -41,11 +41,11 @@ import (
 
 	console "github.com/tmax-cloud/console-operator/api/v1"
 
-	typesv1beta1 "github.com/tmax-cloud/hypercloud-multi-operator/apis/external/v1beta1"
+	typesv1beta1 "github.com/tmax-cloud/hypercloud-multi-operator/v5/apis/external/v1beta1"
 
 	controlplanev1 "sigs.k8s.io/cluster-api/controlplane/kubeadm/api/v1alpha3"
 
-	k8scontroller "github.com/tmax-cloud/hypercloud-multi-operator/controllers/k8s"
+	k8scontroller "github.com/tmax-cloud/hypercloud-multi-operator/v5/controllers/k8s"
 )
 
 var (
