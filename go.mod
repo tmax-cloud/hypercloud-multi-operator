@@ -1,4 +1,4 @@
-module github.com/tmax-cloud/hypercloud-multi-operator
+module github.com/tmax-cloud/hypercloud-multi-operator/v5
 
 go 1.15
 

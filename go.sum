@@ -431,6 +431,8 @@ github.com/tmax-cloud/console-operator v0.0.0-20210202020310-14940831c3ba h1:+53
 github.com/tmax-cloud/console-operator v0.0.0-20210202020310-14940831c3ba/go.mod h1:EGHNfF1kVE9uxH11h8NPBQxJ7Ff3+6GY85nLNXwwr5M=
 github.com/tmax-cloud/hypercloud-multi-operator v0.0.0-20210819080251-b7be58f76449 h1:ShIsLNSWbIYju1TeZzTjZ8R2xHQZ/8Pic6iEJHfs/aQ=
 github.com/tmax-cloud/hypercloud-multi-operator v0.0.0-20210819080251-b7be58f76449/go.mod h1:0qDoKkmDTb49WKuBTpG0B/XFZq9j2J64sLBLjdQ9n0M=
+github.com/tmax-cloud/hypercloud-multi-operator v0.0.0-20211013063608-61110a9ee2b7 h1:nny2WJq0c6JWhPO7SPouOGBqwwd29+CiDpqLjAZPtk8=
+github.com/tmax-cloud/hypercloud-multi-operator v0.0.0-20211013063608-61110a9ee2b7/go.mod h1:flIlpC/pTUvOq/K912lCp/C+FDb02wlHj1IxCnuBMVw=
 github.com/tmc/grpc-websocket-proxy v0.0.0-20170815181823-89b8d40f7ca8/go.mod h1:ncp9v5uamzpCO7NfCPTXjqaC+bZgJeR0sMTm6dMHP7U=
 github.com/tmc/grpc-websocket-proxy v0.0.0-20190109142713-0ad062ec5ee5/go.mod h1:ncp9v5uamzpCO7NfCPTXjqaC+bZgJeR0sMTm6dMHP7U=
 github.com/ugorji/go v1.1.4/go.mod h1:uQMGLiO92mf5W77hV/PUCpI3pbzQx3CRekS0kk+RGrc=
