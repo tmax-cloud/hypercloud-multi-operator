@@ -20,10 +20,10 @@ import (
 	"context"
 
 	"github.com/go-logr/logr"
-	claimv1alpha1 "github.com/tmax-cloud/hypercloud-multi-operator/v5/apis/claim/v1alpha1"
+	claimv1alpha1 "github.com/tmax-cloud/hypercloud-multi-operator/apis/claim/v1alpha1"
 
-	clusterv1alpha1 "github.com/tmax-cloud/hypercloud-multi-operator/v5/apis/cluster/v1alpha1"
-	"github.com/tmax-cloud/hypercloud-multi-operator/v5/controllers/util"
+	clusterv1alpha1 "github.com/tmax-cloud/hypercloud-multi-operator/apis/cluster/v1alpha1"
+	"github.com/tmax-cloud/hypercloud-multi-operator/controllers/util"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
