@@ -55,22 +55,43 @@ spec:
               description: The number of master node
               type: integer
             provider:
-              description: The version of kubernetes
+              description: The type of provider
+              enum:
+              - AWS
+              - vSphere
               type: string
             providerAwsSpec:
               description: Provider Aws Spec
               properties:
                 masterType:
-                  description: The type of VM for master node
+                  description: 'The type of VM for master node. Example: m4.xlarge.
+                    see: https://aws.amazon.com/ec2/instance-types'
                   type: string
                 region:
                   description: The region where VM is working
+                  enum:
+                  - ap-northeast-1
+                  - ap-northeast-2
+                  - ap-south-1
+                  - ap-southeast-1
+                  - ap-northeast-2
+                  - ca-central-1
+                  - eu-central-1
+                  - eu-west-1
+                  - eu-west-2
+                  - eu-west-3
+                  - sa-east-1
+                  - us-east-1
+                  - us-east-2
+                  - us-west-1
+                  - us-west-2
                   type: string
                 sshKey:
                   description: The ssh key info to access VM
                   type: string
                 workerType:
-                  description: The type of VM for worker node
+                  description: 'The type of VM for master node. Example: m4.xlarge.
+                    see: https://aws.amazon.com/ec2/instance-types'
                   type: string
               type: object
             providerVsphereSpec:

@@ -32,7 +32,8 @@ type ClusterClaimSpec struct {
 	// The version of kubernetes
 	Version string `json:"version"`
 	// +kubebuilder:validation:Required
-	// The version of kubernetes
+	// +kubebuilder:validation:Enum:=AWS;vSphere
+	// The type of provider
 	Provider string `json:"provider"`
 	// +kubebuilder:validation:Required
 	// The number of master node
@@ -49,11 +50,12 @@ type ClusterClaimSpec struct {
 type AwsClaimSpec struct {
 	// The ssh key info to access VM
 	SshKey string `json:"sshKey,omitempty"`
+	// +kubebuilder:validation:Enum:=ap-northeast-1;ap-northeast-2;ap-south-1;ap-southeast-1;ap-northeast-2;ca-central-1;eu-central-1;eu-west-1;eu-west-2;eu-west-3;sa-east-1;us-east-1;us-east-2;us-west-1;us-west-2
 	// The region where VM is working
 	Region string `json:"region,omitempty"`
-	// The type of VM for master node
+	// The type of VM for master node. Example: m4.xlarge. see: https://aws.amazon.com/ec2/instance-types
 	MasterType string `json:"masterType,omitempty"`
-	// The type of VM for worker node
+	// The type of VM for master node. Example: m4.xlarge. see: https://aws.amazon.com/ec2/instance-types
 	WorkerType string `json:"workerType,omitempty"`
 }
 
