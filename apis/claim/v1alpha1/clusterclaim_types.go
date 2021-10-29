@@ -33,7 +33,7 @@ type ClusterClaimSpec struct {
 	Version string `json:"version"`
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:Enum:=AWS;vSphere
-	// The version of kubernetes
+	// The type of provider
 	Provider string `json:"provider"`
 	// +kubebuilder:validation:Required
 	// The number of master node
