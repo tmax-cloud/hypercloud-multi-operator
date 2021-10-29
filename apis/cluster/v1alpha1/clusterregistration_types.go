@@ -61,8 +61,8 @@ const (
 	// 2. cluster is invalid
 	ClusterRegistrationPhaseFailed = ClusterRegistrationPhase("Failed")
 
-	// ClusterRegistrationPhaseValidating
-	ClusterRegistrationPhaseValidating = ClusterRegistrationPhase("Validating")
+	// ClusterRegistrationPhaseSecretCreated
+	ClusterRegistrationPhaseSecretCreated = ClusterRegistrationPhase("SecretCreated")
 
 	// ClusterRegistrationPhaseValidated
 	ClusterRegistrationPhaseValidated = ClusterRegistrationPhase("Validated")
