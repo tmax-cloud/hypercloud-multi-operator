@@ -1,6 +1,24 @@
 # HyperCloud-Multi-Operator changelog!!
 All notable changes to this project will be documented in this file.
 
+<!-------------------- v5.0.25.10 start -------------------->
+
+## HyperCloud-Multi-Operator_5.0.25.10 (2021. 10. 29. (금) 14:41:55 KST)
+
+### Added
+
+### Changed
+
+### Fixed
+  - [ims][273051] clusterclaim CRD description 오류 수정 by soohwan kim
+  - [ims][269425] 1670741번 액션 관련 버그 수정 및 clusterregistration 상태 추가 by soohwan kim
+
+### CRD yaml
+
+### Etc
+
+<!--------------------- v5.0.25.10 end --------------------->
+
 <!-------------------- v5.0.25.9 start -------------------->
 
 ## HyperCloud-Multi-Operator_5.0.25.9 (2021. 10. 21. (목) 17:29:04 KST)
