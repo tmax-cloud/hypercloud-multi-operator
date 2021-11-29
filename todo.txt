@@ -1,2 +1,0 @@
-# Todo
-1. KCP로부터 cluster 이름을 알아낼때 고정된 sufix (-control-plane)를 사용하고 있는데 vesheper는 다른 sufix를 사용하기 때문에 cluster 이름 구할 때 boundsError가 발생함. label에있는 cluster이름을 사용하도록 변경
