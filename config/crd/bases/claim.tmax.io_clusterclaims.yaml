@@ -110,7 +110,8 @@ spec:
                     description: The name of data store
                     type: string
                   vcenterDiskSize:
-                    description: The disk size for vm
+                    description: 'The disk size for vm, write as GB without unit.
+                      Example: 25'
                     type: integer
                   vcenterFolder:
                     description: The name of folder
@@ -125,7 +126,8 @@ spec:
                     description: The IP address of control plane for remote cluster(vip)
                     type: string
                   vcenterMemSize:
-                    description: The memory size for vm
+                    description: 'The memory size for vm, write as MB without unit.
+                      Example: 8192'
                     type: integer
                   vcenterNetwork:
                     description: The name of network
