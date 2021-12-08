@@ -32,4 +32,5 @@ spec:
           requests:
             cpu: 100m
             memory: 20Mi
+      serviceAccountName: hypercloud-multi-operator-controller-manager
       terminationGracePeriodSeconds: 10

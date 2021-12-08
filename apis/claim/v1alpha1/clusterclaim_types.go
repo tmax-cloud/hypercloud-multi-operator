@@ -84,9 +84,9 @@ type VsphereClaimSpec struct {
 	VcenterKcpIp string `json:"vcenterKcpIp,omitempty"`
 	// The number of cpus for vm
 	VcenterCpuNum int `json:"vcenterCpuNum,omitempty"`
-	// The memory size for vm
+	// The memory size for vm, write as MB without unit. Example: 8192
 	VcenterMemSize int `json:"vcenterMemSize,omitempty"`
-	// The disk size for vm
+	// The disk size for vm, write as GB without unit. Example: 25
 	VcenterDiskSize int `json:"vcenterDiskSize,omitempty"`
 	// The template name for cloud init
 	VcenterTemplate string `json:"vcenterTemplate,omitempty"`

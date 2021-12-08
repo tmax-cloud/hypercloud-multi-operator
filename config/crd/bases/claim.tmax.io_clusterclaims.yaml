@@ -1,6 +1,6 @@
 
 ---
-apiVersion: apiextensions.k8s.io/v1beta1
+apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
@@ -8,16 +8,6 @@ metadata:
   creationTimestamp: null
   name: clusterclaims.claim.tmax.io
 spec:
-  additionalPrinterColumns:
-  - JSONPath: .status.phase
-    name: Status
-    type: string
-  - JSONPath: .status.reason
-    name: Reason
-    type: string
-  - JSONPath: .metadata.creationTimestamp
-    name: Age
-    type: date
   group: claim.tmax.io
   names:
     kind: ClusterClaim
@@ -27,160 +17,169 @@ spec:
     - cc
     singular: clusterclaim
   scope: Namespaced
-  subresources:
-    status: {}
-  validation:
-    openAPIV3Schema:
-      description: ClusterClaim is the Schema for the clusterclaims API
-      properties:
-        apiVersion:
-          description: 'APIVersion defines the versioned schema of this representation
-            of an object. Servers should convert recognized schemas to the latest
-            internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
-          type: string
-        kind:
-          description: 'Kind is a string value representing the REST resource this
-            object represents. Servers may infer this from the endpoint the client
-            submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
-          type: string
-        metadata:
-          type: object
-        spec:
-          description: ClusterClaimSpec defines the desired state of ClusterClaim
-          properties:
-            clusterName:
-              description: The name of the cluster to be created
-              type: string
-            masterNum:
-              description: The number of master node
-              type: integer
-            provider:
-              description: The type of provider
-              enum:
-              - AWS
-              - vSphere
-              type: string
-            providerAwsSpec:
-              description: Provider Aws Spec
-              properties:
-                masterType:
-                  description: 'The type of VM for master node. Example: m4.xlarge.
-                    see: https://aws.amazon.com/ec2/instance-types'
-                  type: string
-                region:
-                  description: The region where VM is working
-                  enum:
-                  - ap-northeast-1
-                  - ap-northeast-2
-                  - ap-south-1
-                  - ap-southeast-1
-                  - ap-northeast-2
-                  - ca-central-1
-                  - eu-central-1
-                  - eu-west-1
-                  - eu-west-2
-                  - eu-west-3
-                  - sa-east-1
-                  - us-east-1
-                  - us-east-2
-                  - us-west-1
-                  - us-west-2
-                  type: string
-                sshKey:
-                  description: The ssh key info to access VM
-                  type: string
-                workerType:
-                  description: 'The type of VM for master node. Example: m4.xlarge.
-                    see: https://aws.amazon.com/ec2/instance-types'
-                  type: string
-              type: object
-            providerVsphereSpec:
-              description: Provider vSphere Spec
-              properties:
-                podCidr:
-                  description: The internal IP address cider block for pods
-                  type: string
-                vcenterCpuNum:
-                  description: The number of cpus for vm
-                  type: integer
-                vcenterDataCenter:
-                  description: The name of data center
-                  type: string
-                vcenterDataStore:
-                  description: The name of data store
-                  type: string
-                vcenterDiskSize:
-                  description: The disk size for vm
-                  type: integer
-                vcenterFolder:
-                  description: The name of folder
-                  type: string
-                vcenterId:
-                  description: The user id of VCSA
-                  type: string
-                vcenterIp:
-                  description: The IP address of vCenter Server Application(VCSA)
-                  type: string
-                vcenterKcpIp:
-                  description: The IP address of control plane for remote cluster(vip)
-                  type: string
-                vcenterMemSize:
-                  description: The memory size for vm
-                  type: integer
-                vcenterNetwork:
-                  description: The name of network
-                  type: string
-                vcenterPassword:
-                  description: The password of VCSA
-                  type: string
-                vcenterResourcePool:
-                  description: The name of resource pool
-                  type: string
-                vcenterTemplate:
-                  description: The template name for cloud init
-                  type: string
-                vcenterThumbprint:
-                  description: The TLS thumbprint of machine certificate
-                  type: string
-              type: object
-            version:
-              description: The version of kubernetes
-              type: string
-            workerNum:
-              description: The number of worker node
-              type: integer
-          required:
-          - clusterName
-          - masterNum
-          - provider
-          - version
-          - workerNum
-          type: object
-        status:
-          description: ClusterClaimStatus defines the observed state of ClusterClaim
-          properties:
-            message:
-              type: string
-            phase:
-              enum:
-              - Awaiting
-              - Admitted
-              - Approved
-              - Rejected
-              - Error
-              - ClusterDeleted
-              type: string
-            reason:
-              type: string
-          type: object
-      required:
-      - spec
-      type: object
-  version: v1alpha1
   versions:
-  - name: v1alpha1
+  - additionalPrinterColumns:
+    - jsonPath: .status.phase
+      name: Status
+      type: string
+    - jsonPath: .status.reason
+      name: Reason
+      type: string
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: ClusterClaim is the Schema for the clusterclaims API
+        properties:
+          apiVersion:
+            description: 'APIVersion defines the versioned schema of this representation
+              of an object. Servers should convert recognized schemas to the latest
+              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+            type: string
+          kind:
+            description: 'Kind is a string value representing the REST resource this
+              object represents. Servers may infer this from the endpoint the client
+              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: ClusterClaimSpec defines the desired state of ClusterClaim
+            properties:
+              clusterName:
+                description: The name of the cluster to be created
+                type: string
+              masterNum:
+                description: The number of master node
+                type: integer
+              provider:
+                description: The type of provider
+                enum:
+                - AWS
+                - vSphere
+                type: string
+              providerAwsSpec:
+                description: Provider Aws Spec
+                properties:
+                  masterType:
+                    description: 'The type of VM for master node. Example: m4.xlarge.
+                      see: https://aws.amazon.com/ec2/instance-types'
+                    type: string
+                  region:
+                    description: The region where VM is working
+                    enum:
+                    - ap-northeast-1
+                    - ap-northeast-2
+                    - ap-south-1
+                    - ap-southeast-1
+                    - ap-northeast-2
+                    - ca-central-1
+                    - eu-central-1
+                    - eu-west-1
+                    - eu-west-2
+                    - eu-west-3
+                    - sa-east-1
+                    - us-east-1
+                    - us-east-2
+                    - us-west-1
+                    - us-west-2
+                    type: string
+                  sshKey:
+                    description: The ssh key info to access VM
+                    type: string
+                  workerType:
+                    description: 'The type of VM for master node. Example: m4.xlarge.
+                      see: https://aws.amazon.com/ec2/instance-types'
+                    type: string
+                type: object
+              providerVsphereSpec:
+                description: Provider vSphere Spec
+                properties:
+                  podCidr:
+                    description: The internal IP address cider block for pods
+                    type: string
+                  vcenterCpuNum:
+                    description: The number of cpus for vm
+                    type: integer
+                  vcenterDataCenter:
+                    description: The name of data center
+                    type: string
+                  vcenterDataStore:
+                    description: The name of data store
+                    type: string
+                  vcenterDiskSize:
+                    description: The disk size for vm
+                    type: integer
+                  vcenterFolder:
+                    description: The name of folder
+                    type: string
+                  vcenterId:
+                    description: The user id of VCSA
+                    type: string
+                  vcenterIp:
+                    description: The IP address of vCenter Server Application(VCSA)
+                    type: string
+                  vcenterKcpIp:
+                    description: The IP address of control plane for remote cluster(vip)
+                    type: string
+                  vcenterMemSize:
+                    description: The memory size for vm
+                    type: integer
+                  vcenterNetwork:
+                    description: The name of network
+                    type: string
+                  vcenterPassword:
+                    description: The password of VCSA
+                    type: string
+                  vcenterResourcePool:
+                    description: The name of resource pool
+                    type: string
+                  vcenterTemplate:
+                    description: The template name for cloud init
+                    type: string
+                  vcenterThumbprint:
+                    description: The TLS thumbprint of machine certificate
+                    type: string
+                type: object
+              version:
+                description: The version of kubernetes
+                type: string
+              workerNum:
+                description: The number of worker node
+                type: integer
+            required:
+            - clusterName
+            - masterNum
+            - provider
+            - version
+            - workerNum
+            type: object
+          status:
+            description: ClusterClaimStatus defines the observed state of ClusterClaim
+            properties:
+              message:
+                type: string
+              phase:
+                enum:
+                - Awaiting
+                - Admitted
+                - Approved
+                - Rejected
+                - Error
+                - ClusterDeleted
+                type: string
+              reason:
+                type: string
+            type: object
+        required:
+        - spec
+        type: object
     served: true
     storage: true
+    subresources:
+      status: {}
 status:
   acceptedNames:
     kind: ""

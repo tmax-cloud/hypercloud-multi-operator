@@ -1,6 +1,6 @@
 
 ---
-apiVersion: apiextensions.k8s.io/v1beta1
+apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
@@ -15,65 +15,65 @@ spec:
     plural: federatedconfigmaps
     singular: federatedconfigmap
   scope: Namespaced
-  validation:
-    openAPIV3Schema:
-      description: FederatedConfigMap is the Schema for the FederatedConfigMaps API
-      properties:
-        apiVersion:
-          description: 'APIVersion defines the versioned schema of this representation
-            of an object. Servers should convert recognized schemas to the latest
-            internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
-          type: string
-        kind:
-          description: 'Kind is a string value representing the REST resource this
-            object represents. Servers may infer this from the endpoint the client
-            submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
-          type: string
-        metadata:
-          type: object
-        spec:
-          description: FederatedConfigMapSpec defines the desired state of FederatedConfigMap
-          properties:
-            overrides:
-              items:
+  versions:
+  - name: v1beta1
+    schema:
+      openAPIV3Schema:
+        description: FederatedConfigMap is the Schema for the FederatedConfigMaps
+          API
+        properties:
+          apiVersion:
+            description: 'APIVersion defines the versioned schema of this representation
+              of an object. Servers should convert recognized schemas to the latest
+              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+            type: string
+          kind:
+            description: 'Kind is a string value representing the REST resource this
+              object represents. Servers may infer this from the endpoint the client
+              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: FederatedConfigMapSpec defines the desired state of FederatedConfigMap
+            properties:
+              overrides:
+                items:
+                  properties:
+                    clusterName:
+                      type: string
+                    clusterOverrides:
+                      items:
+                        properties:
+                          path:
+                            type: string
+                          value:
+                            type: string
+                        type: object
+                      type: array
+                  type: object
+                type: array
+              placement:
+                description: Foo is an example field of FederatedConfigMap. Edit FederatedConfigMap_types.go
+                  to remove/update
                 properties:
-                  clusterName:
-                    type: string
-                  clusterOverrides:
+                  clusters:
                     items:
                       properties:
-                        path:
-                          type: string
-                        value:
+                        name:
                           type: string
                       type: object
                     type: array
                 type: object
-              type: array
-            placement:
-              description: Foo is an example field of FederatedConfigMap. Edit FederatedConfigMap_types.go
-                to remove/update
-              properties:
-                clusters:
-                  items:
-                    properties:
-                      name:
-                        type: string
+              template:
+                properties:
+                  data:
+                    additionalProperties:
+                      type: string
                     type: object
-                  type: array
-              type: object
-            template:
-              properties:
-                data:
-                  additionalProperties:
-                    type: string
-                  type: object
-              type: object
-          type: object
-      type: object
-  version: v1beta1
-  versions:
-  - name: v1beta1
+                type: object
+            type: object
+        type: object
     served: true
     storage: true
 status:

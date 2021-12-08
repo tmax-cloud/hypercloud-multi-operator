@@ -3,12 +3,10 @@ module github.com/tmax-cloud/hypercloud-multi-operator
 go 1.15
 
 require (
-	github.com/ghodss/yaml v1.0.0
 	github.com/go-logr/logr v0.1.0
 	github.com/kubernetes-sigs/service-catalog v0.3.1
 	github.com/onsi/ginkgo v1.14.0
 	github.com/onsi/gomega v1.10.1
-	github.com/prometheus/common v0.10.0
 	github.com/tmax-cloud/console-operator v0.0.0-20210202020310-14940831c3ba
 	k8s.io/api v0.18.6
 	k8s.io/apimachinery v0.18.6
