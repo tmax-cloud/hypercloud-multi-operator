@@ -1,6 +1,26 @@
 # HyperCloud-Multi-Operator changelog!!
 All notable changes to this project will be documented in this file.
 
+<!-------------------- v5.0.25.11 start -------------------->
+
+## HyperCloud-Multi-Operator_5.0.25.11 (2021. 12. 08. (수) 14:14:35 KST)
+
+### Added
+  - [feat] service account 추가 by SISILIA
+
+### Changed
+
+### Fixed
+
+### CRD yaml
+  - [crd] k8s 1.22+에서 호환을 위하여 webhook, certificate등의 apiVersion을 v1beta1에서 v1으로 변경 by soohwan kim
+  - [crd] k8s 1.22+에서 호환을 위하여 CRD version을 v1beta1에서 v1으로 변경 by soohwan kim
+
+### Etc
+  - [etc] vSphere cluster claim spec description 상세 추가 by SISILIA
+
+<!--------------------- v5.0.25.11 end --------------------->
+
 <!-------------------- v5.0.25.10 start -------------------->
 
 ## HyperCloud-Multi-Operator_5.0.25.10 (2021. 10. 29. (금) 14:41:55 KST)
