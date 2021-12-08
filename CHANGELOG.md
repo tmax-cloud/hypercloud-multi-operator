@@ -1,6 +1,23 @@
 # HyperCloud-Multi-Operator changelog!!
 All notable changes to this project will be documented in this file.
 
+<!-------------------- v5.0.25.12 start -------------------->
+
+## HyperCloud-Multi-Operator_5.0.25.12 (2021. 12. 08. (수) 15:13:37 KST)
+
+### Added
+
+### Changed
+
+### Fixed
+
+### CRD yaml
+
+### Etc
+  - [etc] service account, admission v1 오타 수정 by SISILIA
+
+<!--------------------- v5.0.25.12 end --------------------->
+
 <!-------------------- v5.0.25.11 start -------------------->
 
 ## HyperCloud-Multi-Operator_5.0.25.11 (2021. 12. 08. (수) 14:14:35 KST)
