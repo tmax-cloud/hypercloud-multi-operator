@@ -22,7 +22,7 @@ import (
 	"strings"
 
 	"github.com/go-logr/logr"
-	"github.com/tmax-cloud/hypercloud-multi-operator/v5/controllers/util"
+	"github.com/tmax-cloud/hypercloud-multi-operator/controllers/util"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/cluster-api/util/patch"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -30,8 +30,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
-	typesv1beta1 "github.com/tmax-cloud/hypercloud-multi-operator/v5/apis/external/v1beta1"
-	constant "github.com/tmax-cloud/hypercloud-multi-operator/v5/controllers/util"
+	typesv1beta1 "github.com/tmax-cloud/hypercloud-multi-operator/apis/external/v1beta1"
+	constant "github.com/tmax-cloud/hypercloud-multi-operator/controllers/util"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"

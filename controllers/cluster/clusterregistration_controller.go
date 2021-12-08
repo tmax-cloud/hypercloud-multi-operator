@@ -19,12 +19,13 @@ package controllers
 import (
 	"context"
 	b64 "encoding/base64"
+
 	// "encoding/json"
 	// "strconv"
 
 	"github.com/go-logr/logr"
-	clusterv1alpha1 "github.com/tmax-cloud/hypercloud-multi-operator/v5/apis/cluster/v1alpha1"
-	util "github.com/tmax-cloud/hypercloud-multi-operator/v5/controllers/util"
+	clusterv1alpha1 "github.com/tmax-cloud/hypercloud-multi-operator/apis/cluster/v1alpha1"
+	util "github.com/tmax-cloud/hypercloud-multi-operator/controllers/util"
 
 	// yaml "gopkg.in/yaml.v2"
 
