@@ -9,4 +9,4 @@ roleRef:
 subjects:
 - kind: ServiceAccount
   name: hypercloud-multi-operator-controller-manager
-  namespace: system
+  namespace: hypecloud5-system
