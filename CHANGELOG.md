@@ -1,6 +1,23 @@
 # HyperCloud-Multi-Operator changelog!!
 All notable changes to this project will be documented in this file.
 
+<!-------------------- v5.0.25.15 start -------------------->
+
+## HyperCloud-Multi-Operator_5.0.25.15 (2021. 12. 09. (목) 14:13:34 KST)
+
+### Added
+  - [feat] service account를 위한 token secret추가 및 volumeMount, volume 설정 추가 by SISILIA
+
+### Changed
+
+### Fixed
+
+### CRD yaml
+
+### Etc
+
+<!--------------------- v5.0.25.15 end --------------------->
+
 <!-------------------- v5.0.25.14 start -------------------->
 
 ## HyperCloud-Multi-Operator_5.0.25.14 (2021. 12. 08. (수) 16:18:02 KST)
