@@ -48,6 +48,10 @@ type ClusterManagerSpec struct {
 	// +kubebuilder:validation:Required
 	// The number of worker node
 	WorkerNum int `json:"workerNum"`
+	// The version of kubernetes
+	// KubernetesVersion string `json:"kubernetesVersion"`
+	// The owner of cluster
+	// Owner string `json:"owner"`
 }
 
 // ProviderAwsSpec defines
