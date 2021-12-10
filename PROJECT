@@ -4,15 +4,33 @@ multigroup: true
 projectName: hypercloud-multi-operator
 repo: github.com/tmax-cloud/hypercloud-multi-operator
 resources:
-- group: claim
+-
+  # TODO(user): Uncomment the below line if this resource implements a controller, else delete it.
+  # controller: true
+  domain: tmax.io
+  group: claim
   kind: ClusterClaim
+  # TODO(user): Update the package path for your API if the below value is incorrect.
+  path: github.com/tmax-cloud/hypercloud-multi-operator/apis/claim/v1alpha1
   version: v1alpha1
-- group: cluster
+-
+  # TODO(user): Uncomment the below line if this resource implements a controller, else delete it.
+  # controller: true
+  domain: tmax.io
+  group: cluster
   kind: ClusterManager
+  # TODO(user): Update the package path for your API if the below value is incorrect.
+  path: github.com/tmax-cloud/hypercloud-multi-operator/apis/cluster/v1alpha1
   version: v1alpha1
-- group: cluster
+-
+  # TODO(user): Uncomment the below line if this resource implements a controller, else delete it.
+  # controller: true
+  domain: tmax.io
+  group: cluster
   kind: ClusterRegistration
+  # TODO(user): Update the package path for your API if the below value is incorrect.
+  path: github.com/tmax-cloud/hypercloud-multi-operator/apis/cluster/v1alpha1
   version: v1alpha1
-version: 3-alpha
+version: "3"
 plugins:
   go.sdk.operatorframework.io/v2-alpha: {}

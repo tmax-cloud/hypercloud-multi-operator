@@ -19,6 +19,7 @@ package controllers
 import (
 	"context"
 	b64 "encoding/base64"
+	"regexp"
 
 	// "encoding/json"
 	// "strconv"
@@ -57,7 +58,7 @@ type ClusterRegistrationReconciler struct {
 // +kubebuilder:rbac:groups=cluster.tmax.io,resources=clusterregistrations,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=cluster.tmax.io,resources=clusterregistrations/status,verbs=get;update;patch
 
-func (r *ClusterRegistrationReconciler) Reconcile(req ctrl.Request) (_ ctrl.Result, reterr error) {
+func (r *ClusterRegistrationReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ ctrl.Result, reterr error) {
 	_ = context.Background()
 	log := r.Log.WithValues("clusterregistration", req.NamespacedName)
 
@@ -181,30 +182,26 @@ func (r *ClusterRegistrationReconciler) CreateKubeconfigSecret(ctx context.Conte
 	log.Info("Start to CreateKubeconfigSecret reconcile for [" + ClusterRegistration.Name + "]")
 
 	kubeconfigSecret := &corev1.Secret{}
-	kubeconfigSecretKey := types.NamespacedName{Name: ClusterRegistration.Spec.ClusterName + "-kubeconfig", Namespace: ClusterRegistration.Namespace}
+	kubeconfigSecretKey := types.NamespacedName{Name: ClusterRegistration.Spec.ClusterName + util.KubeconfigPostfix, Namespace: ClusterRegistration.Namespace}
 	if err := r.Get(context.TODO(), kubeconfigSecretKey, kubeconfigSecret); err != nil {
 		if errors.IsNotFound(err) {
-			log.Info("Cannot found kubeconfigSecret, starting to create kubeconfigSecret for [" + ClusterRegistration.Name + "-kubeconfig" + "]")
-			if encodedKubeConfig, err := b64.StdEncoding.DecodeString(ClusterRegistration.Spec.KubeConfig); err != nil {
-				log.Error(err, "Failed to decode ClusterRegistration.Spec.KubeConfig, maybe wrong kubeconfig file")
-				return ctrl.Result{}, err
-			} else {
-				kubeconfigSecret = &corev1.Secret{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      ClusterRegistration.Spec.ClusterName + "-kubeconfig",
-						Namespace: ClusterRegistration.Namespace,
-						Finalizers: []string{
-							util.SecretFinalizer,
-						},
+			log.Info("Cannot found kubeconfigSecret, starting to create kubeconfigSecret")
+			encodedKubeConfig, _ := b64.StdEncoding.DecodeString(ClusterRegistration.Spec.KubeConfig)
+			kubeconfigSecret = &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      ClusterRegistration.Spec.ClusterName + util.KubeconfigPostfix,
+					Namespace: ClusterRegistration.Namespace,
+					Finalizers: []string{
+						util.SecretFinalizer,
 					},
-					StringData: map[string]string{
-						"value": string(encodedKubeConfig),
-					},
-				}
+				},
+				StringData: map[string]string{
+					"value": string(encodedKubeConfig),
+				},
 			}
 
 			if err = r.Create(context.TODO(), kubeconfigSecret); err != nil {
-				log.Error(err, "Failed to create ["+ClusterRegistration.Spec.ClusterName+"-kubeconfig] secret")
+				log.Error(err, "Failed to create KubeconfigSecret")
 				return ctrl.Result{}, err
 			}
 		} else {
@@ -224,10 +221,14 @@ func (r *ClusterRegistrationReconciler) CreateKubeconfigSecret(ctx context.Conte
 func (r *ClusterRegistrationReconciler) CreateClusterManager(ctx context.Context, ClusterRegistration *clusterv1alpha1.ClusterRegistration) (ctrl.Result, error) {
 	log := r.Log.WithValues("ClusterRegistration", types.NamespacedName{Name: ClusterRegistration.Name, Namespace: ClusterRegistration.Namespace})
 	if ClusterRegistration.Status.Phase != string(clusterv1alpha1.ClusterRegistrationPhaseSecretCreated) {
-		log.Info("Wait for creating secret [" + ClusterRegistration.Spec.ClusterName + "-kubeconfig]")
+		log.Info("Wait for creating KubeconfigSecret")
 		return ctrl.Result{}, nil
 	}
 	log.Info("Start to CreateClusterManager reconcile for [" + ClusterRegistration.Name + "]")
+
+	encodedKubeConfig, _ := b64.StdEncoding.DecodeString(ClusterRegistration.Spec.KubeConfig)
+	reg, _ := regexp.Compile("https://[0-9a-zA-Z./-]+")
+	dns := reg.FindString(string(encodedKubeConfig))[len("https://"):]
 
 	clm := &clusterv1alpha1.ClusterManager{}
 	clmKey := types.NamespacedName{Name: ClusterRegistration.Spec.ClusterName, Namespace: ClusterRegistration.Namespace}
@@ -240,6 +241,7 @@ func (r *ClusterRegistrationReconciler) CreateClusterManager(ctx context.Context
 					Annotations: map[string]string{
 						"owner":   ClusterRegistration.Annotations["creator"],
 						"creator": ClusterRegistration.Annotations["creator"],
+						"DNS/AWS": dns,
 					},
 					Labels: map[string]string{
 						util.ClusterTypeKey: util.ClusterTypeRegistered,
@@ -278,8 +280,8 @@ func (r *ClusterRegistrationReconciler) reconcilePhase(_ context.Context, Cluste
 	}
 }
 
-func (r *ClusterRegistrationReconciler) requeueClusterRegistrationsForClusterManager(o handler.MapObject) []ctrl.Request {
-	clm := o.Object.(*clusterv1alpha1.ClusterManager)
+func (r *ClusterRegistrationReconciler) requeueClusterRegistrationsForClusterManager(o client.Object) []ctrl.Request {
+	clm := o.DeepCopyObject().(*clusterv1alpha1.ClusterManager)
 	log := r.Log.WithValues("ClusterRegistration-ObjectMapper", "clusterManagerToClusterClusterRegistrations", "ClusterRegistration", clm.Name)
 	//get clusterManager
 	clr := &clusterv1alpha1.ClusterRegistration{}
@@ -342,9 +344,7 @@ func (r *ClusterRegistrationReconciler) SetupWithManager(mgr ctrl.Manager) error
 
 	return controller.Watch(
 		&source.Kind{Type: &clusterv1alpha1.ClusterManager{}},
-		&handler.EnqueueRequestsFromMapFunc{
-			ToRequests: handler.ToRequestsFunc(r.requeueClusterRegistrationsForClusterManager),
-		},
+		handler.EnqueueRequestsFromMapFunc(r.requeueClusterRegistrationsForClusterManager),
 		predicate.Funcs{
 			UpdateFunc: func(e event.UpdateEvent) bool {
 				return false

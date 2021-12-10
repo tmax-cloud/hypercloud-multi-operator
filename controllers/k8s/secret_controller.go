@@ -27,7 +27,6 @@ import (
 	kerrors "k8s.io/apimachinery/pkg/util/errors"
 
 	"github.com/tmax-cloud/hypercloud-multi-operator/controllers/util"
-	constant "github.com/tmax-cloud/hypercloud-multi-operator/controllers/util"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -44,8 +43,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
-	fedv1b1 "sigs.k8s.io/kubefed/pkg/apis/core/v1beta1"
-	"sigs.k8s.io/kubefed/pkg/kubefedctl"
+	//	fedv1b1 "sigs.k8s.io/kubefed/pkg/apis/core/v1beta1"
 )
 
 // ClusterReconciler reconciles a Memcached object
@@ -63,15 +61,19 @@ const (
 // +kubebuilder:rbac:groups="",resources=secrets;namespaces;,verbs=get;update;patch;list;watch;create;post;delete;
 // +kubebuilder:rbac:groups="core.kubefed.io",resources=kubefedconfigs;kubefedclusters;,verbs=get;update;patch;list;watch;create;post;delete;
 
-func (r *SecretReconciler) Reconcile(req ctrl.Request) (_ ctrl.Result, reterr error) {
+func (r *SecretReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ ctrl.Result, reterr error) {
 	_ = context.Background()
 	log := r.Log.WithValues("Secret", req.NamespacedName)
 	log.Info("Start to reconcile kubeconfig secret")
 	//get secret
 	secret := &corev1.Secret{}
-	if err := r.Get(context.TODO(), req.NamespacedName, secret); err != nil {
+	secretKey := types.NamespacedName{
+		Name:      req.NamespacedName.Name + util.KubeconfigPostfix,
+		Namespace: req.NamespacedName.Namespace,
+	}
+	if err := r.Get(context.TODO(), secretKey, secret); err != nil {
 		if errors.IsNotFound(err) {
-			log.Info("Secret resource not found. Ignoring since object must be deleted.")
+			log.Info("Secret resource not found. Ignoring since object must be deleted. [" + req.NamespacedName.Namespace + "/" + req.NamespacedName.Name + "]")
 			return ctrl.Result{}, nil
 		}
 
@@ -109,7 +111,7 @@ func (r *SecretReconciler) Reconcile(req ctrl.Request) (_ ctrl.Result, reterr er
 func (r *SecretReconciler) reconcile(ctx context.Context, secret *corev1.Secret) (ctrl.Result, error) {
 	phases := []func(context.Context, *corev1.Secret) (ctrl.Result, error){
 		r.UpdateClusterManagerControlPlaneEndpoint,
-		r.KubefedJoin,
+		//r.KubefedJoin,
 		r.deployRolebinding,
 	}
 
@@ -135,7 +137,7 @@ func (r *SecretReconciler) deployRolebinding(ctx context.Context, secret *corev1
 	log.Info("Start to reconcile.. Deploy rolebinding to remote")
 
 	clm := &clusterv1alpha1.ClusterManager{}
-	clmKey := types.NamespacedName{Name: strings.Split(secret.Name, constant.KubeconfigPostfix)[0], Namespace: secret.Namespace}
+	clmKey := types.NamespacedName{Name: strings.Split(secret.Name, util.KubeconfigPostfix)[0], Namespace: secret.Namespace}
 	if err := r.Get(context.TODO(), clmKey, clm); err != nil {
 		log.Error(err, "Failed to get ClusterManager")
 		return ctrl.Result{}, err
@@ -153,7 +155,8 @@ func (r *SecretReconciler) deployRolebinding(ctx context.Context, secret *corev1
 			Namespace: clm.Namespace,
 		},
 		RoleRef: rbacv1.RoleRef{
-			APIGroup: "rbac.authorization.k8s.io",
+			//APIGroup: "rbac.authorization.k8s.io",
+			APIGroup: rbacv1.SchemeGroupVersion.Group,
 			Kind:     "ClusterRole",
 			Name:     "cluster-admin",
 		},
@@ -166,6 +169,19 @@ func (r *SecretReconciler) deployRolebinding(ctx context.Context, secret *corev1
 		},
 	}
 
+	targetGroups := []string{
+		"",
+		"apps",
+		"autoscaling",
+		"batch",
+		"extensions",
+		"policy",
+		"networking.k8s.io",
+		"snapshot.storage.k8s.io",
+		"storage.k8s.io",
+		"apiextensions.k8s.io",
+		"metrics.k8s.io",
+	}
 	allRule := &rbacv1.PolicyRule{}
 	allRule.APIGroups = append(allRule.APIGroups, "", "apps", "autoscaling", "batch", "extensions", "policy", "networking.k8s.io", "snapshot.storage.k8s.io", "storage.k8s.io", "apiextensions.k8s.io", "metrics.k8s.io")
 	allRule.Resources = append(allRule.Resources, "*")
@@ -189,10 +205,15 @@ func (r *SecretReconciler) deployRolebinding(ctx context.Context, secret *corev1
 			Name: "developer",
 		},
 		Rules: []rbacv1.PolicyRule{
-			{APIGroups: []string{"", "apps", "autoscaling", "batch", "extensions", "policy", "networking.k8s.io", "snapshot.storage.k8s.io", "storage.k8s.io", "apiextensions.k8s.io", "metrics.k8s.io"}, Resources: []string{"*"},
-				Verbs: []string{"*"}},
-			{APIGroups: []string{"apiregistration.k8s.io"}, Resources: []string{"*"},
-				Verbs: []string{"get", "list", "watch"}},
+			{
+				APIGroups: targetGroups,
+				Resources: []string{"*"},
+				Verbs:     []string{"*"},
+			},
+			{
+				APIGroups: []string{"apiregistration.k8s.io"},
+				Resources: []string{"*"},
+				Verbs:     []string{"get", "list", "watch"}},
 		},
 	}
 
@@ -214,10 +235,16 @@ func (r *SecretReconciler) deployRolebinding(ctx context.Context, secret *corev1
 			Name: "guest",
 		},
 		Rules: []rbacv1.PolicyRule{
-			{APIGroups: []string{"", "apps", "autoscaling", "batch", "extensions", "policy", "networking.k8s.io", "snapshot.storage.k8s.io", "storage.k8s.io", "apiextensions.k8s.io", "metrics.k8s.io"}, Resources: []string{"*"},
-				Verbs: []string{"get", "list", "watch"}},
-			{APIGroups: []string{"apiregistration.k8s.io"}, Resources: []string{"*"},
-				Verbs: []string{"get", "list", "watch"}},
+			{
+				APIGroups: targetGroups,
+				Resources: []string{"*"},
+				Verbs:     []string{"get", "list", "watch"},
+			},
+			{
+				APIGroups: []string{"apiregistration.k8s.io"},
+				Resources: []string{"*"},
+				Verbs:     []string{"get", "list", "watch"},
+			},
 		},
 	}
 
@@ -237,64 +264,64 @@ func (r *SecretReconciler) deployRolebinding(ctx context.Context, secret *corev1
 	return ctrl.Result{}, nil
 }
 
-func (r *SecretReconciler) KubefedJoin(ctx context.Context, secret *corev1.Secret) (ctrl.Result, error) {
-	log := r.Log.WithValues("secret", types.NamespacedName{Name: secret.Name, Namespace: secret.Namespace})
+// func (r *SecretReconciler) KubefedJoin(ctx context.Context, secret *corev1.Secret) (ctrl.Result, error) {
+// 	log := r.Log.WithValues("secret", types.NamespacedName{Name: secret.Name, Namespace: secret.Namespace})
 
-	log.Info("Start to reconcile.. Join clustermanager")
+// 	log.Info("Start to reconcile.. Join clustermanager")
 
-	clusterManagerNamespacedName := secret.GetNamespace() + "-" + strings.Split(secret.Name, constant.KubeconfigPostfix)[0]
+// 	clusterManagerNamespacedName := secret.GetNamespace() + "-" + strings.Split(secret.Name, util.KubeconfigPostfix)[0]
 
-	clientRestConfig, err := getKubeConfig(*secret)
-	if err != nil {
-		log.Error(err, "Unable to get rest config from secret")
-		return ctrl.Result{}, err
-	}
-	masterRestConfig := ctrl.GetConfigOrDie()
-	// cluster
+// 	clientRestConfig, err := getKubeConfig(*secret)
+// 	if err != nil {
+// 		log.Error(err, "Unable to get rest config from secret")
+// 		return ctrl.Result{}, err
+// 	}
+// 	masterRestConfig := ctrl.GetConfigOrDie()
+// 	// cluster
 
-	kubefedConfig := &fedv1b1.KubeFedConfig{}
-	key := types.NamespacedName{Namespace: constant.KubeFedNamespace, Name: "kubefed"}
+// 	kubefedConfig := &fedv1b1.KubeFedConfig{}
+// 	key := types.NamespacedName{Namespace: util.KubeFedNamespace, Name: "kubefed"}
 
-	if err := r.Get(context.TODO(), key, kubefedConfig); err != nil {
-		log.Error(err, "Failed to get kubefedconfig")
-		return ctrl.Result{}, err
-	}
+// 	if err := r.Get(context.TODO(), key, kubefedConfig); err != nil {
+// 		log.Error(err, "Failed to get kubefedconfig")
+// 		return ctrl.Result{}, err
+// 	}
 
-	// fed join 안되었으면 join하는데.. 처음에는 무조건 되겠지.. 확인하고 넘어가자 몇번 돌려주자!
-	kfc := &fedv1b1.KubeFedCluster{}
-	kfcKey := types.NamespacedName{Name: clusterManagerNamespacedName, Namespace: constant.KubeFedNamespace}
-	if err := r.Get(context.TODO(), kfcKey, kfc); err != nil {
-		if errors.IsNotFound(err) {
-			log.Info("Cannot found kubefedCluster. Start join")
-			// 없으면 join해.. 한번 했다해도 kfc 없으면 다시 해
-			if _, err := kubefedctl.JoinCluster(masterRestConfig, clientRestConfig, constant.KubeFedNamespace, constant.HostClusterName,
-				clusterManagerNamespacedName, "", kubefedConfig.Spec.Scope, false, false); err != nil {
-				// if _, err := kubefedctl.JoinCluster(masterRestConfig, clientRestConfig, secret.GetNamespace(), constant.HostClusterName,
-				// strings.Split(secret.Name, constant.KubeconfigPostfix)[0], "", kubefedConfig.Spec.Scope, false, false); err != nil {
+// 	// fed join 안되었으면 join하는데.. 처음에는 무조건 되겠지.. 확인하고 넘어가자 몇번 돌려주자!
+// 	kfc := &fedv1b1.KubeFedCluster{}
+// 	kfcKey := types.NamespacedName{Name: clusterManagerNamespacedName, Namespace: util.KubeFedNamespace}
+// 	if err := r.Get(context.TODO(), kfcKey, kfc); err != nil {
+// 		if errors.IsNotFound(err) {
+// 			log.Info("Cannot found kubefedCluster. Start join")
+// 			// 없으면 join해.. 한번 했다해도 kfc 없으면 다시 해
+// 			if _, err := kubefedctl.JoinCluster(masterRestConfig, clientRestConfig, util.KubeFedNamespace, util.HostClusterName,
+// 				clusterManagerNamespacedName, "", kubefedConfig.Spec.Scope, false, false); err != nil {
+// 				// if _, err := kubefedctl.JoinCluster(masterRestConfig, clientRestConfig, secret.GetNamespace(), util.HostClusterName,
+// 				// strings.Split(secret.Name, util.KubeconfigPostfix)[0], "", kubefedConfig.Spec.Scope, false, false); err != nil {
 
-				return ctrl.Result{}, err
-			} else {
-				// join 명령어 잘 수행했지만.. 다시 requeue해서 확인한다 제대로 join 되었는지!
-				log.Info("Requeue.. check fed join status....")
-				return ctrl.Result{RequeueAfter: requeueAfter5Sec}, nil
-			}
-		} else {
-			log.Error(err, "Failed to get kubefedCluster")
-			return ctrl.Result{}, err
-		}
-	}
-	// else if kfc.Status.Conditions[len(kfc.Status.Conditions)-1].Type != "Ready" {
-	// 	// ready가 아니면 unjoin하고 다시 join해
-	// 	// offline이면 kfc delete
-	// 	// log.Info("Cannot unjoin cluster.. because cluster is already delete.. delete directly kubefedcluster object")
-	// 	// if err := r.Delete(context.TODO(), kfc); err != nil {
-	// 	// 	log.Error(err, "Failed to delete kubefedCluster")
-	// 	// 	return ctrl.Result{}, err
-	// 	// }
-	// }
+// 				return ctrl.Result{}, err
+// 			} else {
+// 				// join 명령어 잘 수행했지만.. 다시 requeue해서 확인한다 제대로 join 되었는지!
+// 				log.Info("Requeue.. check fed join status....")
+// 				return ctrl.Result{RequeueAfter: requeueAfter5Sec}, nil
+// 			}
+// 		} else {
+// 			log.Error(err, "Failed to get kubefedCluster")
+// 			return ctrl.Result{}, err
+// 		}
+// 	}
+// 	// else if kfc.Status.Conditions[len(kfc.Status.Conditions)-1].Type != "Ready" {
+// 	// 	// ready가 아니면 unjoin하고 다시 join해
+// 	// 	// offline이면 kfc delete
+// 	// 	// log.Info("Cannot unjoin cluster.. because cluster is already delete.. delete directly kubefedcluster object")
+// 	// 	// if err := r.Delete(context.TODO(), kfc); err != nil {
+// 	// 	// 	log.Error(err, "Failed to delete kubefedCluster")
+// 	// 	// 	return ctrl.Result{}, err
+// 	// 	// }
+// 	// }
 
-	return ctrl.Result{}, nil
-}
+// 	return ctrl.Result{}, nil
+// }
 
 func (r *SecretReconciler) UpdateClusterManagerControlPlaneEndpoint(ctx context.Context, secret *corev1.Secret) (ctrl.Result, error) {
 	log := r.Log.WithValues("secret", types.NamespacedName{Name: secret.Name, Namespace: secret.Namespace})
@@ -306,7 +333,7 @@ func (r *SecretReconciler) UpdateClusterManagerControlPlaneEndpoint(ctx context.
 		return ctrl.Result{}, err
 	}
 	clm := &clusterv1alpha1.ClusterManager{}
-	clmKey := types.NamespacedName{Name: strings.Split(secret.Name, constant.KubeconfigPostfix)[0], Namespace: secret.Namespace}
+	clmKey := types.NamespacedName{Name: strings.Split(secret.Name, util.KubeconfigPostfix)[0], Namespace: secret.Namespace}
 	if err := r.Get(context.TODO(), clmKey, clm); err != nil {
 		if errors.IsNotFound(err) {
 			log.Info("Cannot found clusterManager")
@@ -334,10 +361,13 @@ func (r *SecretReconciler) UpdateClusterManagerControlPlaneEndpoint(ctx context.
 func (r *SecretReconciler) reconcileDelete(ctx context.Context, secret *corev1.Secret) (reconcile.Result, error) {
 	log := r.Log.WithValues("secret", types.NamespacedName{Name: secret.Name, Namespace: secret.Namespace})
 	log.Info("Start to reconcile reconcileDelete... ")
-	// clusterManagerNamespacedName := secret.GetNamespace() + "-" + strings.Split(secret.Name, constant.KubeconfigPostfix)[0]
+	// clusterManagerNamespacedName := secret.GetNamespace() + "-" + strings.Split(secret.Name, util.KubeconfigPostfix)[0]
 
 	clm := &clusterv1alpha1.ClusterManager{}
-	clmKey := types.NamespacedName{Name: strings.Split(secret.Name, constant.KubeconfigPostfix)[0], Namespace: secret.Namespace}
+	clmKey := types.NamespacedName{
+		Name:      strings.Split(secret.Name, util.KubeconfigPostfix)[0],
+		Namespace: secret.Namespace,
+	}
 	if err := r.Get(context.TODO(), clmKey, clm); err != nil {
 		if errors.IsNotFound(err) {
 			log.Info("ClusterManager is already deleted..")
@@ -413,31 +443,31 @@ func (r *SecretReconciler) reconcileDelete(ctx context.Context, secret *corev1.S
 	// fed deploy한것도.. 지워야하나..
 	// 클러스터를 사용중이던 사용자의 crb도 지워야되나.. db에서 읽어서 지워야 하는데?
 
-	controllerutil.RemoveFinalizer(secret, constant.SecretFinalizer)
+	controllerutil.RemoveFinalizer(secret, util.SecretFinalizer)
 
 	return ctrl.Result{}, nil
 }
 
-func (r *SecretReconciler) requeueSecretForClusterManager(o handler.MapObject) []ctrl.Request {
-	clm := o.Object.(*clusterv1alpha1.ClusterManager)
-	log := r.Log.WithValues("objectMapper", "ClusterManagersToSecret", "namespace", clm.Namespace, "clustermanager", clm.Name)
-	log.Info("Start to requeueSecretForClusterManager mapping")
+// func (r *SecretReconciler) requeueSecretForClusterManager(o handler.MapObject) []ctrl.Request {
+// 	clm := o.Object.(*clusterv1alpha1.ClusterManager)
+// 	log := r.Log.WithValues("objectMapper", "ClusterManagersToSecret", "namespace", clm.Namespace, "clustermanager", clm.Name)
+// 	log.Info("Start to requeueSecretForClusterManager mapping")
 
-	// Don't handle deleted machinedeployment
-	if !clm.ObjectMeta.DeletionTimestamp.IsZero() {
-		log.Info("clustermanager has a deletion timestamp, skipping mapping.")
-		return nil
-	}
+// 	// Don't handle deleted machinedeployment
+// 	if !clm.ObjectMeta.DeletionTimestamp.IsZero() {
+// 		log.Info("clustermanager has a deletion timestamp, skipping mapping.")
+// 		return nil
+// 	}
 
-	reconcileRequests := []ctrl.Request{}
-	reconcileRequests = append(reconcileRequests, ctrl.Request{
-		NamespacedName: types.NamespacedName{
-			Namespace: clm.Namespace,
-			Name:      clm.Name + constant.KubeconfigPostfix,
-		},
-	})
-	return reconcileRequests
-}
+// 	reconcileRequests := []ctrl.Request{}
+// 	reconcileRequests = append(reconcileRequests, ctrl.Request{
+// 		NamespacedName: types.NamespacedName{
+// 			Namespace: clm.Namespace,
+// 			Name:      clm.Name + util.KubeconfigPostfix,
+// 		},
+// 	})
+// 	return reconcileRequests
+// }
 
 func (r *SecretReconciler) SetupWithManager(mgr ctrl.Manager) error {
 
@@ -451,7 +481,7 @@ func (r *SecretReconciler) SetupWithManager(mgr ctrl.Manager) error {
 				UpdateFunc: func(e event.UpdateEvent) bool {
 					osecret := e.ObjectOld.(*corev1.Secret).DeepCopy()
 					nsecret := e.ObjectNew.(*corev1.Secret).DeepCopy()
-					isTarget := strings.Contains(osecret.Name, constant.KubeconfigPostfix)
+					isTarget := strings.Contains(osecret.Name, util.KubeconfigPostfix)
 					isDelete := osecret.DeletionTimestamp.IsZero() && !nsecret.DeletionTimestamp.IsZero()
 					isFinalized := !controllerutil.ContainsFinalizer(osecret, util.SecretFinalizer) && controllerutil.ContainsFinalizer(nsecret, util.SecretFinalizer)
 
@@ -476,9 +506,7 @@ func (r *SecretReconciler) SetupWithManager(mgr ctrl.Manager) error {
 
 	return controller.Watch(
 		&source.Kind{Type: &clusterv1alpha1.ClusterManager{}},
-		&handler.EnqueueRequestsFromMapFunc{
-			ToRequests: handler.ToRequestsFunc(r.requeueSecretForClusterManager),
-		},
+		&handler.EnqueueRequestForObject{},
 		predicate.Funcs{
 			UpdateFunc: func(e event.UpdateEvent) bool {
 				oldclm := e.ObjectOld.(*clusterv1alpha1.ClusterManager)
