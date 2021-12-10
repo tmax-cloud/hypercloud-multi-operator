@@ -1,15 +1,20 @@
 package util
 
 import (
-	"fmt"
 	"math/rand"
-	"runtime"
-	"strconv"
-	"strings"
 	"time"
 
+	certmanagerv1 "github.com/jetstack/cert-manager/pkg/apis/certmanager/v1"
+	cmmetav1 "github.com/jetstack/cert-manager/pkg/apis/meta/v1"
+	clusterv1alpha1 "github.com/tmax-cloud/hypercloud-multi-operator/apis/cluster/v1alpha1"
+	dynamicv2 "github.com/traefik/traefik/v2/pkg/config/dynamic"
+	traefikv2 "github.com/traefik/traefik/v2/pkg/provider/kubernetes/crd/traefik/v1alpha1"
+
 	corev1 "k8s.io/api/core/v1"
+	networkingv1 "k8s.io/api/networking/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/kubernetes"
 	restclient "k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
@@ -35,16 +40,16 @@ func LowestNonZeroResult(i, j ctrl.Result) ctrl.Result {
 	}
 }
 
-func Goid() int {
-	var buf [64]byte
-	n := runtime.Stack(buf[:], false)
-	idField := strings.Fields(strings.TrimPrefix(string(buf[:n]), "goroutine "))[0]
-	id, err := strconv.Atoi(idField)
-	if err != nil {
-		panic(fmt.Sprintf("cannot get goroutine id: %v", err))
-	}
-	return id
-}
+// func Goid() int {
+// 	var buf [64]byte
+// 	n := runtime.Stack(buf[:], false)
+// 	idField := strings.Fields(strings.TrimPrefix(string(buf[:n]), "goroutine "))[0]
+// 	id, err := strconv.Atoi(idField)
+// 	if err != nil {
+// 		panic(fmt.Sprintf("cannot get goroutine id: %v", err))
+// 	}
+// 	return id
+// }
 
 func GetRemoteK8sClient(secret *corev1.Secret) (*kubernetes.Clientset, error) {
 	var remoteClientset *kubernetes.Clientset
@@ -115,4 +120,211 @@ func CreateSuffixString() string {
 	}
 
 	return string(s)
+}
+
+func CreateCertificate(clusterManager *clusterv1alpha1.ClusterManager) *certmanagerv1.Certificate {
+	traefikCertificate := &certmanagerv1.Certificate{
+		ObjectMeta: metav1.ObjectMeta{
+			//Name:      clusterManager.Name + "-certificate" + clusterManager.Annotations["suffix"],
+			Name:      clusterManager.Name + "-certificate",
+			Namespace: clusterManager.Namespace,
+			Annotations: map[string]string{
+				"owner":   clusterManager.Annotations["creator"],
+				"creator": clusterManager.Annotations["creator"],
+			},
+			Labels: map[string]string{
+				"from/clusterManager": clusterManager.Name,
+			},
+		},
+		Spec: certmanagerv1.CertificateSpec{
+			SecretName: clusterManager.Name + "-service-cert",
+			IsCA:       false,
+			Usages: []certmanagerv1.KeyUsage{
+				certmanagerv1.UsageDigitalSignature,
+				certmanagerv1.UsageKeyEncipherment,
+				certmanagerv1.UsageServerAuth,
+				certmanagerv1.UsageClientAuth,
+			},
+			DNSNames: []string{
+				"multicluster.tmaxcloud.org",
+				clusterManager.Name + "." + clusterManager.Namespace + ".svc",
+				clusterManager.Name + "." + clusterManager.Namespace + ".svc.cluster.local",
+			},
+			IssuerRef: cmmetav1.ObjectReference{
+				Name:  "tmaxcloud-issuer",
+				Kind:  "ClusterIssuer",
+				Group: "cert-manager.io",
+			},
+		},
+	}
+
+	return traefikCertificate
+}
+
+func CreateIngress(clusterManager *clusterv1alpha1.ClusterManager) *networkingv1.Ingress {
+	provider := INGRESS_CLASS
+	pathType := networkingv1.PathTypePrefix
+	prefixMiddleware := clusterManager.Namespace + "-" + clusterManager.Name + "-prefix@kubernetescrd"
+	traefikIngress := &networkingv1.Ingress{
+		ObjectMeta: metav1.ObjectMeta{
+			//Name:      clusterManager.Name + "-ingress-" + clusterManager.Annotations["suffix"],
+			Name:      clusterManager.Name + "-ingress",
+			Namespace: clusterManager.Namespace,
+			Annotations: map[string]string{
+				"traefik.ingress.kubernetes.io/router.entrypoints": "websecure",
+				"traefik.ingress.kubernetes.io/router.middlewares": "jwt-decode-auth@file," + prefixMiddleware,
+				"owner":   clusterManager.Annotations["creator"],
+				"creator": clusterManager.Annotations["creator"],
+			},
+			Labels: map[string]string{
+				"ingress.tmaxcloud.org/name": "multicluster",
+				"from/clusterManager":        clusterManager.Name,
+			},
+		},
+		Spec: networkingv1.IngressSpec{
+			IngressClassName: &provider,
+			Rules: []networkingv1.IngressRule{
+				{
+					Host: "multicluster.tmaxcloud.org",
+					IngressRuleValue: networkingv1.IngressRuleValue{
+						HTTP: &networkingv1.HTTPIngressRuleValue{
+							Paths: []networkingv1.HTTPIngressPath{
+								{
+									Path:     "/api/" + clusterManager.Namespace + "/" + clusterManager.Name,
+									PathType: &pathType,
+									Backend: networkingv1.IngressBackend{
+										Service: &networkingv1.IngressServiceBackend{
+											Name: clusterManager.Name + "-service",
+											Port: networkingv1.ServiceBackendPort{
+												Name: "https",
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			TLS: []networkingv1.IngressTLS{
+				{
+					Hosts: []string{
+						"multicluster.tmaxcloud.org",
+					},
+				},
+			},
+		},
+	}
+
+	return traefikIngress
+}
+
+func CreateService(clusterManager *clusterv1alpha1.ClusterManager) *corev1.Service {
+	traefikService := &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			//Name:      clusterManager.Name + "-service-" + clusterManager.Annotations["suffix"],
+			Name:      clusterManager.Name + "-service",
+			Namespace: clusterManager.Namespace,
+			Annotations: map[string]string{
+				"owner":   clusterManager.Annotations["creator"],
+				"creator": clusterManager.Annotations["creator"],
+			},
+			Labels: map[string]string{
+				"from/clusterManager": clusterManager.Name,
+			},
+		},
+		Spec: corev1.ServiceSpec{
+			ExternalName: clusterManager.Annotations["DNS/AWS"],
+			Ports: []corev1.ServicePort{
+				{
+					Name:       "https",
+					Port:       6443,
+					Protocol:   corev1.ProtocolTCP,
+					TargetPort: intstr.FromInt(6443),
+				},
+			},
+			Type: corev1.ServiceTypeExternalName,
+		},
+		// Spec: corev1.ServiceSpec{
+		// 	Ports: []corev1.ServicePort{
+		// 		{
+		// 			Name:       "https",
+		// 			Protocol:   corev1.ProtocolTCP,
+		// 			Port:       6443,
+		// 			TargetPort: intstr.FromInt(6443),
+		// 		},
+		// 	},
+		// },
+	}
+	// switch strings.ToUpper(clusterManager.Spec.Provider) {
+	// case "AWS":
+	// 	traefikService = &corev1.Service{
+	// 		Spec: corev1.ServiceSpec{
+	// 			ExternalName: clusterManager.Annotations["DNS/AWS"],
+	// 			Type:         corev1.ServiceTypeExternalName,
+	// 		},
+	// 	}
+	// case "VSPHERE":
+	// 	//log.Info("")
+	// }
+
+	// traefikService = &corev1.Service{
+	// 	ObjectMeta: metav1.ObjectMeta{
+	// 		//Name:      clusterManager.Name + "-service-" + clusterManager.Annotations["suffix"],
+	// 		Name:      clusterManager.Name + "-service",
+	// 		Namespace: clusterManager.Namespace,
+	// 		Annotations: map[string]string{
+	// 			"owner":   clusterManager.Annotations["creator"],
+	// 			"creator": clusterManager.Annotations["creator"],
+	// 		},
+	// 		Labels: map[string]string{
+	// 			"from/clusterManager": clusterManager.Name,
+	// 		},
+	// 	},
+	// 	Spec: corev1.ServiceSpec{
+	// 		ExternalName: clusterManager.Annotations["DNS/AWS"],
+	// 		Ports: []corev1.ServicePort{
+	// 			{
+	// 				Name:       "https",
+	// 				Protocol:   corev1.ProtocolTCP,
+	// 				Port:       6443,
+	// 				TargetPort: intstr.FromInt(6443),
+	// 			},
+	// 		},
+	// 		Type: corev1.ServiceTypeExternalName,
+	// 	},
+	// }
+
+	return traefikService
+}
+
+func CreateMiddleware(clusterManager *clusterv1alpha1.ClusterManager) *traefikv2.Middleware {
+	traefikMiddleware := &traefikv2.Middleware{
+		ObjectMeta: metav1.ObjectMeta{
+			//Name:      clusterManager.Name + "-prefix-" + clusterManager.Annotations["suffix"],
+			Name:      clusterManager.Name + "-prefix",
+			Namespace: clusterManager.Namespace,
+			Annotations: map[string]string{
+				"owner":   clusterManager.Annotations["creator"],
+				"creator": clusterManager.Annotations["creator"],
+			},
+			Labels: map[string]string{
+				"from/clusterManager": clusterManager.Name,
+			},
+		},
+		Spec: traefikv2.MiddlewareSpec{
+			StripPrefix: &dynamicv2.StripPrefix{
+				Prefixes: []string{
+					"/api/" + clusterManager.Namespace + "/" + clusterManager.Name,
+				},
+			},
+		},
+	}
+	return traefikMiddleware
+}
+
+func MergeJson(dest []byte, source []byte) []byte {
+	dest = append(dest[0:len(dest)-1], 44)
+	dest = append(dest, source[1:]...)
+	return dest
 }

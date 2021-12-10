@@ -35,11 +35,11 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 )
 
-const (
-	CLAIM_API_GROUP         = "claim.tmax.io"
-	CLAIM_API_Kind          = "clusterclaims"
-	CLAIM_API_GROUP_VERSION = "claim.tmax.io/v1alpha1"
-)
+// const (
+// 	CLAIM_API_GROUP         = "claim.tmax.io"
+// 	CLAIM_API_Kind          = "clusterclaims"
+// 	CLAIM_API_GROUP_VERSION = "claim.tmax.io/v1alpha1"
+// )
 
 var AutoAdmit bool
 
@@ -59,7 +59,7 @@ type ClusterClaimReconciler struct {
 // +kubebuilder:rbac:groups=cluster.tmax.io,resources=clustermanagers,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=cluster.tmax.io,resources=clustermanagers/status,verbs=get;update;patch
 
-func (r *ClusterClaimReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
+func (r *ClusterClaimReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	_ = context.Background()
 	log := r.Log.WithValues("ClusterClaim", req.NamespacedName)
 
@@ -97,8 +97,8 @@ func (r *ClusterClaimReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error
 	return ctrl.Result{}, nil
 }
 
-func (r *ClusterClaimReconciler) requeueClusterClaimsForClusterManager(o handler.MapObject) []ctrl.Request {
-	clm := o.Object.(*clusterv1alpha1.ClusterManager)
+func (r *ClusterClaimReconciler) requeueClusterClaimsForClusterManager(o client.Object) []ctrl.Request {
+	clm := o.DeepCopyObject().(*clusterv1alpha1.ClusterManager)
 	log := r.Log.WithValues("objectMapper", "clusterManagerToClusterClaim", "clusterManager", clm.Name)
 	log.Info("Start to clusterManagerToClusterClaim mapping...")
 
@@ -115,6 +115,7 @@ func (r *ClusterClaimReconciler) requeueClusterClaimsForClusterManager(o handler
 	}
 	if cc.Status.Phase != "Approved" {
 		log.Info("ClusterClaims for ClusterManager [" + cc.Spec.ClusterName + "] is already delete... Do not update cc status to delete ")
+		//err := r.Create()
 		return nil
 	}
 	cc.Status.Phase = "ClusterDeleted"
@@ -158,9 +159,7 @@ func (r *ClusterClaimReconciler) SetupWithManager(mgr ctrl.Manager) error {
 
 	return controller.Watch(
 		&source.Kind{Type: &clusterv1alpha1.ClusterManager{}},
-		&handler.EnqueueRequestsFromMapFunc{
-			ToRequests: handler.ToRequestsFunc(r.requeueClusterClaimsForClusterManager),
-		},
+		handler.EnqueueRequestsFromMapFunc(r.requeueClusterClaimsForClusterManager),
 		predicate.Funcs{
 			UpdateFunc: func(e event.UpdateEvent) bool {
 				return false

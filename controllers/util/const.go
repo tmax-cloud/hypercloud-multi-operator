@@ -49,5 +49,6 @@ const (
 	CLUSTER_API_GROUP_VERSION          = "cluster.tmax.io/v1alpha1"
 	AGENT_INGRESS_NAME                 = "hypercloud-ingress"
 	SUFFIX_DIGIT                       = 5
+	INGRESS_CLASS                      = "tmax-cloud"
 	// FE_SYSTEM_NAMESPACE        = "kube-federation-system"
 )
