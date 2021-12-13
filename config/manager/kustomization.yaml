@@ -5,4 +5,4 @@ kind: Kustomization
 images:
 - name: controller
   newName: tmaxcloudck/hypercloud-multi-operator
-  newTag: test
+  newTag: {imageTag}
