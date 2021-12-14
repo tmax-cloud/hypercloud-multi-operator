@@ -1,6 +1,23 @@
 # HyperCloud-Multi-Operator changelog!!
 All notable changes to this project will be documented in this file.
 
+<!-------------------- v5.0.25.17 start -------------------->
+
+## HyperCloud-Multi-Operator_5.0.25.17 (2021. 12. 14. (화) 13:11:45 KST)
+
+### Added
+
+### Changed
+
+### Fixed
+
+### CRD yaml
+
+### Etc
+  - [etc] webhook configuration v1 버그 수정 by SISILIA
+
+<!--------------------- v5.0.25.17 end --------------------->
+
 <!-------------------- v5.0.25.16 start -------------------->
 
 ## HyperCloud-Multi-Operator_5.0.25.16 (2021. 12. 13. (월) 18:06:01 KST)
