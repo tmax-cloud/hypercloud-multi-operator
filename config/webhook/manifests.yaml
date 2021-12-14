@@ -25,7 +25,7 @@ webhooks:
     - UPDATE
     resources:
     - clusterclaims
-  sideEffects: None
+  sideEffects: NoneOnDryRun
 ---
 apiVersion: admissionregistration.k8s.io/v1
 kind: ValidatingWebhookConfiguration
@@ -54,7 +54,7 @@ webhooks:
     resources:
     - clusterclaims
     - clusterclaims/status
-  sideEffects: None
+  sideEffects: NoneOnDryRun
 - admissionReviewVersions:
   - "v1"
   clientConfig:
@@ -74,7 +74,7 @@ webhooks:
     - UPDATE
     resources:
     - clustermanagers
-  sideEffects: None
+  sideEffects: NoneOnDryRun
 - admissionReviewVersions:
   - "v1"
   clientConfig:
@@ -95,4 +95,4 @@ webhooks:
     - UPDATE
     resources:
     - clusterregistrations
-  sideEffects: None
+  sideEffects: NoneOnDryRun
