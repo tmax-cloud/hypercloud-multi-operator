@@ -6,7 +6,9 @@ metadata:
   creationTimestamp: null
   name: mutating-webhook-configuration
 webhooks:
-- clientConfig:
+- admissionReviewVersions:
+  - "v1"
+  clientConfig:
     caBundle: Cg==
     service:
       name: webhook-service
@@ -23,7 +25,7 @@ webhooks:
     - UPDATE
     resources:
     - clusterclaims
-
+  sideEffects: None
 ---
 apiVersion: admissionregistration.k8s.io/v1
 kind: ValidatingWebhookConfiguration
@@ -31,7 +33,9 @@ metadata:
   creationTimestamp: null
   name: validating-webhook-configuration
 webhooks:
-- clientConfig:
+- admissionReviewVersions:
+  - "v1"
+  clientConfig:
     caBundle: Cg==
     service:
       name: webhook-service
@@ -50,7 +54,10 @@ webhooks:
     resources:
     - clusterclaims
     - clusterclaims/status
-- clientConfig:
+  sideEffects: None
+- admissionReviewVersions:
+  - "v1"
+  clientConfig:
     caBundle: Cg==
     service:
       name: webhook-service
@@ -67,7 +74,10 @@ webhooks:
     - UPDATE
     resources:
     - clustermanagers
-- clientConfig:
+  sideEffects: None
+- admissionReviewVersions:
+  - "v1"
+  clientConfig:
     caBundle: Cg==
     service:
       name: webhook-service
@@ -85,3 +95,4 @@ webhooks:
     - UPDATE
     resources:
     - clusterregistrations
+  sideEffects: None
