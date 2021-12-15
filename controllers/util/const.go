@@ -50,5 +50,8 @@ const (
 	AGENT_INGRESS_NAME                 = "hypercloud-ingress"
 	SUFFIX_DIGIT                       = 5
 	INGRESS_CLASS                      = "tmax-cloud"
+	//PROVIDER_REGISTER                  = "NONE"
+	PROVIDER_AWS     = "AWS"
+	PROVIDER_VSPHERE = "VSPHERE"
 	// FE_SYSTEM_NAMESPACE        = "kube-federation-system"
 )

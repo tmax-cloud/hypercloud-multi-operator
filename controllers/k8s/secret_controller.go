@@ -73,7 +73,7 @@ func (r *SecretReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ c
 	}
 	if err := r.Get(context.TODO(), secretKey, secret); err != nil {
 		if errors.IsNotFound(err) {
-			log.Info("Secret resource not found. Ignoring since object must be deleted. [" + req.NamespacedName.Namespace + "/" + req.NamespacedName.Name + "]")
+			log.Info("Secret resource not found. Ignoring since object must be deleted.")
 			return ctrl.Result{}, nil
 		}
 
@@ -137,7 +137,10 @@ func (r *SecretReconciler) deployRolebinding(ctx context.Context, secret *corev1
 	log.Info("Start to reconcile.. Deploy rolebinding to remote")
 
 	clm := &clusterv1alpha1.ClusterManager{}
-	clmKey := types.NamespacedName{Name: strings.Split(secret.Name, util.KubeconfigPostfix)[0], Namespace: secret.Namespace}
+	clmKey := types.NamespacedName{
+		Name:      strings.Split(secret.Name, util.KubeconfigPostfix)[0],
+		Namespace: secret.Namespace,
+	}
 	if err := r.Get(context.TODO(), clmKey, clm); err != nil {
 		log.Error(err, "Failed to get ClusterManager")
 		return ctrl.Result{}, err
@@ -149,21 +152,20 @@ func (r *SecretReconciler) deployRolebinding(ctx context.Context, secret *corev1
 		return ctrl.Result{}, err
 	}
 
+	clusterAdminCRBName := "cluster-owner-crb-" + clm.Annotations["owner"]
 	clusterAdminCRB := &rbacv1.ClusterRoleBinding{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "cluster-owner-crb-" + clm.Annotations["owner"],
-			Namespace: clm.Namespace,
+			Name: clusterAdminCRBName,
 		},
 		RoleRef: rbacv1.RoleRef{
-			//APIGroup: "rbac.authorization.k8s.io",
-			APIGroup: rbacv1.SchemeGroupVersion.Group,
+			APIGroup: rbacv1.SchemeGroupVersion.Group, //"rbac.authorization.k8s.io"
 			Kind:     "ClusterRole",
 			Name:     "cluster-admin",
 		},
 		Subjects: []rbacv1.Subject{
 			{
-				Kind:     "User",
-				APIGroup: "rbac.authorization.k8s.io",
+				Kind:     rbacv1.UserKind,  //"User",
+				APIGroup: rbacv1.GroupName, //"rbac.authorization.k8s.io",
 				Name:     clm.Annotations["owner"],
 			},
 		},
@@ -182,12 +184,14 @@ func (r *SecretReconciler) deployRolebinding(ctx context.Context, secret *corev1
 		"apiextensions.k8s.io",
 		"metrics.k8s.io",
 	}
-	allRule := &rbacv1.PolicyRule{}
-	allRule.APIGroups = append(allRule.APIGroups, "", "apps", "autoscaling", "batch", "extensions", "policy", "networking.k8s.io", "snapshot.storage.k8s.io", "storage.k8s.io", "apiextensions.k8s.io", "metrics.k8s.io")
-	allRule.Resources = append(allRule.Resources, "*")
-	allRule.Verbs = append(allRule.Verbs, "*")
 
-	if _, err := remoteClientset.RbacV1().ClusterRoleBindings().Get(context.TODO(), "cluster-owner-crb-"+clm.Annotations["owner"], metav1.GetOptions{}); err != nil {
+	allRule := &rbacv1.PolicyRule{}
+	allRule.APIGroups = append(allRule.APIGroups, targetGroups...)
+	//allRule.APIGroups = append(allRule.APIGroups, "", "apps", "autoscaling", "batch", "extensions", "policy", "networking.k8s.io", "snapshot.storage.k8s.io", "storage.k8s.io", "apiextensions.k8s.io", "metrics.k8s.io")
+	allRule.Resources = append(allRule.Resources, rbacv1.ResourceAll)
+	allRule.Verbs = append(allRule.Verbs, rbacv1.VerbAll)
+
+	if _, err := remoteClientset.RbacV1().ClusterRoleBindings().Get(context.TODO(), clusterAdminCRBName, metav1.GetOptions{}); err != nil {
 		if errors.IsNotFound(err) {
 			log.Info("Cannot found cluster-admin crb from remote cluster. Start to create cluster-admin clusterrolebinding to remote")
 			if _, err := remoteClientset.RbacV1().ClusterRoleBindings().Create(context.TODO(), clusterAdminCRB, metav1.CreateOptions{}); err != nil {
@@ -207,12 +211,12 @@ func (r *SecretReconciler) deployRolebinding(ctx context.Context, secret *corev1
 		Rules: []rbacv1.PolicyRule{
 			{
 				APIGroups: targetGroups,
-				Resources: []string{"*"},
-				Verbs:     []string{"*"},
+				Resources: []string{rbacv1.ResourceAll},
+				Verbs:     []string{rbacv1.VerbAll},
 			},
 			{
 				APIGroups: []string{"apiregistration.k8s.io"},
-				Resources: []string{"*"},
+				Resources: []string{rbacv1.ResourceAll},
 				Verbs:     []string{"get", "list", "watch"}},
 		},
 	}
@@ -237,12 +241,12 @@ func (r *SecretReconciler) deployRolebinding(ctx context.Context, secret *corev1
 		Rules: []rbacv1.PolicyRule{
 			{
 				APIGroups: targetGroups,
-				Resources: []string{"*"},
+				Resources: []string{rbacv1.ResourceAll},
 				Verbs:     []string{"get", "list", "watch"},
 			},
 			{
 				APIGroups: []string{"apiregistration.k8s.io"},
-				Resources: []string{"*"},
+				Resources: []string{rbacv1.ResourceAll},
 				Verbs:     []string{"get", "list", "watch"},
 			},
 		},

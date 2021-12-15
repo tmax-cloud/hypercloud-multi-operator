@@ -2,6 +2,7 @@ package util
 
 import (
 	"math/rand"
+	"strings"
 	"time"
 
 	certmanagerv1 "github.com/jetstack/cert-manager/pkg/apis/certmanager/v1"
@@ -146,9 +147,10 @@ func CreateCertificate(clusterManager *clusterv1alpha1.ClusterManager) *certmana
 				certmanagerv1.UsageClientAuth,
 			},
 			DNSNames: []string{
-				"multicluster.tmaxcloud.org",
-				clusterManager.Name + "." + clusterManager.Namespace + ".svc",
-				clusterManager.Name + "." + clusterManager.Namespace + ".svc.cluster.local",
+				"multicluster.192.168.9.141.nip.io",
+				// "multicluster.tmaxcloud.org",
+				// clusterManager.Name + "." + clusterManager.Namespace + ".svc",
+				// clusterManager.Name + "." + clusterManager.Namespace + ".svc.cluster.local",
 			},
 			IssuerRef: cmmetav1.ObjectReference{
 				Name:  "tmaxcloud-issuer",
@@ -171,8 +173,9 @@ func CreateIngress(clusterManager *clusterv1alpha1.ClusterManager) *networkingv1
 			Name:      clusterManager.Name + "-ingress",
 			Namespace: clusterManager.Namespace,
 			Annotations: map[string]string{
+				//"traefik.ingress.kubernetes.io/router.middlewares": "jwt-decode-auth@file," + prefixMiddleware,
 				"traefik.ingress.kubernetes.io/router.entrypoints": "websecure",
-				"traefik.ingress.kubernetes.io/router.middlewares": "jwt-decode-auth@file," + prefixMiddleware,
+				"traefik.ingress.kubernetes.io/router.middlewares": prefixMiddleware,
 				"owner":   clusterManager.Annotations["creator"],
 				"creator": clusterManager.Annotations["creator"],
 			},
@@ -185,7 +188,8 @@ func CreateIngress(clusterManager *clusterv1alpha1.ClusterManager) *networkingv1
 			IngressClassName: &provider,
 			Rules: []networkingv1.IngressRule{
 				{
-					Host: "multicluster.tmaxcloud.org",
+					// Host: "multicluster.tmaxcloud.org",
+					Host: "multicluster.192.168.9.141.nip.io",
 					IngressRuleValue: networkingv1.IngressRuleValue{
 						HTTP: &networkingv1.HTTPIngressRuleValue{
 							Paths: []networkingv1.HTTPIngressPath{
@@ -196,6 +200,7 @@ func CreateIngress(clusterManager *clusterv1alpha1.ClusterManager) *networkingv1
 										Service: &networkingv1.IngressServiceBackend{
 											Name: clusterManager.Name + "-service",
 											Port: networkingv1.ServiceBackendPort{
+												//Name: strings.ToLower(string(corev1.URISchemeHTTPS)),
 												Name: "https",
 											},
 										},
@@ -209,7 +214,8 @@ func CreateIngress(clusterManager *clusterv1alpha1.ClusterManager) *networkingv1
 			TLS: []networkingv1.IngressTLS{
 				{
 					Hosts: []string{
-						"multicluster.tmaxcloud.org",
+						"multicluster.192.168.9.141.nip.io",
+						// "multicluster.tmaxcloud.org",
 					},
 				},
 			},
@@ -220,10 +226,100 @@ func CreateIngress(clusterManager *clusterv1alpha1.ClusterManager) *networkingv1
 }
 
 func CreateService(clusterManager *clusterv1alpha1.ClusterManager) *corev1.Service {
-	traefikService := &corev1.Service{
+	traefikService := &corev1.Service{}
+	switch strings.ToUpper(clusterManager.Spec.Provider) {
+	case PROVIDER_AWS:
+		traefikService = &corev1.Service{
+			ObjectMeta: metav1.ObjectMeta{
+				//Name:      clusterManager.Name + "-service-" + clusterManager.Annotations["suffix"],
+				Name:      clusterManager.Name + "-service",
+				Namespace: clusterManager.Namespace,
+				Annotations: map[string]string{
+					"owner":   clusterManager.Annotations["creator"],
+					"creator": clusterManager.Annotations["creator"],
+				},
+				Labels: map[string]string{
+					"from/clusterManager": clusterManager.Name,
+				},
+			},
+			Spec: corev1.ServiceSpec{
+				ExternalName: clusterManager.Annotations["Endpoint"],
+				Ports: []corev1.ServicePort{
+					{
+						//Name:       strings.ToLower(string(corev1.URISchemeHTTPS)),
+						Name:       "https",
+						Port:       6443,
+						Protocol:   corev1.ProtocolTCP,
+						TargetPort: intstr.FromInt(6443),
+					},
+				},
+				Type: corev1.ServiceTypeExternalName,
+			},
+		}
+	case PROVIDER_VSPHERE:
+		traefikService = &corev1.Service{
+			ObjectMeta: metav1.ObjectMeta{
+				//Name:      clusterManager.Name + "-service-" + clusterManager.Annotations["suffix"],
+				Name:      clusterManager.Name + "-service",
+				Namespace: clusterManager.Namespace,
+				Annotations: map[string]string{
+					"owner":   clusterManager.Annotations["creator"],
+					"creator": clusterManager.Annotations["creator"],
+				},
+				Labels: map[string]string{
+					"from/clusterManager": clusterManager.Name,
+				},
+			},
+			Spec: corev1.ServiceSpec{
+				Ports: []corev1.ServicePort{
+					{
+						//Name:       strings.ToLower(string(corev1.URISchemeHTTPS)),
+						Name:       "https",
+						Port:       443,
+						Protocol:   corev1.ProtocolTCP,
+						TargetPort: intstr.FromInt(6443),
+					},
+				},
+			},
+		}
+	default:
+		traefikService = &corev1.Service{
+			ObjectMeta: metav1.ObjectMeta{
+				//Name:      clusterManager.Name + "-service-" + clusterManager.Annotations["suffix"],
+				Name:      clusterManager.Name + "-service",
+				Namespace: clusterManager.Namespace,
+				Annotations: map[string]string{
+					"owner":   clusterManager.Annotations["creator"],
+					"creator": clusterManager.Annotations["creator"],
+				},
+				Labels: map[string]string{
+					"from/clusterManager": clusterManager.Name,
+				},
+			},
+			Spec: corev1.ServiceSpec{
+				ExternalName: clusterManager.Annotations["Endpoint"],
+				Ports: []corev1.ServicePort{
+					{
+						//Name:       strings.ToLower(string(corev1.URISchemeHTTPS)),
+						Name:       "https",
+						Port:       6443,
+						Protocol:   corev1.ProtocolTCP,
+						TargetPort: intstr.FromInt(6443),
+					},
+				},
+				Type: corev1.ServiceTypeExternalName,
+			},
+		}
+	}
+
+	return traefikService
+}
+
+func CreateEndpoint(clusterManager *clusterv1alpha1.ClusterManager) *corev1.Endpoints {
+	traefikEndpoint := &corev1.Endpoints{
 		ObjectMeta: metav1.ObjectMeta{
-			//Name:      clusterManager.Name + "-service-" + clusterManager.Annotations["suffix"],
-			Name:      clusterManager.Name + "-service",
+			//Name:      clusterManager.Name + "-endpoint-" + clusterManager.Annotations["suffix"],
+			Name:      clusterManager.Name + "-endpoint",
 			Namespace: clusterManager.Namespace,
 			Annotations: map[string]string{
 				"owner":   clusterManager.Annotations["creator"],
@@ -233,69 +329,25 @@ func CreateService(clusterManager *clusterv1alpha1.ClusterManager) *corev1.Servi
 				"from/clusterManager": clusterManager.Name,
 			},
 		},
-		Spec: corev1.ServiceSpec{
-			ExternalName: clusterManager.Annotations["DNS/AWS"],
-			Ports: []corev1.ServicePort{
-				{
-					Name:       "https",
-					Port:       6443,
-					Protocol:   corev1.ProtocolTCP,
-					TargetPort: intstr.FromInt(6443),
+		Subsets: []corev1.EndpointSubset{
+			{
+				Addresses: []corev1.EndpointAddress{
+					{
+						IP: clusterManager.Annotations["Endpoint"],
+					},
+				},
+				Ports: []corev1.EndpointPort{
+					{
+						//Name: strings.ToLower(string(corev1.URISchemeHTTPS)),
+						Name: "https",
+						Port: 6443,
+					},
 				},
 			},
-			Type: corev1.ServiceTypeExternalName,
 		},
-		// Spec: corev1.ServiceSpec{
-		// 	Ports: []corev1.ServicePort{
-		// 		{
-		// 			Name:       "https",
-		// 			Protocol:   corev1.ProtocolTCP,
-		// 			Port:       6443,
-		// 			TargetPort: intstr.FromInt(6443),
-		// 		},
-		// 	},
-		// },
 	}
-	// switch strings.ToUpper(clusterManager.Spec.Provider) {
-	// case "AWS":
-	// 	traefikService = &corev1.Service{
-	// 		Spec: corev1.ServiceSpec{
-	// 			ExternalName: clusterManager.Annotations["DNS/AWS"],
-	// 			Type:         corev1.ServiceTypeExternalName,
-	// 		},
-	// 	}
-	// case "VSPHERE":
-	// 	//log.Info("")
-	// }
 
-	// traefikService = &corev1.Service{
-	// 	ObjectMeta: metav1.ObjectMeta{
-	// 		//Name:      clusterManager.Name + "-service-" + clusterManager.Annotations["suffix"],
-	// 		Name:      clusterManager.Name + "-service",
-	// 		Namespace: clusterManager.Namespace,
-	// 		Annotations: map[string]string{
-	// 			"owner":   clusterManager.Annotations["creator"],
-	// 			"creator": clusterManager.Annotations["creator"],
-	// 		},
-	// 		Labels: map[string]string{
-	// 			"from/clusterManager": clusterManager.Name,
-	// 		},
-	// 	},
-	// 	Spec: corev1.ServiceSpec{
-	// 		ExternalName: clusterManager.Annotations["DNS/AWS"],
-	// 		Ports: []corev1.ServicePort{
-	// 			{
-	// 				Name:       "https",
-	// 				Protocol:   corev1.ProtocolTCP,
-	// 				Port:       6443,
-	// 				TargetPort: intstr.FromInt(6443),
-	// 			},
-	// 		},
-	// 		Type: corev1.ServiceTypeExternalName,
-	// 	},
-	// }
-
-	return traefikService
+	return traefikEndpoint
 }
 
 func CreateMiddleware(clusterManager *clusterv1alpha1.ClusterManager) *traefikv2.Middleware {

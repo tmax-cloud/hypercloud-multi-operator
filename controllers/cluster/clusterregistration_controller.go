@@ -55,8 +55,8 @@ type ClusterRegistrationReconciler struct {
 	Scheme *runtime.Scheme
 }
 
-// +kubebuilder:rbac:groups=cluster.tmax.io,resources=clusterregistrations,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=cluster.tmax.io,resources=clusterregistrations/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=cluster.tmax.io,resources=clusterregistrations,verbs=create;delete;get;list;patch;update;watch
+// +kubebuilder:rbac:groups=cluster.tmax.io,resources=clusterregistrations/status,verbs=get;patch;update
 
 func (r *ClusterRegistrationReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ ctrl.Result, reterr error) {
 	_ = context.Background()
@@ -154,7 +154,10 @@ func (r *ClusterRegistrationReconciler) CheckValidation(ctx context.Context, Clu
 
 	// validate cluster manger duplication
 	clm := clusterv1alpha1.ClusterManager{}
-	clmKey := types.NamespacedName{Name: ClusterRegistration.Spec.ClusterName, Namespace: ClusterRegistration.Namespace}
+	clmKey := types.NamespacedName{
+		Name:      ClusterRegistration.Spec.ClusterName,
+		Namespace: ClusterRegistration.Namespace,
+	}
 	if err := r.Get(context.TODO(), clmKey, &clm); err != nil {
 		if errors.IsNotFound(err) {
 			log.Info("ClusterManager [" + ClusterRegistration.Spec.ClusterName + "] does not exist. Duplication condition is passed")
@@ -182,7 +185,10 @@ func (r *ClusterRegistrationReconciler) CreateKubeconfigSecret(ctx context.Conte
 	log.Info("Start to CreateKubeconfigSecret reconcile for [" + ClusterRegistration.Name + "]")
 
 	kubeconfigSecret := &corev1.Secret{}
-	kubeconfigSecretKey := types.NamespacedName{Name: ClusterRegistration.Spec.ClusterName + util.KubeconfigPostfix, Namespace: ClusterRegistration.Namespace}
+	kubeconfigSecretKey := types.NamespacedName{
+		Name:      ClusterRegistration.Spec.ClusterName + util.KubeconfigPostfix,
+		Namespace: ClusterRegistration.Namespace,
+	}
 	if err := r.Get(context.TODO(), kubeconfigSecretKey, kubeconfigSecret); err != nil {
 		if errors.IsNotFound(err) {
 			log.Info("Cannot found kubeconfigSecret, starting to create kubeconfigSecret")
@@ -210,8 +216,6 @@ func (r *ClusterRegistrationReconciler) CreateKubeconfigSecret(ctx context.Conte
 		}
 	} else {
 		log.Info("Kubeconfig secret is already exist")
-		// 왜 시크릿이 이미 존재하지...? 케이스 정리부터 필요한거같기도
-		// 이미 존재하는 경우에는 어떻게 처리할까...?
 	}
 
 	ClusterRegistration.Status.SetTypedPhase(clusterv1alpha1.ClusterRegistrationPhaseSecretCreated)
@@ -228,10 +232,13 @@ func (r *ClusterRegistrationReconciler) CreateClusterManager(ctx context.Context
 
 	encodedKubeConfig, _ := b64.StdEncoding.DecodeString(ClusterRegistration.Spec.KubeConfig)
 	reg, _ := regexp.Compile("https://[0-9a-zA-Z./-]+")
-	dns := reg.FindString(string(encodedKubeConfig))[len("https://"):]
+	endpoint := reg.FindString(string(encodedKubeConfig))[len("https://"):]
 
 	clm := &clusterv1alpha1.ClusterManager{}
-	clmKey := types.NamespacedName{Name: ClusterRegistration.Spec.ClusterName, Namespace: ClusterRegistration.Namespace}
+	clmKey := types.NamespacedName{
+		Name:      ClusterRegistration.Spec.ClusterName,
+		Namespace: ClusterRegistration.Namespace,
+	}
 	if err := r.Get(context.TODO(), clmKey, clm); err != nil {
 		if errors.IsNotFound(err) {
 			clm = &clusterv1alpha1.ClusterManager{
@@ -239,9 +246,9 @@ func (r *ClusterRegistrationReconciler) CreateClusterManager(ctx context.Context
 					Name:      ClusterRegistration.Spec.ClusterName,
 					Namespace: ClusterRegistration.Namespace,
 					Annotations: map[string]string{
-						"owner":   ClusterRegistration.Annotations["creator"],
-						"creator": ClusterRegistration.Annotations["creator"],
-						"DNS/AWS": dns,
+						"owner":    ClusterRegistration.Annotations["creator"],
+						"creator":  ClusterRegistration.Annotations["creator"],
+						"Endpoint": endpoint,
 					},
 					Labels: map[string]string{
 						util.ClusterTypeKey: util.ClusterTypeRegistered,
@@ -266,8 +273,6 @@ func (r *ClusterRegistrationReconciler) CreateClusterManager(ctx context.Context
 		}
 	} else {
 		log.Info("Cannot create ClusterManager. ClusterManager is already exsist")
-		// 왜 clm 이미 존재하지...? 케이스 정리부터 필요한거같기도
-		// 이미 존재하는 경우에는 어떻게 처리할까...?
 	}
 
 	ClusterRegistration.Status.SetTypedPhase(clusterv1alpha1.ClusterRegistrationPhaseSuccess)
@@ -285,7 +290,10 @@ func (r *ClusterRegistrationReconciler) requeueClusterRegistrationsForClusterMan
 	log := r.Log.WithValues("ClusterRegistration-ObjectMapper", "clusterManagerToClusterClusterRegistrations", "ClusterRegistration", clm.Name)
 	//get clusterManager
 	clr := &clusterv1alpha1.ClusterRegistration{}
-	key := types.NamespacedName{Namespace: clm.Namespace, Name: clm.Labels["parent"]}
+	key := types.NamespacedName{
+		Name:      clm.Labels["parent"],
+		Namespace: clm.Namespace,
+	}
 	if err := r.Get(context.TODO(), key, clr); err != nil {
 		if errors.IsNotFound(err) {
 			log.Info("ClusterRegistration resource not found. Ignoring since object must be deleted.")
