@@ -58,8 +58,7 @@ const (
 	// requeueAfter5Sec = 5 * time.Second
 )
 
-// +kubebuilder:rbac:groups="",resources=secrets;namespaces;,verbs=get;update;patch;list;watch;create;post;delete;
-// +kubebuilder:rbac:groups="core.kubefed.io",resources=kubefedconfigs;kubefedclusters;,verbs=get;update;patch;list;watch;create;post;delete;
+// +kubebuilder:rbac:groups="",resources=secrets;namespaces,verbs=create;delete;get;list;patch;post;update;watch;
 
 func (r *SecretReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ ctrl.Result, reterr error) {
 	_ = context.Background()
@@ -68,7 +67,7 @@ func (r *SecretReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ c
 	//get secret
 	secret := &corev1.Secret{}
 	secretKey := types.NamespacedName{
-		Name:      req.NamespacedName.Name + util.KubeconfigPostfix,
+		Name:      strings.Split(req.NamespacedName.Name, util.KubeconfigPostfix)[0] + util.KubeconfigPostfix,
 		Namespace: req.NamespacedName.Namespace,
 	}
 	if err := r.Get(context.TODO(), secretKey, secret); err != nil {
@@ -367,82 +366,108 @@ func (r *SecretReconciler) reconcileDelete(ctx context.Context, secret *corev1.S
 	log.Info("Start to reconcile reconcileDelete... ")
 	// clusterManagerNamespacedName := secret.GetNamespace() + "-" + strings.Split(secret.Name, util.KubeconfigPostfix)[0]
 
-	clm := &clusterv1alpha1.ClusterManager{}
-	clmKey := types.NamespacedName{
-		Name:      strings.Split(secret.Name, util.KubeconfigPostfix)[0],
-		Namespace: secret.Namespace,
+	// clm := &clusterv1alpha1.ClusterManager{}
+	// clmKey := types.NamespacedName{
+	// 	Name:      strings.Split(secret.Name, util.KubeconfigPostfix)[0],
+	// 	Namespace: secret.Namespace,
+	// }
+
+	// if err := r.Get(context.TODO(), clmKey, clm); err != nil {
+	// 	if errors.IsNotFound(err) {
+	// 		log.Info("ClusterManager is already deleted..")
+	// 	} else {
+	// 		log.Error(err, "Failed to get ClusterManager")
+	// 		return ctrl.Result{}, err
+	// 	}
+	// } else if val, ok := clm.Labels[util.ClusterTypeKey]; ok && val == util.ClusterTypeRegistered {
+	// delete deployed role/binding
+	remoteClientset, err := util.GetRemoteK8sClient(secret)
+	if err != nil {
+		log.Error(err, "Failed to get remoteK8sClient")
+		return ctrl.Result{}, err
 	}
-	if err := r.Get(context.TODO(), clmKey, clm); err != nil {
+
+	clusterAdminCRBName := "cluster-owner-crb-" + secret.Annotations["owner"]
+
+	// crbList := []string{
+	// 	//clusterAdminCRBName,
+	// 	"cluster-owner-crb-" + clm.Annotations["owner"],
+	// 	"hypercloud-admin-clusterrolebinding",
+	// 	"developer",
+	// 	"guest",
+	// }
+	// for _, targetCrb := range crbList {
+	// 	if _, err := remoteClientset.RbacV1().ClusterRoleBindings().Get(context.TODO(), targetCrb, metav1.GetOptions{}); err != nil {
+	// 		if errors.IsNotFound(err) {
+	// 			log.Info("Cannot found crb " + targetCrb + " from remote cluster. Maybe already deleted")
+	// 		} else {
+	// 			log.Error(err, "Failed to get "+targetCrb+" clusterrolebinding from remote cluster")
+	// 			return ctrl.Result{}, err
+	// 		}
+	// 	} else {
+	// 		if err := remoteClientset.RbacV1().ClusterRoleBindings().Delete(context.TODO(), clusterAdminCRBName, metav1.DeleteOptions{}); err != nil {
+	// 			log.Error(err, "Cannnot delete "+targetCrb+" clusterrolebinding")
+	// 			return ctrl.Result{}, err
+	// 		}
+	// 	}
+	// }
+
+	if _, err := remoteClientset.RbacV1().ClusterRoleBindings().Get(context.TODO(), clusterAdminCRBName, metav1.GetOptions{}); err != nil {
 		if errors.IsNotFound(err) {
-			log.Info("ClusterManager is already deleted..")
+			log.Info("Cannot found cluster-admin crb from remote cluster. Cluster-owner-crb clusterrolebinding is already deleted")
 		} else {
-			log.Error(err, "Failed to get ClusterManager")
+			log.Error(err, "Failed to get cluster-owner-crb clusterrolebinding from remote cluster")
 			return ctrl.Result{}, err
 		}
-	} else if val, ok := clm.Labels[util.ClusterTypeKey]; ok && val == util.ClusterTypeRegistered {
-		// delete deployed role/binding
-		remoteClientset, err := util.GetRemoteK8sClient(secret)
-		if err != nil {
-			log.Error(err, "Failed to get remoteK8sClient")
+	} else {
+		if err := remoteClientset.RbacV1().ClusterRoleBindings().Delete(context.TODO(), clusterAdminCRBName, metav1.DeleteOptions{}); err != nil {
+			log.Error(err, "Cannnot delete cluster-owner-crb clusterrolebinding")
 			return ctrl.Result{}, err
-		}
-
-		if _, err := remoteClientset.RbacV1().ClusterRoleBindings().Get(context.TODO(), "cluster-owner-crb-"+clm.Annotations["owner"], metav1.GetOptions{}); err != nil {
-			if errors.IsNotFound(err) {
-				log.Info("Cannot found cluster-admin crb from remote cluster. Cluster-owner-crb clusterrolebinding is already deleted")
-			} else {
-				log.Error(err, "Failed to get cluster-owner-crb clusterrolebinding from remote cluster")
-				return ctrl.Result{}, err
-			}
-		} else {
-			if err := remoteClientset.RbacV1().ClusterRoleBindings().Delete(context.TODO(), "cluster-owner-crb-"+clm.Annotations["owner"], metav1.DeleteOptions{}); err != nil {
-				log.Error(err, "Cannnot delete cluster-owner-crb clusterrolebinding")
-				return ctrl.Result{}, err
-			}
-		}
-
-		if _, err := remoteClientset.RbacV1().ClusterRoleBindings().Get(context.TODO(), "hypercloud-admin-clusterrolebinding", metav1.GetOptions{}); err != nil {
-			if errors.IsNotFound(err) {
-				log.Info("Cannot found cluster-admin crb from remote cluster. Cluster-owner-crb clusterrolebinding is already deleted")
-			} else {
-				log.Error(err, "Failed to get hypercloud-admin-clusterrolebinding from remote cluster")
-				return ctrl.Result{}, err
-			}
-		} else {
-			if err := remoteClientset.RbacV1().ClusterRoleBindings().Delete(context.TODO(), "hypercloud-admin-clusterrolebinding", metav1.DeleteOptions{}); err != nil {
-				log.Error(err, "Cannnot delete hypercloud-admin-clusterrolebinding")
-				return ctrl.Result{}, err
-			}
-		}
-
-		if _, err := remoteClientset.RbacV1().ClusterRoles().Get(context.TODO(), "developer", metav1.GetOptions{}); err != nil {
-			if errors.IsNotFound(err) {
-				log.Info("Cannot found developer cr from remote cluster.  Developer clusterrole is already deleted")
-			} else {
-				log.Error(err, "Failed to get developer clusterrole from remote cluster")
-				return ctrl.Result{}, err
-			}
-		} else {
-			if err := remoteClientset.RbacV1().ClusterRoles().Delete(context.TODO(), "developer", metav1.DeleteOptions{}); err != nil {
-				log.Error(err, "Cannnot delete developer clusterrole")
-				return ctrl.Result{}, err
-			}
-		}
-
-		if _, err := remoteClientset.RbacV1().ClusterRoles().Get(context.TODO(), "guest", metav1.GetOptions{}); err != nil {
-			if errors.IsNotFound(err) {
-				log.Info("Cannot found guest cr from remote cluster. Guest clusterrole is already deleted")
-			} else {
-				log.Error(err, "Failed to get guest clusterrole from remote cluster")
-				return ctrl.Result{}, err
-			}
-		} else {
-			if err := remoteClientset.RbacV1().ClusterRoles().Delete(context.TODO(), "guest", metav1.DeleteOptions{}); err != nil {
-				log.Error(err, "Cannnot delete guest clusterrole")
-				return ctrl.Result{}, err
-			}
 		}
 	}
+
+	if _, err := remoteClientset.RbacV1().ClusterRoleBindings().Get(context.TODO(), "hypercloud-admin-clusterrolebinding", metav1.GetOptions{}); err != nil {
+		if errors.IsNotFound(err) {
+			log.Info("Cannot found cluster-admin crb from remote cluster. Cluster-owner-crb clusterrolebinding is already deleted")
+		} else {
+			log.Error(err, "Failed to get hypercloud-admin-clusterrolebinding from remote cluster")
+			return ctrl.Result{}, err
+		}
+	} else {
+		if err := remoteClientset.RbacV1().ClusterRoleBindings().Delete(context.TODO(), "hypercloud-admin-clusterrolebinding", metav1.DeleteOptions{}); err != nil {
+			log.Error(err, "Cannnot delete hypercloud-admin-clusterrolebinding")
+			return ctrl.Result{}, err
+		}
+	}
+
+	if _, err := remoteClientset.RbacV1().ClusterRoles().Get(context.TODO(), "developer", metav1.GetOptions{}); err != nil {
+		if errors.IsNotFound(err) {
+			log.Info("Cannot found developer cr from remote cluster.  Developer clusterrole is already deleted")
+		} else {
+			log.Error(err, "Failed to get developer clusterrole from remote cluster")
+			return ctrl.Result{}, err
+		}
+	} else {
+		if err := remoteClientset.RbacV1().ClusterRoles().Delete(context.TODO(), "developer", metav1.DeleteOptions{}); err != nil {
+			log.Error(err, "Cannnot delete developer clusterrole")
+			return ctrl.Result{}, err
+		}
+	}
+
+	if _, err := remoteClientset.RbacV1().ClusterRoles().Get(context.TODO(), "guest", metav1.GetOptions{}); err != nil {
+		if errors.IsNotFound(err) {
+			log.Info("Cannot found guest cr from remote cluster. Guest clusterrole is already deleted")
+		} else {
+			log.Error(err, "Failed to get guest clusterrole from remote cluster")
+			return ctrl.Result{}, err
+		}
+	} else {
+		if err := remoteClientset.RbacV1().ClusterRoles().Delete(context.TODO(), "guest", metav1.DeleteOptions{}); err != nil {
+			log.Error(err, "Cannnot delete guest clusterrole")
+			return ctrl.Result{}, err
+		}
+	}
+	//}
 
 	// fed deploy한것도.. 지워야하나..
 	// 클러스터를 사용중이던 사용자의 crb도 지워야되나.. db에서 읽어서 지워야 하는데?

@@ -197,6 +197,9 @@ func (r *ClusterRegistrationReconciler) CreateKubeconfigSecret(ctx context.Conte
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      ClusterRegistration.Spec.ClusterName + util.KubeconfigPostfix,
 					Namespace: ClusterRegistration.Namespace,
+					Annotations: map[string]string{
+						"creator": ClusterRegistration.Annotations["creator"],
+					},
 					Finalizers: []string{
 						util.SecretFinalizer,
 					},

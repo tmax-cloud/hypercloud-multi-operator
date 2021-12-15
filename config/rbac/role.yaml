@@ -10,6 +10,7 @@ rules:
   - ""
   resources:
   - endpoints
+  - services
   verbs:
   - create
   - delete
@@ -30,18 +31,6 @@ rules:
   - list
   - patch
   - post
-  - update
-  - watch
-- apiGroups:
-  - ""
-  resources:
-  - services
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
   - update
   - watch
 - apiGroups:
@@ -180,20 +169,6 @@ rules:
   - update
   - watch
 - apiGroups:
-  - core.kubefed.io
-  resources:
-  - kubefedclusters
-  - kubefedconfigs
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - post
-  - update
-  - watch
-- apiGroups:
   - networking.k8s.io
   resources:
   - ingresses
@@ -209,6 +184,21 @@ rules:
   - rbac.authorization.k8s.io
   resources:
   - clusterrolebindings
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - rbac.authorization.k8s.io
+  resources:
+  - clusterrolebindings
+  - clusterroles
+  - rolebindings
+  - roles
   verbs:
   - create
   - delete
