@@ -1,6 +1,24 @@
 # HyperCloud-Multi-Operator changelog!!
 All notable changes to this project will be documented in this file.
 
+<!-------------------- v5.0.25.18 start -------------------->
+
+## HyperCloud-Multi-Operator_5.0.25.18 (2021. 12. 15. (수) 11:48:10 KST)
+
+### Added
+  - [feat] serviceaccount 변경으로 인한 capi를 위한 cluster role 추가 by SISILIA
+
+### Changed
+
+### Fixed
+
+### CRD yaml
+
+### Etc
+  - [etc] webhook configuration v1 sideEffects 버그 수정 by SISILIA
+
+<!--------------------- v5.0.25.18 end --------------------->
+
 <!-------------------- v5.0.25.17 start -------------------->
 
 ## HyperCloud-Multi-Operator_5.0.25.17 (2021. 12. 14. (화) 13:11:45 KST)
