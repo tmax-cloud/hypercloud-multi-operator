@@ -214,7 +214,7 @@ func (r *ClusterManagerReconciler) UpdateClusterManagerStatus(ctx context.Contex
 
 	kubeconfigSecret := &corev1.Secret{}
 	kubeconfigSecretKey := types.NamespacedName{
-		Name:      clusterManager.Name + util.KubeconfigPostfix,
+		Name:      clusterManager.Name + util.KubeconfigSuffix,
 		Namespace: clusterManager.Namespace,
 	}
 	if err := r.Get(context.TODO(), kubeconfigSecretKey, kubeconfigSecret); err != nil {
@@ -474,7 +474,7 @@ func (r *ClusterManagerReconciler) DeployAndUpdateAgentEndpoint(ctx context.Cont
 	} else /*if !clusterManager.Status.AgentReady*/ {
 		kubeconfigSecret := &corev1.Secret{}
 		kubeconfigSecretKey := types.NamespacedName{
-			Name:      clusterManager.Name + util.KubeconfigPostfix,
+			Name:      clusterManager.Name + util.KubeconfigSuffix,
 			Namespace: clusterManager.Namespace,
 		}
 		if err := r.Get(context.TODO(), kubeconfigSecretKey, kubeconfigSecret); err != nil {
@@ -531,7 +531,7 @@ func (r *ClusterManagerReconciler) reconcileDeleteForRegisteredClusterManager(ct
 
 	kubeconfigSecret := &corev1.Secret{}
 	kubeconfigSecretKey := types.NamespacedName{
-		Name:      clusterManager.Name + util.KubeconfigPostfix,
+		Name:      clusterManager.Name + util.KubeconfigSuffix,
 		Namespace: clusterManager.Namespace,
 	}
 	if err := r.Get(context.TODO(), kubeconfigSecretKey, kubeconfigSecret); err != nil {
@@ -694,7 +694,7 @@ func (r *ClusterManagerReconciler) reconcileDelete(ctx context.Context, clusterM
 
 	kubeconfigSecret := &corev1.Secret{}
 	kubeconfigSecretKey := types.NamespacedName{
-		Name:      clusterManager.Name + util.KubeconfigPostfix,
+		Name:      clusterManager.Name + util.KubeconfigSuffix,
 		Namespace: clusterManager.Namespace,
 	}
 	if err := r.Get(context.TODO(), kubeconfigSecretKey, kubeconfigSecret); err != nil {
@@ -705,47 +705,6 @@ func (r *ClusterManagerReconciler) reconcileDelete(ctx context.Context, clusterM
 			return ctrl.Result{}, err
 		}
 	} else {
-		// clusterManagerNamespacedName := clusterManager.GetNamespace() + "-" + clusterManager.GetName()
-		// kfc := &fedv1b1.KubeFedCluster{}
-		// kfcKey := types.NamespacedName{Name: clusterManagerNamespacedName, Namespace: util.KubeFedNamespace}
-		// if err := r.Get(context.TODO(), kfcKey, kfc); err != nil {
-		// 	if errors.IsNotFound(err) {
-		// 		log.Info("Cannot found kubefedCluster. Already unjoined")
-		// 		// return ctrl.Result{}, nil
-		// 	} else {
-		// 		log.Error(err, "Failed to get kubefedCluster")
-		// 		return ctrl.Result{}, err
-		// 	}
-		// } else if kfc.Status.Conditions[len(kfc.Status.Conditions)-1].Type == "Offline" {
-		// 	// offline이면 kfc delete
-		// 	log.Info("Cannot unjoin cluster.. because cluster is already delete.. delete directly kubefedcluster object")
-		// 	if err := r.Delete(context.TODO(), kfc); err != nil {
-		// 		log.Error(err, "Failed to delete kubefedCluster")
-		// 		return ctrl.Result{}, err
-		// 	}
-		// } else {
-		// 	clientRestConfig, err := getKubeConfig(*kubeconfigSecret)
-		// 	if err != nil {
-		// 		log.Error(err, "Unable to get rest config from secret")
-		// 		return ctrl.Result{}, err
-		// 	}
-		// 	masterRestConfig := ctrl.GetConfigOrDie()
-		// 	// cluster
-
-		// 	kubefedConfig := &fedv1b1.KubeFedConfig{}
-		// 	key := types.NamespacedName{Namespace: util.KubeFedNamespace, Name: "kubefed"}
-
-		// 	if err := r.Get(context.TODO(), key, kubefedConfig); err != nil {
-		// 		log.Error(err, "Failed to get kubefedconfig")
-		// 		return ctrl.Result{}, err
-		// 	}
-
-		// 	if err := kubefedctl.UnjoinCluster(masterRestConfig, clientRestConfig,
-		// 		util.KubeFedNamespace, util.HostClusterName, "", clusterManagerNamespacedName, false, false); err != nil {
-		// 		log.Info("ClusterManager [" + strings.Split(kubeconfigSecret.Name, util.KubeconfigPostfix)[0] + "] is already unjoined... " + err.Error())
-		// 	}
-		// }
-
 		traefikCertificate := &certmanagerv1.Certificate{}
 		certificateKey := types.NamespacedName{
 			//Name:      clusterManager.Name + "-certificate-" + clusterManager.Annotations["suffix"],

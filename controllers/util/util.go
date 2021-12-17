@@ -282,6 +282,7 @@ func CreateService(clusterManager *clusterv1alpha1.ClusterManager) *corev1.Servi
 				},
 			},
 		}
+	// default includes AWS
 	default:
 		traefikService = &corev1.Service{
 			ObjectMeta: metav1.ObjectMeta{

@@ -21,7 +21,7 @@ const (
 	WatchAnnotationJoinValue           = "join"
 	WatchAnnotationJoinSuccess         = "complete"
 	WatchAnnotationUnJoinValue         = "unjoin"
-	KubeconfigPostfix                  = "-kubeconfig"
+	KubeconfigSuffix                   = "-kubeconfig"
 	ClusterNamespace                   = "default"
 	KubeFedNamespace                   = "kube-federation-system"
 	MonitoringNamespace                = "monitoring"

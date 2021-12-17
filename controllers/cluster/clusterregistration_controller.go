@@ -186,7 +186,7 @@ func (r *ClusterRegistrationReconciler) CreateKubeconfigSecret(ctx context.Conte
 
 	kubeconfigSecret := &corev1.Secret{}
 	kubeconfigSecretKey := types.NamespacedName{
-		Name:      ClusterRegistration.Spec.ClusterName + util.KubeconfigPostfix,
+		Name:      ClusterRegistration.Spec.ClusterName + util.KubeconfigSuffix,
 		Namespace: ClusterRegistration.Namespace,
 	}
 	if err := r.Get(context.TODO(), kubeconfigSecretKey, kubeconfigSecret); err != nil {
@@ -195,7 +195,7 @@ func (r *ClusterRegistrationReconciler) CreateKubeconfigSecret(ctx context.Conte
 			encodedKubeConfig, _ := b64.StdEncoding.DecodeString(ClusterRegistration.Spec.KubeConfig)
 			kubeconfigSecret = &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      ClusterRegistration.Spec.ClusterName + util.KubeconfigPostfix,
+					Name:      ClusterRegistration.Spec.ClusterName + util.KubeconfigSuffix,
 					Namespace: ClusterRegistration.Namespace,
 					Annotations: map[string]string{
 						"creator": ClusterRegistration.Annotations["creator"],
