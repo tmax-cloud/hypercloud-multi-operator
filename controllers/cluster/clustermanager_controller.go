@@ -341,7 +341,7 @@ func (r *ClusterManagerReconciler) CreateTraefikResources(ctx context.Context, c
 	log := r.Log.WithValues("clustermanager", types.NamespacedName{Name: clusterManager.Name, Namespace: clusterManager.Namespace})
 
 	if clusterManager.Annotations["Endpoint"] == "" {
-		log.Info("Wati for recognize remote apiserver endpoint")
+		log.Info("Wait for recognize remote apiserver endpoint")
 		return ctrl.Result{RequeueAfter: requeueAfter20Sec}, nil
 	}
 
