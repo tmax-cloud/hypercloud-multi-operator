@@ -79,30 +79,30 @@ type ClusterParameter struct {
 	KubernetesVersion string
 }
 
-// type AwsParameter struct {
-// 	SshKey     string
-// 	Region     string
-// 	MasterType string
-// 	WorkerType string
-// }
+type AwsParameter struct {
+	SshKey     string
+	Region     string
+	MasterType string
+	WorkerType string
+}
 
-// type VsphereParameter struct {
-// 	PodCidr             string
-// 	VcenterIp           string
-// 	VcenterId           string
-// 	VcenterPassword     string
-// 	VcenterThumbprint   string
-// 	VcenterNetwork      string
-// 	VcenterDataCenter   string
-// 	VcenterDataStore    string
-// 	VcenterFolder       string
-// 	VcenterResourcePool string
-// 	VcenterKcpIp        string
-// 	VcenterCpuNum       int
-// 	VcenterMemSize      int
-// 	VcenterDiskSize     int
-// 	VcenterTemplate     string
-// }
+type VsphereParameter struct {
+	PodCidr             string
+	VcenterIp           string
+	VcenterId           string
+	VcenterPassword     string
+	VcenterThumbprint   string
+	VcenterNetwork      string
+	VcenterDataCenter   string
+	VcenterDataStore    string
+	VcenterFolder       string
+	VcenterResourcePool string
+	VcenterKcpIp        string
+	VcenterCpuNum       int
+	VcenterMemSize      int
+	VcenterDiskSize     int
+	VcenterTemplate     string
+}
 
 // ClusterManagerReconciler reconciles a ClusterManager object
 type ClusterManagerReconciler struct {
@@ -522,6 +522,7 @@ func (r *ClusterManagerReconciler) DeployAndUpdateAgentEndpoint(ctx context.Cont
 		}
 	}
 
+	clusterManager.Status.Ready = true
 	return ctrl.Result{}, nil
 }
 
@@ -916,16 +917,6 @@ func (r *ClusterManagerReconciler) CreateServiceInstance(ctx context.Context, cl
 	if err := r.Get(context.TODO(), serviceInstanceKey, serviceInstance); err != nil {
 		if errors.IsNotFound(err) {
 			var clusterJson, providerJson []byte
-			//var ClusterServiceClassExternalName, ClusterServicePlanExternalName string
-			//ClusterParameter := clusterManager.Spec
-			// ClusterParameter := ClusterParameter{
-			// 	Namespace:         clusterManager.Namespace,
-			// 	ClusterName:       clusterManager.Name,
-			// 	Owner:             clusterManager.Annotations["owner"],
-			// 	KubernetesVersion: clusterManager.Spec.Version,
-			// 	MasterNum:         clusterManager.Spec.MasterNum,
-			// 	WorkerNum:         clusterManager.Spec.WorkerNum,
-			// }
 			if clusterJson, err = json.Marshal(
 				&ClusterParameter{
 					Namespace:         clusterManager.Namespace,
@@ -941,39 +932,37 @@ func (r *ClusterManagerReconciler) CreateServiceInstance(ctx context.Context, cl
 
 			switch strings.ToUpper(clusterManager.Spec.Provider) {
 			case util.PROVIDER_AWS:
-				//AwsParameter := clusterManager.AwsSpec
-				// AwsParameter := AwsParameter{
-				// 	SshKey:     clusterManager.AwsSpec.SshKey,
-				// 	Region:     clusterManager.AwsSpec.Region,
-				// 	MasterType: clusterManager.AwsSpec.MasterType,
-				// 	WorkerType: clusterManager.AwsSpec.WorkerType,
-				// }
-
-				if providerJson, err = json.Marshal(&clusterManager.AwsSpec); err != nil {
+				if providerJson, err = json.Marshal(
+					&AwsParameter{
+						SshKey:     clusterManager.AwsSpec.SshKey,
+						Region:     clusterManager.AwsSpec.Region,
+						MasterType: clusterManager.AwsSpec.MasterType,
+						WorkerType: clusterManager.AwsSpec.WorkerType,
+					},
+				); err != nil {
 					log.Error(err, "Failed to marshal cluster parameters")
 					return ctrl.Result{}, err
 				}
 			case util.PROVIDER_VSPHERE:
-				//VsphereParameter := clusterManager.VsphereSpec
-				// VsphereParameter := VsphereParameter{
-				// 	PodCidr:             clusterManager.VsphereSpec.PodCidr,
-				// 	VcenterIp:           clusterManager.VsphereSpec.VcenterIp,
-				// 	VcenterId:           clusterManager.VsphereSpec.VcenterId,
-				// 	VcenterPassword:     clusterManager.VsphereSpec.VcenterPassword,
-				// 	VcenterThumbprint:   clusterManager.VsphereSpec.VcenterThumbprint,
-				// 	VcenterNetwork:      clusterManager.VsphereSpec.VcenterNetwork,
-				// 	VcenterDataCenter:   clusterManager.VsphereSpec.VcenterDataCenter,
-				// 	VcenterDataStore:    clusterManager.VsphereSpec.VcenterDataStore,
-				// 	VcenterFolder:       clusterManager.VsphereSpec.VcenterFolder,
-				// 	VcenterResourcePool: clusterManager.VsphereSpec.VcenterResourcePool,
-				// 	VcenterKcpIp:        clusterManager.VsphereSpec.VcenterKcpIp,
-				// 	VcenterCpuNum:       clusterManager.VsphereSpec.VcenterCpuNum,
-				// 	VcenterMemSize:      clusterManager.VsphereSpec.VcenterMemSize,
-				// 	VcenterDiskSize:     clusterManager.VsphereSpec.VcenterDiskSize,
-				// 	VcenterTemplate:     clusterManager.VsphereSpec.VcenterTemplate,
-				// }
-
-				if providerJson, err = json.Marshal(&clusterManager.VsphereSpec); err != nil {
+				if providerJson, err = json.Marshal(
+					&VsphereParameter{
+						PodCidr:             clusterManager.VsphereSpec.PodCidr,
+						VcenterIp:           clusterManager.VsphereSpec.VcenterIp,
+						VcenterId:           clusterManager.VsphereSpec.VcenterId,
+						VcenterPassword:     clusterManager.VsphereSpec.VcenterPassword,
+						VcenterThumbprint:   clusterManager.VsphereSpec.VcenterThumbprint,
+						VcenterNetwork:      clusterManager.VsphereSpec.VcenterNetwork,
+						VcenterDataCenter:   clusterManager.VsphereSpec.VcenterDataCenter,
+						VcenterDataStore:    clusterManager.VsphereSpec.VcenterDataStore,
+						VcenterFolder:       clusterManager.VsphereSpec.VcenterFolder,
+						VcenterResourcePool: clusterManager.VsphereSpec.VcenterResourcePool,
+						VcenterKcpIp:        clusterManager.VsphereSpec.VcenterKcpIp,
+						VcenterCpuNum:       clusterManager.VsphereSpec.VcenterCpuNum,
+						VcenterMemSize:      clusterManager.VsphereSpec.VcenterMemSize,
+						VcenterDiskSize:     clusterManager.VsphereSpec.VcenterDiskSize,
+						VcenterTemplate:     clusterManager.VsphereSpec.VcenterTemplate,
+					},
+				); err != nil {
 					log.Error(err, "Failed to marshal cluster parameters")
 					return ctrl.Result{}, err
 				}
