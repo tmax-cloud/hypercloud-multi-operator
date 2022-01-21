@@ -1,6 +1,33 @@
 # HyperCloud-Multi-Operator changelog!!
 All notable changes to this project will be documented in this file.
 
+<!-------------------- v5.0.26.0 start -------------------->
+
+## HyperCloud-Multi-Operator_5.0.26.0 (2022. 01. 21. (금) 13:40:34 KST)
+
+### Added
+  - [feat] traefike resource관리를 위한 cluster role 추가 by SISILIA
+  - [feat] traeif resource 생성 기능 추가 by SISILIA
+  - [feat] traeif resource 생성 기능 추가 by SISILIA
+
+### Changed
+
+### Fixed
+
+### CRD yaml
+
+### Etc
+  - [etc] webhook admission review version list에 v1beta1 추가 by SISILIA
+  - [etc] cluster manager status 버그 수정 by SISILIA
+  - [etc] 오타 수정 by SISILIA
+  - [etc] CRD v1beta1으로 변경, 코드 refactoring by SISILIA
+  - [etc] cluster registration으로 만들어진 clm삭제시 리소스 삭제가 안되던 버그 수정 by SISILIA
+  - [etc] service account token secret 오타 수정 by SISILIA
+  - [etc] kustomization file 버그 수정 by SISILIA
+  - [etc] webhook configuration v1 버그 수정 by SISILIA
+
+<!--------------------- v5.0.26.0 end --------------------->
+
 <!-------------------- v5.0.25.15 start -------------------->
 
 ## HyperCloud-Multi-Operator_5.0.25.15 (2021. 12. 09. (목) 14:13:34 KST)
