@@ -17,21 +17,16 @@ limitations under the License.
 package v1alpha1
 
 import (
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
-// NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
-type FakeObjectMeta struct {
-	FakeName string `json:"fakename,omitempty" protobuf:"bytes,1,opt,name=fakename"`
-}
-
-type NodeInfo struct {
-	Name      string         `json:"name,omitempty"`
-	Ip        string         `json:"ip,omitempty"`
-	IsMaster  bool           `json:"isMaster,omitempty"`
-	Resources []ResourceType `json:"resources,omitempty"`
-}
+// type NodeInfo struct {
+// 	Name      string         `json:"name,omitempty"`
+// 	Ip        string         `json:"ip,omitempty"`
+// 	IsMaster  bool           `json:"isMaster,omitempty"`
+// 	Resources []ResourceType `json:"resources,omitempty"`
+// }
 
 type ResourceType struct {
 	Type     string `json:"type,omitempty"`
@@ -41,40 +36,121 @@ type ResourceType struct {
 
 // ClusterManagerSpec defines the desired state of ClusterManager
 type ClusterManagerSpec struct {
+	// +kubebuilder:validation:Required
 	// The name of cloud provider where VM is created
-	Provider string `json:"provider,omitempty"`
+	Provider string `json:"provider"`
+	// +kubebuilder:validation:Required
+	// The version of kubernetes
+	Version string `json:"version"`
+	// +kubebuilder:validation:Required
+	// The number of master node
+	MasterNum int `json:"masterNum"`
+	// +kubebuilder:validation:Required
+	// The number of worker node
+	WorkerNum int `json:"workerNum"`
+}
+
+// ProviderAwsSpec defines
+type ProviderAwsSpec struct {
 	// The region where VM is working
 	Region string `json:"region,omitempty"`
-	// The version of kubernetes
-	Version string `json:"version,omitempty"`
-	// The number of master node
-	MasterNum int `json:"masterNum,omitempty"`
-	// The type of VM for master node
-	MasterType string `json:"masterType,omitempty"`
-	// The number of worker node
-	WorkerNum int `json:"workerNum,omitempty"`
-	// The type of VM for worker node
-	WorkerType string `json:"workerType,omitempty"`
 	// The ssh key info to access VM
 	SshKey string `json:"sshKey,omitempty"`
+	// The type of VM for master node
+	MasterType string `json:"masterType,omitempty"`
+	// The type of VM for worker node
+	WorkerType string `json:"workerType,omitempty"`
+}
+
+// ProviderVsphereSpec defines
+type ProviderVsphereSpec struct {
+	// The internal IP address cider block for pods
+	PodCidr string `json:"podCidr,omitempty"`
+	// The IP address of vCenter Server Application(VCSA)
+	VcenterIp string `json:"vcenterIp,omitempty"`
+	// The user id of VCSA
+	VcenterId string `json:"vcenterId,omitempty"`
+	// The password of VCSA
+	VcenterPassword string `json:"vcenterPassword,omitempty"`
+	// The TLS thumbprint of machine certificate
+	VcenterThumbprint string `json:"vcenterThumbprint,omitempty"`
+	// The name of network
+	VcenterNetwork string `json:"vcenterNetwork,omitempty"`
+	// The name of data center
+	VcenterDataCenter string `json:"vcenterDataCenter,omitempty"`
+	// The name of data store
+	VcenterDataStore string `json:"vcenterDataStore,omitempty"`
+	// The name of folder
+	VcenterFolder string `json:"vcenterFolder,omitempty"`
+	// The name of resource pool
+	VcenterResourcePool string `json:"vcenterResourcePool,omitempty"`
+	// The IP address of control plane for remote cluster(vip)
+	VcenterKcpIp string `json:"vcenterKcpIp,omitempty"`
+	// The number of cpus for vm
+	VcenterCpuNum int `json:"vcenterCpuNum,omitempty"`
+	// The memory size for vm
+	VcenterMemSize int `json:"vcenterMemSize,omitempty"`
+	// The disk size for vm
+	VcenterDiskSize int `json:"vcenterDiskSize,omitempty"`
+	// The template name for cloud init
+	VcenterTemplate string `json:"vcenterTemplate,omitempty"`
 }
 
 // ClusterManagerStatus defines the observed state of ClusterManager
 type ClusterManagerStatus struct {
-	Provider  string            `json:"provider,omitempty"`
-	Version   string            `json:"version,omitempty"`
-	Ready     bool              `json:"ready,omitempty"`
-	MasterRun int               `json:"masterRun,omitempty"`
-	WorkerRun int               `json:"workerRun,omitempty"`
-	Node      []NodeInfo        `json:"nodes,omitempty"`
-	Owner     map[string]string `json:"owner,omitempty"`
-	Members   map[string]string `json:"members,omitempty"`
-	Groups    map[string]string `json:"groups,omitempty"`
+	Provider             string                  `json:"provider,omitempty"`
+	Version              string                  `json:"version,omitempty"`
+	Ready                bool                    `json:"ready,omitempty"`
+	ControlPlaneReady    bool                    `json:"controlPlaneReady,omitempty"`
+	AgentReady           bool                    `json:"agentReady,omitempty"`
+	MasterRun            int                     `json:"masterRun,omitempty"`
+	WorkerRun            int                     `json:"workerRun,omitempty"`
+	NodeInfo             []corev1.NodeSystemInfo `json:"nodeInfo,omitempty"`
+	Phase                string                  `json:"phase,omitempty"`
+	ControlPlaneEndpoint string                  `json:"controlPlaneEndpoint,omitempty"`
+	AgentEndpoint        string                  `json:"agentEndpoint,omitempty"`
+}
+type ClusterManagerPhase string
+
+const (
+	// ClusterManagerPhasePending is the first state a Cluster is assigned by
+	// Cluster API Cluster controller after being created.
+	ClusterManagerPhasePending = ClusterManagerPhase("Pending")
+
+	// ClusterManagerPhaseProvisioning is the state when the Cluster has a provider infrastructure
+	// object associated and can start provisioning.
+	ClusterManagerPhaseProvisioning = ClusterManagerPhase("Provisioning")
+
+	// object associated and can start provisioning.
+	ClusterManagerPhaseRegistering = ClusterManagerPhase("Registering")
+
+	// ClusterManagerPhaseProvisioned is the state when its
+	// infrastructure has been created and configured.
+	ClusterManagerPhaseProvisioned = ClusterManagerPhase("Provisioned")
+
+	// infrastructure has been created and configured.
+	ClusterManagerPhaseRegistered = ClusterManagerPhase("Registered")
+
+	// ClusterManagerPhaseDeleting is the Cluster state when a delete
+	// request has been sent to the API Server,
+	// but its infrastructure has not yet been fully deleted.
+	ClusterManagerPhaseDeleting = ClusterManagerPhase("Deleting")
+
+	// ClusterManagerPhaseFailed is the Cluster state when the system
+	// might require user intervention.
+	ClusterManagerPhaseFailed = ClusterManagerPhase("Failed")
+
+	// ClusterManagerPhaseUnknown is returned if the Cluster state cannot be determined.
+	ClusterManagerPhaseUnknown = ClusterManagerPhase("Unknown")
+)
+
+func (c *ClusterManagerStatus) SetTypedPhase(p ClusterManagerPhase) {
+	c.Phase = string(p)
 }
 
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
-// +kubebuilder:resource:path=clustermanagers,scope=Cluster,shortName=clm
+// +kubebuilder:resource:path=clustermanagers,scope=Namespaced,shortName=clm
 // +kubebuilder:printcolumn:name="Provider",type="string",JSONPath=".spec.provider",description="provider"
 // +kubebuilder:printcolumn:name="Version",type="string",JSONPath=".spec.version",description="k8s version"
 // +kubebuilder:printcolumn:name="Ready",type="string",JSONPath=".status.ready",description="is running"
@@ -82,18 +158,19 @@ type ClusterManagerStatus struct {
 // +kubebuilder:printcolumn:name="MasterRun",type="string",JSONPath=".status.masterRun",description="running of master"
 // +kubebuilder:printcolumn:name="WorkerNum",type="string",JSONPath=".spec.workerNum",description="replica number of worker"
 // +kubebuilder:printcolumn:name="WorkerRun",type="string",JSONPath=".status.workerRun",description="running of worker"
-
+// +kubebuilder:printcolumn:name="Phase",type="string",JSONPath=".status.phase",description="cluster status phase"
 // ClusterManager is the Schema for the clustermanagers API
 type ClusterManager struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
-	FakeObjectMeta    `json:"fakeMetadata,omitempty"`
-	Spec              ClusterManagerSpec   `json:"spec,omitempty"`
-	Status            ClusterManagerStatus `json:"status,omitempty"`
+
+	Spec        ClusterManagerSpec   `json:"spec"`
+	AwsSpec     ProviderAwsSpec      `json:"awsSpec,omitempty"`
+	VsphereSpec ProviderVsphereSpec  `json:"vsphereSpec,omitempty"`
+	Status      ClusterManagerStatus `json:"status,omitempty"`
 }
 
 // +kubebuilder:object:root=true
-
 // ClusterManagerList contains a list of ClusterManager
 type ClusterManagerList struct {
 	metav1.TypeMeta `json:",inline"`

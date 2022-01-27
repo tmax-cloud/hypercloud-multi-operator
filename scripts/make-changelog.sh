@@ -48,7 +48,6 @@ git log v$prev_version..HEAD --no-merges --oneline --format="  - %s by %cN" --gr
 echo -e "\n### Etc" >> $output
 git log v$prev_version..HEAD --no-merges --oneline --format="  - %s by %cN" --grep="^\[etc\].*" -i >> $output
 
-fi
 echo -e "\n<!--------------------- v$version end --------------------->" >> $output
 
 if [ -f $backup ]; then

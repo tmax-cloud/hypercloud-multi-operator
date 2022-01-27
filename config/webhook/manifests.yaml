@@ -1,12 +1,15 @@
 
 ---
-apiVersion: admissionregistration.k8s.io/v1beta1
+apiVersion: admissionregistration.k8s.io/v1
 kind: MutatingWebhookConfiguration
 metadata:
   creationTimestamp: null
   name: mutating-webhook-configuration
 webhooks:
-- clientConfig:
+- admissionReviewVersions:
+  - "v1beta1"
+  - "v1"
+  clientConfig:
     caBundle: Cg==
     service:
       name: webhook-service
@@ -20,37 +23,21 @@ webhooks:
     apiVersions:
     - v1alpha1
     operations:
-    - CREATE
     - UPDATE
     resources:
     - clusterclaims
-- clientConfig:
-    caBundle: Cg==
-    service:
-      name: webhook-service
-      namespace: system
-      path: /mutate-cluster-tmax-io-v1alpha1-clustermanager
-  failurePolicy: Fail
-  name: mclustermanager.kb.io
-  rules:
-  - apiGroups:
-    - cluster.tmax.io
-    apiVersions:
-    - v1alpha1
-    operations:
-    - CREATE
-    - UPDATE
-    resources:
-    - clustermanagers
-
+  sideEffects: NoneOnDryRun
 ---
-apiVersion: admissionregistration.k8s.io/v1beta1
+apiVersion: admissionregistration.k8s.io/v1
 kind: ValidatingWebhookConfiguration
 metadata:
   creationTimestamp: null
   name: validating-webhook-configuration
 webhooks:
-- clientConfig:
+- admissionReviewVersions:
+  - "v1beta1"
+  - "v1"
+  clientConfig:
     caBundle: Cg==
     service:
       name: webhook-service
@@ -65,9 +52,15 @@ webhooks:
     - v1alpha1
     operations:
     - UPDATE
+    - DELETE
     resources:
     - clusterclaims
-- clientConfig:
+    - clusterclaims/status
+  sideEffects: NoneOnDryRun
+- admissionReviewVersions:
+  - "v1beta1"
+  - "v1"
+  clientConfig:
     caBundle: Cg==
     service:
       name: webhook-service
@@ -84,3 +77,26 @@ webhooks:
     - UPDATE
     resources:
     - clustermanagers
+  sideEffects: NoneOnDryRun
+- admissionReviewVersions:
+  - "v1beta1"
+  - "v1"
+  clientConfig:
+    caBundle: Cg==
+    service:
+      name: webhook-service
+      namespace: system
+      path: /validate-cluster-tmax-io-v1alpha1-clusterregistration
+  failurePolicy: Fail
+  name: vclusterregistration.kb.io
+  rules:
+  - apiGroups:
+    - cluster.tmax.io
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - clusterregistrations
+  sideEffects: NoneOnDryRun

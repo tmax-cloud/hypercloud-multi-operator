@@ -21,31 +21,6 @@ rules:
   - update
   - watch
 - apiGroups:
-  - ""
-  resources:
-  - service
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - post
-  - update
-  - watch
-- apiGroups:
-  - ""
-  resources:
-  - services
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
   - claim.tmax.io
   resources:
   - clusterclaims
@@ -86,9 +61,9 @@ rules:
   - patch
   - update
 - apiGroups:
-  - cluster.x-k8s.io
+  - cluster.tmax.io
   resources:
-  - clusters
+  - clusterregistrations
   verbs:
   - create
   - delete
@@ -98,13 +73,21 @@ rules:
   - update
   - watch
 - apiGroups:
-  - cluster.x-k8s.io
+  - cluster.tmax.io
   resources:
-  - clusters/status
+  - clusterregistrations/status
   verbs:
   - get
   - patch
   - update
+- apiGroups:
+  - cluster.x-k8s.io
+  resources:
+  - clusters
+  verbs:
+  - get
+  - list
+  - watch
 - apiGroups:
   - cluster.x-k8s.io
   resources:
@@ -149,14 +132,6 @@ rules:
   - core.kubefed.io
   resources:
   - kubefedclusters
-  verbs:
-  - get
-  - list
-  - watch
-- apiGroups:
-  - core.kubefed.io
-  resources:
-  - kubefedclusters
   - kubefedconfigs
   verbs:
   - create
@@ -166,18 +141,6 @@ rules:
   - patch
   - post
   - update
-  - watch
-- apiGroups:
-  - multiclusterdns.kubefed.io
-  resources:
-  - domains
-  - servicednsrecords
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - post
   - watch
 - apiGroups:
   - rbac.authorization.k8s.io
@@ -247,23 +210,3 @@ rules:
   - get
   - patch
   - update
-- apiGroups:
-  - types.kubefed.io
-  resources:
-  - federatedconfigmaps
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - types.kubefed.io
-  resources:
-  - federatedservices
-  verbs:
-  - get
-  - list
-  - watch

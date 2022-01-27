@@ -18,6 +18,7 @@ package v1alpha1
 
 import (
 	"errors"
+	"reflect"
 
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -36,7 +37,7 @@ func (r *ClusterClaim) SetupWebhookWithManager(mgr ctrl.Manager) error {
 
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
 
-// +kubebuilder:webhook:path=/mutate-claim-tmax-io-v1alpha1-clusterclaim,mutating=true,failurePolicy=fail,groups=claim.tmax.io,resources=clusterclaims,verbs=create;update,versions=v1alpha1,name=mclusterclaim.kb.io
+// +kubebuilder:webhook:path=/mutate-claim-tmax-io-v1alpha1-clusterclaim,mutating=true,failurePolicy=fail,groups=claim.tmax.io,resources=clusterclaims,verbs=update,versions=v1alpha1,name=mclusterclaim.kb.io
 
 var _ webhook.Defaulter = &ClusterClaim{}
 
@@ -56,7 +57,7 @@ func (r *ClusterClaim) Default() {
 }
 
 // TODO(user): change verbs to "verbs=create;update;delete" if you want to enable deletion validation.
-// +kubebuilder:webhook:verbs=update,path=/validate-claim-tmax-io-v1alpha1-clusterclaim,mutating=false,failurePolicy=fail,groups=claim.tmax.io,resources=clusterclaims,versions=v1alpha1,name=vclusterclaim.kb.io
+// +kubebuilder:webhook:verbs=update;delete,path=/validate-claim-tmax-io-v1alpha1-clusterclaim,mutating=false,failurePolicy=fail,groups=claim.tmax.io,resources=clusterclaims;clusterclaims/status,versions=v1alpha1,name=vclusterclaim.kb.io
 
 var _ webhook.Validator = &ClusterClaim{}
 
@@ -72,19 +73,25 @@ func (r *ClusterClaim) ValidateCreate() error {
 func (r *ClusterClaim) ValidateUpdate(old runtime.Object) error {
 	oldClusterClaim := old.(*ClusterClaim).DeepCopy()
 
-	if oldClusterClaim.Status.Phase == "Awaiting" {
+	if !r.ObjectMeta.DeletionTimestamp.IsZero() {
 		return nil
-		// if !reflect.DeepEqual(r.Spec, oldClusterClaim.Spec) {
-		// 	return errors.New("Cannot modify clusterClaim")
-		// }
 	}
-	return errors.New("Cannot modify clusterClaim after approval")
+
+	if oldClusterClaim.Status.Phase == "Approved" || oldClusterClaim.Status.Phase == "Rejected" || oldClusterClaim.Status.Phase == "ClusterDeleted" {
+		if !reflect.DeepEqual(oldClusterClaim.Spec, r.Spec) {
+			return errors.New("Cannot modify clusterClaim after approval")
+		}
+	}
+	return nil
 }
 
 // ValidateDelete implements webhook.Validator so a webhook will be registered for the type
 func (r *ClusterClaim) ValidateDelete() error {
 	clusterclaimlog.Info("validate delete", "name", r.Name)
 
-	// TODO(user): fill in your validation logic upon object deletion.
+	// if r.Status.Phase == "Awaiting" || r.Status.Phase == "" {
+	// 	return nil
+	// }
+	// return errors.New("Cannot modify clusterClaim after approval")
 	return nil
 }

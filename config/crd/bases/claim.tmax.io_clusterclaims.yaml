@@ -26,7 +26,7 @@ spec:
     shortNames:
     - cc
     singular: clusterclaim
-  scope: Cluster
+  scope: Namespaced
   subresources:
     status: {}
   validation:
@@ -54,37 +54,109 @@ spec:
             masterNum:
               description: The number of master node
               type: integer
-            masterType:
-              description: The type of VM for master node
-              type: string
             provider:
-              description: The name of cloud provider where VM is created
+              description: The type of provider
+              enum:
+              - AWS
+              - vSphere
               type: string
-            region:
-              description: The region where VM is working
-              type: string
-            sshKey:
-              description: The ssh key info to access VM
-              type: string
+            providerAwsSpec:
+              description: Provider Aws Spec
+              properties:
+                masterType:
+                  description: 'The type of VM for master node. Example: m4.xlarge.
+                    see: https://aws.amazon.com/ec2/instance-types'
+                  type: string
+                region:
+                  description: The region where VM is working
+                  enum:
+                  - ap-northeast-1
+                  - ap-northeast-2
+                  - ap-south-1
+                  - ap-southeast-1
+                  - ap-northeast-2
+                  - ca-central-1
+                  - eu-central-1
+                  - eu-west-1
+                  - eu-west-2
+                  - eu-west-3
+                  - sa-east-1
+                  - us-east-1
+                  - us-east-2
+                  - us-west-1
+                  - us-west-2
+                  type: string
+                sshKey:
+                  description: The ssh key info to access VM
+                  type: string
+                workerType:
+                  description: 'The type of VM for master node. Example: m4.xlarge.
+                    see: https://aws.amazon.com/ec2/instance-types'
+                  type: string
+              type: object
+            providerVsphereSpec:
+              description: Provider vSphere Spec
+              properties:
+                podCidr:
+                  description: The internal IP address cider block for pods
+                  type: string
+                vcenterCpuNum:
+                  description: The number of cpus for vm
+                  type: integer
+                vcenterDataCenter:
+                  description: The name of data center
+                  type: string
+                vcenterDataStore:
+                  description: The name of data store
+                  type: string
+                vcenterDiskSize:
+                  description: 'The disk size for vm, write as GB without unit. Example:
+                    25'
+                  type: integer
+                vcenterFolder:
+                  description: The name of folder
+                  type: string
+                vcenterId:
+                  description: The user id of VCSA
+                  type: string
+                vcenterIp:
+                  description: The IP address of vCenter Server Application(VCSA)
+                  type: string
+                vcenterKcpIp:
+                  description: The IP address of control plane for remote cluster(vip)
+                  type: string
+                vcenterMemSize:
+                  description: 'The memory size for vm, write as MB without unit.
+                    Example: 8192'
+                  type: integer
+                vcenterNetwork:
+                  description: The name of network
+                  type: string
+                vcenterPassword:
+                  description: The password of VCSA
+                  type: string
+                vcenterResourcePool:
+                  description: The name of resource pool
+                  type: string
+                vcenterTemplate:
+                  description: The template name for cloud init
+                  type: string
+                vcenterThumbprint:
+                  description: The TLS thumbprint of machine certificate
+                  type: string
+              type: object
             version:
               description: The version of kubernetes
               type: string
             workerNum:
               description: The number of worker node
               type: integer
-            workerType:
-              description: The type of VM for worker node
-              type: string
           required:
           - clusterName
           - masterNum
-          - masterType
           - provider
-          - region
-          - sshKey
           - version
           - workerNum
-          - workerType
           type: object
         status:
           description: ClusterClaimStatus defines the observed state of ClusterClaim
@@ -95,14 +167,16 @@ spec:
               enum:
               - Awaiting
               - Admitted
-              - Success
+              - Approved
               - Rejected
               - Error
-              - Deleted
+              - ClusterDeleted
               type: string
             reason:
               type: string
           type: object
+      required:
+      - spec
       type: object
   version: v1alpha1
   versions:

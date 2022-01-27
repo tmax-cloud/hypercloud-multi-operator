@@ -1,3 +1,6 @@
+# Need when errors like "fork/exec /usr/local/kubebuilder/bin/etcd: no such file or directory" occurred
+SHELL := /bin/bash
+
 # Current Operator version
 VERSION ?= 0.0.1
 # Default bundle image tag
@@ -14,7 +17,7 @@ BUNDLE_METADATA_OPTS ?= $(BUNDLE_CHANNELS) $(BUNDLE_DEFAULT_CHANNEL)
 # Image URL to use all building/pushing image targets
 IMG ?= controller:latest
 # Produce CRDs that work back to Kubernetes 1.11 (no version conversion)
-CRD_OPTIONS ?= "crd:trivialVersions=true"
+CRD_OPTIONS ?= "crd:crdVersions=v1beta1,trivialVersions=true"
 
 # Get the currently used golang install path (in GOPATH/bin, unless GOBIN is set)
 ifeq (,$(shell go env GOBIN))

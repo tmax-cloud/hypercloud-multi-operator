@@ -18,7 +18,6 @@ package v1alpha1
 
 import (
 	"errors"
-	"reflect"
 
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -37,16 +36,16 @@ func (r *ClusterManager) SetupWebhookWithManager(mgr ctrl.Manager) error {
 
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
 
-// +kubebuilder:webhook:path=/mutate-cluster-tmax-io-v1alpha1-clustermanager,mutating=true,failurePolicy=fail,groups=cluster.tmax.io,resources=clustermanagers,verbs=create;update,versions=v1alpha1,name=mclustermanager.kb.io
+// // +kubebuilder:webhook:path=/mutate-cluster-tmax-io-v1alpha1-clustermanager,mutating=true,failurePolicy=fail,groups=cluster.tmax.io,resources=clustermanagers,verbs=create;update,versions=v1alpha1,name=mclustermanager.kb.io
 
-var _ webhook.Defaulter = &ClusterManager{}
+// var _ webhook.Defaulter = &ClusterManager{}
 
-// Default implements webhook.Defaulter so a webhook will be registered for the type
-func (r *ClusterManager) Default() {
-	clustermanagerlog.Info("default", "name", r.Name)
+// // Default implements webhook.Defaulter so a webhook will be registered for the type
+// func (r *ClusterManager) Default() {
+// 	clustermanagerlog.Info("default", "name", r.Name)
 
-	// TODO(user): fill in your defaulting logic.
-}
+// 	// TODO(user): fill in your defaulting logic.
+// }
 
 // TODO(user): change verbs to "verbs=create;update;delete" if you want to enable deletion validation.
 // +kubebuilder:webhook:verbs=update,path=/validate-cluster-tmax-io-v1alpha1-clustermanager,mutating=false,failurePolicy=fail,groups=cluster.tmax.io,resources=clustermanagers,versions=v1alpha1,name=vclustermanager.kb.io
@@ -63,29 +62,30 @@ func (r *ClusterManager) ValidateCreate() error {
 
 // ValidateUpdate implements webhook.Validator so a webhook will be registered for the type
 func (r *ClusterManager) ValidateUpdate(old runtime.Object) error {
-	clustermanagerlog.Info("validate update", "name", r.Name)
-	oldClusterClaim := old.(*ClusterManager).DeepCopy()
 
-	if r.Annotations["owner"] != oldClusterClaim.Annotations["owner"] {
+	clustermanagerlog.Info("validate update", "name", r.Name)
+	oldClusterManager := old.(*ClusterManager).DeepCopy()
+
+	if r.Annotations["owner"] != oldClusterManager.Annotations["owner"] {
 		return errors.New("Cannot modify clusterManager.Annotations.owner")
 	}
 
-	if r.Status.Ready == false {
-		if !reflect.DeepEqual(r.Status.Members, oldClusterClaim.Status.Members) {
-			return errors.New("Cannot modify members when cluster status is not ready")
-		}
-		if !reflect.DeepEqual(r.Status.Groups, oldClusterClaim.Status.Groups) {
-			return errors.New("Cannot modify groups when cluster status is not ready")
-		}
-	}
+	// if r.Status.Ready == false {
+	// 	if !reflect.DeepEqual(r.Status.Members, oldClusterClaim.Status.Members) {
+	// 		return errors.New("Cannot modify members when cluster status is not ready")
+	// 	}
+	// 	if !reflect.DeepEqual(r.Status.Groups, oldClusterClaim.Status.Groups) {
+	// 		return errors.New("Cannot modify groups when cluster status is not ready")
+	// 	}
+	// }
 
 	return nil
 }
 
 // ValidateDelete implements webhook.Validator so a webhook will be registered for the type
 func (r *ClusterManager) ValidateDelete() error {
+
 	clustermanagerlog.Info("validate delete", "name", r.Name)
 
-	// TODO(user): fill in your validation logic upon object deletion.
 	return nil
 }

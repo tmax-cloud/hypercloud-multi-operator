@@ -20,14 +20,12 @@ import (
 	"context"
 
 	"github.com/go-logr/logr"
-	"github.com/prometheus/common/log"
-	clusterv1alpha1 "github.com/tmax-cloud/hypercloud-multi-operator/apis/cluster/v1alpha1"
-	"k8s.io/apimachinery/pkg/runtime"
-
 	claimv1alpha1 "github.com/tmax-cloud/hypercloud-multi-operator/apis/claim/v1alpha1"
-	rbacv1 "k8s.io/api/rbac/v1"
+
+	clusterv1alpha1 "github.com/tmax-cloud/hypercloud-multi-operator/apis/cluster/v1alpha1"
+	"github.com/tmax-cloud/hypercloud-multi-operator/controllers/util"
 	"k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -38,10 +36,9 @@ import (
 )
 
 const (
-	CLAIM_API_GROUP             = "claim.tmax.io"
-	CLAIM_API_Kind              = "clusterclaims"
-	CLAIM_API_GROUP_VERSION     = "claim.tmax.io/v1alpha1"
-	HYPERCLOUD_SYSTEM_NAMESPACE = ""
+	CLAIM_API_GROUP         = "claim.tmax.io"
+	CLAIM_API_Kind          = "clusterclaims"
+	CLAIM_API_GROUP_VERSION = "claim.tmax.io/v1alpha1"
 )
 
 var AutoAdmit bool
@@ -75,11 +72,12 @@ func (r *ClusterClaimReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error
 		}
 		log.Error(err, "Failed to get ClusterClaim")
 		return ctrl.Result{}, err
-	} else if clusterClaim.Status.Phase == "" {
-		if err := r.CreateClaimRole(clusterClaim); err != nil {
-			return ctrl.Result{}, err
-		}
 	}
+	// else if clusterClaim.Status.Phase == "" {
+	// 	if err := r.CreateClaimRole(clusterClaim); err != nil {
+	// 		return ctrl.Result{}, err
+	// 	}
+	// }
 
 	if AutoAdmit == false {
 		if clusterClaim.Status.Phase == "" {
@@ -96,146 +94,17 @@ func (r *ClusterClaimReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error
 		}
 	}
 
-	if clusterClaim.Status.Phase == "Rejected" {
-		return ctrl.Result{}, nil
-	} else if clusterClaim.Status.Phase == "Admitted" {
-		if err := r.CreateClusterManager(clusterClaim); err != nil {
-			return ctrl.Result{}, err
-		}
-
-		clusterClaim.Status.Phase = "Success"
-		if err := r.Status().Update(context.TODO(), clusterClaim); err != nil {
-			log.Error(err, "Failed to update ClusterClaim status")
-			return ctrl.Result{}, err
-		}
-	}
-
 	return ctrl.Result{}, nil
 }
-
-func (r *ClusterClaimReconciler) CreateClaimRole(clusterClaim *claimv1alpha1.ClusterClaim) error {
-	clusterRole := &rbacv1.ClusterRole{}
-	clusterRoleName := clusterClaim.Annotations["creator"] + "-" + clusterClaim.Name + "-cc-role"
-	clusterRoleNameKey := types.NamespacedName{Name: clusterRoleName, Namespace: HYPERCLOUD_SYSTEM_NAMESPACE}
-	if err := r.Get(context.TODO(), clusterRoleNameKey, clusterRole); err != nil {
-		if errors.IsNotFound(err) {
-			newClusterRole := &rbacv1.ClusterRole{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: clusterRoleName,
-				},
-				Rules: []rbacv1.PolicyRule{
-					{APIGroups: []string{CLAIM_API_GROUP}, Resources: []string{"clusterclaims"},
-						ResourceNames: []string{clusterClaim.Name}, Verbs: []string{"get"}},
-					{APIGroups: []string{CLAIM_API_GROUP}, Resources: []string{"clusterclaims/status"},
-						ResourceNames: []string{clusterClaim.Name}, Verbs: []string{"get"}},
-				},
-			}
-			ctrl.SetControllerReference(clusterClaim, newClusterRole, r.Scheme)
-			err = r.Create(context.TODO(), newClusterRole)
-			if err != nil {
-				log.Error(err, "Failed to create "+clusterRoleName+" role.")
-				return err
-			}
-		} else {
-			log.Error(err, "Failed to get role")
-			return err
-		}
-	}
-
-	clusterRoleBinding := &rbacv1.ClusterRoleBinding{}
-	clusterRoleBindingName := clusterClaim.Annotations["creator"] + "-" + clusterClaim.Name + "-cc-rolebinding"
-	clusterRoleBindingKey := types.NamespacedName{Name: clusterClaim.Name, Namespace: HYPERCLOUD_SYSTEM_NAMESPACE}
-	if err := r.Get(context.TODO(), clusterRoleBindingKey, clusterRoleBinding); err != nil {
-		if errors.IsNotFound(err) {
-			newClusterRoleBinding := &rbacv1.ClusterRoleBinding{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: clusterRoleBindingName,
-				},
-				RoleRef: rbacv1.RoleRef{
-					APIGroup: "rbac.authorization.k8s.io",
-					Kind:     "ClusterRole",
-					Name:     clusterRoleName,
-				},
-				Subjects: []rbacv1.Subject{
-					{
-						APIGroup: "rbac.authorization.k8s.io",
-						Kind:     "User",
-						Name:     clusterClaim.Annotations["creator"],
-					},
-				},
-			}
-			ctrl.SetControllerReference(clusterClaim, newClusterRoleBinding, r.Scheme)
-			err = r.Create(context.TODO(), newClusterRoleBinding)
-			if err != nil {
-				log.Error(err, "Failed to create "+clusterRoleBindingName+" role.")
-				return err
-			}
-		} else {
-			log.Error(err, "Failed to get rolebinding")
-			return err
-		}
-	}
-	return nil
-}
-
-func (r *ClusterClaimReconciler) CreateClusterManager(clusterClaim *claimv1alpha1.ClusterClaim) error {
-	clm := &clusterv1alpha1.ClusterManager{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: clusterClaim.Name,
-			Annotations: map[string]string{
-				"owner": clusterClaim.Annotations["creator"],
-			},
-		},
-		FakeObjectMeta: clusterv1alpha1.FakeObjectMeta{
-			FakeName: clusterClaim.Spec.ClusterName,
-		},
-		Spec: clusterv1alpha1.ClusterManagerSpec{
-			Provider:   clusterClaim.Spec.Provider,
-			Version:    clusterClaim.Spec.Version,
-			Region:     clusterClaim.Spec.Region,
-			SshKey:     clusterClaim.Spec.SshKey,
-			MasterNum:  clusterClaim.Spec.MasterNum,
-			MasterType: clusterClaim.Spec.MasterType,
-			WorkerNum:  clusterClaim.Spec.WorkerNum,
-			WorkerType: clusterClaim.Spec.WorkerType,
-		},
-		Status: clusterv1alpha1.ClusterManagerStatus{
-			// Owner: clusterClaim.Annotations["creator"],
-			Owner: map[string]string{
-				clusterClaim.Annotations["creator"]: "admin",
-			},
-		},
-	}
-	err := r.Create(context.TODO(), clm)
-	if err != nil {
-		log.Error(err, "Failed to create ClusterManager")
-		return err
-	}
-
-	err = r.Status().Update(context.TODO(), clm)
-	if err != nil {
-		log.Error(err, "Failed to update owner in ClusterManager")
-		return err
-	}
-
-	return nil
-}
-
-//
 
 func (r *ClusterClaimReconciler) requeueClusterClaimsForClusterManager(o handler.MapObject) []ctrl.Request {
 	clm := o.Object.(*clusterv1alpha1.ClusterManager)
 	log := r.Log.WithValues("objectMapper", "clusterManagerToClusterClaim", "clusterManager", clm.Name)
-
-	// Don't handle deleted clusterManager
-	// if !clm.ObjectMeta.DeletionTimestamp.IsZero() {
-	// 	log.V(4).Info("clusterManager has a deletion timestamp, skipping mapping.")
-	// 	return nil
-	// }
+	log.Info("Start to clusterManagerToClusterClaim mapping...")
 
 	//get clusterManager
 	cc := &claimv1alpha1.ClusterClaim{}
-	key := types.NamespacedName{Namespace: HYPERCLOUD_SYSTEM_NAMESPACE, Name: clm.Name}
+	key := types.NamespacedName{Namespace: clm.Namespace, Name: clm.Labels["parent"]}
 	if err := r.Get(context.TODO(), key, cc); err != nil {
 		if errors.IsNotFound(err) {
 			log.Info("ClusterClaim resource not found. Ignoring since object must be deleted.")
@@ -244,8 +113,11 @@ func (r *ClusterClaimReconciler) requeueClusterClaimsForClusterManager(o handler
 		log.Error(err, "Failed to get ClusterClaim")
 		return nil
 	}
-
-	cc.Status.Phase = "Deleted"
+	if cc.Status.Phase != "Approved" {
+		log.Info("ClusterClaims for ClusterManager [" + cc.Spec.ClusterName + "] is already delete... Do not update cc status to delete ")
+		return nil
+	}
+	cc.Status.Phase = "ClusterDeleted"
 	cc.Status.Reason = "cluster is deleted"
 	err := r.Status().Update(context.TODO(), cc)
 	if err != nil {
@@ -297,7 +169,11 @@ func (r *ClusterClaimReconciler) SetupWithManager(mgr ctrl.Manager) error {
 				return false
 			},
 			DeleteFunc: func(e event.DeleteEvent) bool {
-				return true
+				clm := e.Object.(*clusterv1alpha1.ClusterManager)
+				if val, ok := clm.Labels[util.ClusterTypeKey]; ok && val == util.ClusterTypeCreated {
+					return true
+				}
+				return false
 			},
 			GenericFunc: func(e event.GenericEvent) bool {
 				return false

@@ -16,17 +16,30 @@ spec:
         hypercloud: multi-operator
     spec:
       containers:
-      - command:
-        - /manager
-        args:
+      - args:
         - --enable-leader-election
+        command:
+        - /manager
+        env:
+        - name: TZ
+          value: Asia/Seoul
         image: controller:latest
         name: manager
         resources:
           limits:
             cpu: 100m
-            memory: 30Mi
+            memory: 50Mi
           requests:
             cpu: 100m
             memory: 20Mi
+        volumeMounts:
+        - mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+          name: hypercloud-multi-operator-controller-manager-token
+          readOnly: true
+      serviceAccountName: hypercloud-multi-operator-controller-manager
       terminationGracePeriodSeconds: 10
+      volumes:
+      - name:  hypercloud-multi-operator-controller-manager-token
+        secret:
+          defaultMode: 420
+          secretName:  hypercloud-multi-operator-controller-manager-token

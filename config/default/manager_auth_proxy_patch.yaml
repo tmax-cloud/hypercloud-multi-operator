@@ -19,6 +19,17 @@ spec:
         ports:
         - containerPort: 8443
           name: https
+        resources:
+          limits:
+            cpu: 100m
+            memory: 30Mi
+          requests:
+            cpu: 100m
+            memory: 20Mi
+        volumeMounts:
+        - mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+          name: hypercloud-multi-operator-controller-manager-token
+          readOnly: true
       - name: manager
         args:
         - "--metrics-addr=127.0.0.1:8080"
