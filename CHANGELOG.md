@@ -1,6 +1,25 @@
 # HyperCloud-Multi-Operator changelog!!
 All notable changes to this project will be documented in this file.
 
+<!-------------------- v5.0.26.1 start -------------------->
+
+## HyperCloud-Multi-Operator_5.0.26.1 (2022. 01. 27. (목) 19:44:33 KST)
+
+### Added
+  - [feat] 하이퍼클라우드 커스텀 도메인 env 추가 by SISILIA
+
+### Changed
+
+### Fixed
+
+### CRD yaml
+
+### Etc
+  - [etc] rbac 리소스 권한 추가 by SISILIA
+  - [etc] rbac 리소스 권한 추가 by SISILIA
+
+<!--------------------- v5.0.26.1 end --------------------->
+
 <!-------------------- v5.0.26.0 start -------------------->
 
 ## HyperCloud-Multi-Operator_5.0.26.0 (2022. 01. 21. (금) 13:40:34 KST)
