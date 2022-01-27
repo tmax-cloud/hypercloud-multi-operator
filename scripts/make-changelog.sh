@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # destination file
-output=CHANGELOG.md
+output="CHANGELOG.md"
 timestamp=`date`
 version=$1
 prev_version=$2
