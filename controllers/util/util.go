@@ -147,10 +147,7 @@ func CreateCertificate(clusterManager *clusterv1alpha1.ClusterManager) *certmana
 				certmanagerv1.UsageClientAuth,
 			},
 			DNSNames: []string{
-				"multicluster.192.168.9.141.nip.io",
-				// "multicluster.tmaxcloud.org",
-				// clusterManager.Name + "." + clusterManager.Namespace + ".svc",
-				// clusterManager.Name + "." + clusterManager.Namespace + ".svc.cluster.local",
+				"multicluster." + clusterManager.Annotations["hypercloud/dns"],
 			},
 			IssuerRef: cmmetav1.ObjectReference{
 				Name:  "tmaxcloud-issuer",
@@ -167,15 +164,15 @@ func CreateIngress(clusterManager *clusterv1alpha1.ClusterManager) *networkingv1
 	provider := INGRESS_CLASS
 	pathType := networkingv1.PathTypePrefix
 	prefixMiddleware := clusterManager.Namespace + "-" + clusterManager.Name + "-prefix@kubernetescrd"
+	multiclusterDNS := "multicluster." + clusterManager.Annotations["hypercloud/dns"]
 	traefikIngress := &networkingv1.Ingress{
 		ObjectMeta: metav1.ObjectMeta{
 			//Name:      clusterManager.Name + "-ingress-" + clusterManager.Annotations["suffix"],
 			Name:      clusterManager.Name + "-ingress",
 			Namespace: clusterManager.Namespace,
 			Annotations: map[string]string{
-				//"traefik.ingress.kubernetes.io/router.middlewares": "jwt-decode-auth@file," + prefixMiddleware,
 				"traefik.ingress.kubernetes.io/router.entrypoints": "websecure",
-				"traefik.ingress.kubernetes.io/router.middlewares": prefixMiddleware,
+				"traefik.ingress.kubernetes.io/router.middlewares": "api-gateway-system-jwt-decode-auth@kubernetescrd," + prefixMiddleware,
 				"owner":   clusterManager.Annotations["creator"],
 				"creator": clusterManager.Annotations["creator"],
 			},
@@ -188,8 +185,7 @@ func CreateIngress(clusterManager *clusterv1alpha1.ClusterManager) *networkingv1
 			IngressClassName: &provider,
 			Rules: []networkingv1.IngressRule{
 				{
-					// Host: "multicluster.tmaxcloud.org",
-					Host: "multicluster.192.168.9.141.nip.io",
+					Host: multiclusterDNS,
 					IngressRuleValue: networkingv1.IngressRuleValue{
 						HTTP: &networkingv1.HTTPIngressRuleValue{
 							Paths: []networkingv1.HTTPIngressPath{
@@ -214,8 +210,7 @@ func CreateIngress(clusterManager *clusterv1alpha1.ClusterManager) *networkingv1
 			TLS: []networkingv1.IngressTLS{
 				{
 					Hosts: []string{
-						"multicluster.192.168.9.141.nip.io",
-						// "multicluster.tmaxcloud.org",
+						multiclusterDNS,
 					},
 				},
 			},
@@ -237,6 +232,7 @@ func CreateService(clusterManager *clusterv1alpha1.ClusterManager) *corev1.Servi
 				Annotations: map[string]string{
 					"owner":   clusterManager.Annotations["creator"],
 					"creator": clusterManager.Annotations["creator"],
+					"traefik.ingress.kubernetes.io/service.serverstransport": "insecure@file",
 				},
 				Labels: map[string]string{
 					"from/clusterManager": clusterManager.Name,

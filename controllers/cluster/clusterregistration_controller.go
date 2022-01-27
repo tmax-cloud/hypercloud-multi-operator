@@ -19,6 +19,7 @@ package controllers
 import (
 	"context"
 	b64 "encoding/base64"
+	"os"
 	"regexp"
 
 	// "encoding/json"
@@ -237,6 +238,22 @@ func (r *ClusterRegistrationReconciler) CreateClusterManager(ctx context.Context
 	reg, _ := regexp.Compile("https://[0-9a-zA-Z./-]+")
 	endpoint := reg.FindString(string(encodedKubeConfig))[len("https://"):]
 
+	// configMap := &corev1.ConfigMap{}
+	// configMapKey := types.NamespacedName{
+	// 	Name:      util.DNS_CONFIGMAP_NAME,
+	// 	Namespace: util.HypercloudNamespace,
+	// }
+	// if err := r.Get(context.TODO(), configMapKey, configMap); err != nil {
+	// 	// todo - shkim: detail 추가
+	// 	return ctrl.Result{}, err
+	// 	// if errors.IsNotFound(err) {
+	// 	// 	return ctrl.Result{}, err
+	// 	// } else {
+	// 	// 	return ctrl.Result{}, err
+	// 	// }
+	// }
+	// hypercloudDNS := configMap.Data[util.DNS_CONFIGMAP_KEY]
+
 	clm := &clusterv1alpha1.ClusterManager{}
 	clmKey := types.NamespacedName{
 		Name:      ClusterRegistration.Spec.ClusterName,
@@ -249,9 +266,10 @@ func (r *ClusterRegistrationReconciler) CreateClusterManager(ctx context.Context
 					Name:      ClusterRegistration.Spec.ClusterName,
 					Namespace: ClusterRegistration.Namespace,
 					Annotations: map[string]string{
-						"owner":    ClusterRegistration.Annotations["creator"],
-						"creator":  ClusterRegistration.Annotations["creator"],
-						"Endpoint": endpoint,
+						"owner":          ClusterRegistration.Annotations["creator"],
+						"creator":        ClusterRegistration.Annotations["creator"],
+						"Endpoint":       endpoint,
+						"hypercloud/dns": os.Getenv("HC_DOMAIN"),
 					},
 					Labels: map[string]string{
 						util.ClusterTypeKey: util.ClusterTypeRegistered,

@@ -23,6 +23,8 @@ spec:
         env:
         - name: TZ
           value: Asia/Seoul
+        - name: HC_DOMAIN
+          value: ${custom_domain}
         image: controller:latest
         name: manager
         resources:
