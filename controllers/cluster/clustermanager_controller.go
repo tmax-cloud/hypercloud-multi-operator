@@ -20,6 +20,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"regexp"
 	"strings"
 	"time"
 
@@ -31,7 +32,7 @@ import (
 	certmanagerv1 "github.com/jetstack/cert-manager/pkg/apis/certmanager/v1"
 	servicecatalogv1beta1 "github.com/kubernetes-sigs/service-catalog/pkg/apis/servicecatalog/v1beta1"
 	clusterv1alpha1 "github.com/tmax-cloud/hypercloud-multi-operator/apis/cluster/v1alpha1"
-	"github.com/tmax-cloud/hypercloud-multi-operator/controllers/util"
+	util "github.com/tmax-cloud/hypercloud-multi-operator/controllers/util"
 	traefikv2 "github.com/traefik/traefik/v2/pkg/provider/kubernetes/crd/traefik/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
@@ -244,7 +245,6 @@ func (r *ClusterManagerReconciler) UpdateClusterManagerStatus(ctx context.Contex
 	if err := json.Unmarshal(jsonData, &data); err != nil {
 		return ctrl.Result{}, err
 	}
-
 	clusterManager.Spec.Version = fmt.Sprintf("%v", data["kubernetesVersion"])
 
 	var nodeList *corev1.NodeList
@@ -261,6 +261,8 @@ func (r *ClusterManagerReconciler) UpdateClusterManagerStatus(ctx context.Contex
 	clusterManager.Status.MasterRun = 0
 	clusterManager.Spec.WorkerNum = 0
 	clusterManager.Status.WorkerRun = 0
+	clusterManager.Spec.Provider = util.PROVIDER_UNKNOWN
+	clusterManager.Status.Provider = util.PROVIDER_UNKNOWN
 	for _, node := range nodeList.Items {
 		if _, ok := node.Labels["node-role.kubernetes.io/master"]; ok {
 			clusterManager.Spec.MasterNum++
@@ -273,16 +275,33 @@ func (r *ClusterManagerReconciler) UpdateClusterManagerStatus(ctx context.Contex
 				clusterManager.Status.WorkerRun++
 			}
 		}
-		clusterManager.Status.Provider = node.Spec.ProviderID
-		clusterManager.Spec.Provider = node.Spec.ProviderID
+
+		if node.Spec.ProviderID != "" {
+			providerID := util.GetProviderName(
+				strings.ToUpper(
+					strings.Split(node.Spec.ProviderID, "://")[0],
+				),
+			)
+			clusterManager.Status.Provider = providerID
+			clusterManager.Spec.Provider = providerID
+		}
 	}
-	if clusterManager.Status.Provider == "" {
-		clusterManager.Spec.Provider = "Unknown"
-		clusterManager.Status.Provider = "Unknown"
+
+	if clusterManager.Spec.Provider == util.PROVIDER_UNKNOWN {
+		reg, _ := regexp.Compile("cloud-provider: [a-zA-Z-_ ]+")
+		matchString := reg.FindString(kubeadmConfig.Data["ClusterConfiguration"])
+		if matchString != "" {
+			cloudProvider := util.GetProviderName(
+				strings.ToUpper(
+					matchString[len("cloud-provider: "):],
+				),
+			)
+			clusterManager.Spec.Provider = cloudProvider
+			clusterManager.Status.Provider = cloudProvider
+		}
 	}
 
 	// health check
-
 	var resp []byte
 	if resp, err = remoteClientset.RESTClient().Get().AbsPath("/readyz").DoRaw(context.TODO()); err != nil {
 		log.Error(err, "Failed to get remote cluster status")
@@ -309,7 +328,7 @@ func (r *ClusterManagerReconciler) SetEndpoint(ctx context.Context, clusterManag
 	log := r.Log.WithValues("clustermanager", types.NamespacedName{Name: clusterManager.Name, Namespace: clusterManager.Namespace})
 	log.Info("Start setting endpoint configuration to clusterManager")
 
-	if clusterManager.Annotations["Endpoint"] != "" {
+	if clusterManager.Annotations["endpoint"] != "" {
 		log.Info("Endpoint already configured.")
 		return ctrl.Result{}, nil
 	}
@@ -333,14 +352,14 @@ func (r *ClusterManagerReconciler) SetEndpoint(ctx context.Context, clusterManag
 		log.Info("ControlPlain endpoint is not ready yet. requeue after 20sec.")
 		return ctrl.Result{RequeueAfter: requeueAfter20Sec}, nil
 	}
-	clusterManager.Annotations["Endpoint"] = cluster.Spec.ControlPlaneEndpoint.Host
+	clusterManager.Annotations["endpoint"] = cluster.Spec.ControlPlaneEndpoint.Host
 
 	return ctrl.Result{}, nil
 }
 func (r *ClusterManagerReconciler) CreateTraefikResources(ctx context.Context, clusterManager *clusterv1alpha1.ClusterManager) (ctrl.Result, error) {
 	log := r.Log.WithValues("clustermanager", types.NamespacedName{Name: clusterManager.Name, Namespace: clusterManager.Namespace})
 
-	if clusterManager.Annotations["Endpoint"] == "" {
+	if clusterManager.Annotations["endpoint"] == "" {
 		log.Info("Wait for recognize remote apiserver endpoint")
 		return ctrl.Result{RequeueAfter: requeueAfter20Sec}, nil
 	}

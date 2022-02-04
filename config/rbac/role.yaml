@@ -24,6 +24,7 @@ rules:
   resources:
   - namespaces
   - secrets
+  - serviceaccounts
   verbs:
   - create
   - delete

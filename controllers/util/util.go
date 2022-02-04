@@ -1,7 +1,10 @@
 package util
 
 import (
+	"fmt"
+	"hash/fnv"
 	"math/rand"
+	"net/url"
 	"strings"
 	"time"
 
@@ -221,25 +224,26 @@ func CreateIngress(clusterManager *clusterv1alpha1.ClusterManager) *networkingv1
 }
 
 func CreateService(clusterManager *clusterv1alpha1.ClusterManager) *corev1.Service {
+	serviceMeta := &metav1.ObjectMeta{
+		//Name:      clusterManager.Name + "-service-" + clusterManager.Annotations["suffix"],
+		Name:      clusterManager.Name + "-service",
+		Namespace: clusterManager.Namespace,
+		Annotations: map[string]string{
+			"owner":   clusterManager.Annotations["creator"],
+			"creator": clusterManager.Annotations["creator"],
+			"traefik.ingress.kubernetes.io/service.serverstransport": "insecure@file",
+		},
+		Labels: map[string]string{
+			"from/clusterManager": clusterManager.Name,
+		},
+	}
 	traefikService := &corev1.Service{}
 	switch strings.ToUpper(clusterManager.Spec.Provider) {
 	case PROVIDER_AWS:
 		traefikService = &corev1.Service{
-			ObjectMeta: metav1.ObjectMeta{
-				//Name:      clusterManager.Name + "-service-" + clusterManager.Annotations["suffix"],
-				Name:      clusterManager.Name + "-service",
-				Namespace: clusterManager.Namespace,
-				Annotations: map[string]string{
-					"owner":   clusterManager.Annotations["creator"],
-					"creator": clusterManager.Annotations["creator"],
-					"traefik.ingress.kubernetes.io/service.serverstransport": "insecure@file",
-				},
-				Labels: map[string]string{
-					"from/clusterManager": clusterManager.Name,
-				},
-			},
+			ObjectMeta: *serviceMeta,
 			Spec: corev1.ServiceSpec{
-				ExternalName: clusterManager.Annotations["Endpoint"],
+				ExternalName: clusterManager.Annotations["endpoint"],
 				Ports: []corev1.ServicePort{
 					{
 						//Name:       strings.ToLower(string(corev1.URISchemeHTTPS)),
@@ -254,18 +258,7 @@ func CreateService(clusterManager *clusterv1alpha1.ClusterManager) *corev1.Servi
 		}
 	case PROVIDER_VSPHERE:
 		traefikService = &corev1.Service{
-			ObjectMeta: metav1.ObjectMeta{
-				//Name:      clusterManager.Name + "-service-" + clusterManager.Annotations["suffix"],
-				Name:      clusterManager.Name + "-service",
-				Namespace: clusterManager.Namespace,
-				Annotations: map[string]string{
-					"owner":   clusterManager.Annotations["creator"],
-					"creator": clusterManager.Annotations["creator"],
-				},
-				Labels: map[string]string{
-					"from/clusterManager": clusterManager.Name,
-				},
-			},
+			ObjectMeta: *serviceMeta,
 			Spec: corev1.ServiceSpec{
 				Ports: []corev1.ServicePort{
 					{
@@ -278,23 +271,11 @@ func CreateService(clusterManager *clusterv1alpha1.ClusterManager) *corev1.Servi
 				},
 			},
 		}
-	// default includes AWS
 	default:
 		traefikService = &corev1.Service{
-			ObjectMeta: metav1.ObjectMeta{
-				//Name:      clusterManager.Name + "-service-" + clusterManager.Annotations["suffix"],
-				Name:      clusterManager.Name + "-service",
-				Namespace: clusterManager.Namespace,
-				Annotations: map[string]string{
-					"owner":   clusterManager.Annotations["creator"],
-					"creator": clusterManager.Annotations["creator"],
-				},
-				Labels: map[string]string{
-					"from/clusterManager": clusterManager.Name,
-				},
-			},
+			ObjectMeta: *serviceMeta,
 			Spec: corev1.ServiceSpec{
-				ExternalName: clusterManager.Annotations["Endpoint"],
+				ExternalName: clusterManager.Annotations["endpoint"],
 				Ports: []corev1.ServicePort{
 					{
 						//Name:       strings.ToLower(string(corev1.URISchemeHTTPS)),
@@ -330,7 +311,7 @@ func CreateEndpoint(clusterManager *clusterv1alpha1.ClusterManager) *corev1.Endp
 			{
 				Addresses: []corev1.EndpointAddress{
 					{
-						IP: clusterManager.Annotations["Endpoint"],
+						IP: clusterManager.Annotations["endpoint"],
 					},
 				},
 				Ports: []corev1.EndpointPort{
@@ -376,4 +357,24 @@ func MergeJson(dest []byte, source []byte) []byte {
 	dest = append(dest[0:len(dest)-1], 44)
 	dest = append(dest, source[1:]...)
 	return dest
+}
+
+func URIToSecretName(uriType, uri string) (string, error) {
+	parsedURI, err := url.ParseRequestURI(uri)
+	if err != nil {
+		return "", err
+	}
+	h := fnv.New32a()
+	_, _ = h.Write([]byte(uri))
+	host := strings.ToLower(strings.Split(parsedURI.Host, ":")[0])
+	return fmt.Sprintf("%s-%s-%v", uriType, host, h.Sum32()), nil
+}
+
+func GetProviderName(provider string) string {
+	providers := map[string]string{
+		"AWS":     "AWS",
+		"VSPHERE": "vSphere",
+	}
+
+	return providers[provider]
 }
