@@ -1,6 +1,25 @@
 # HyperCloud-Multi-Operator changelog!!
 All notable changes to this project will be documented in this file.
 
+<!-------------------- v5.0.26.2 start -------------------->
+
+## HyperCloud-Multi-Operator_5.0.26.2 (2022. 02. 04. (금) 21:05:50 KST)
+
+### Added
+  - [feat] role에 leases.coordination.k8s.io에 대한 create, delete, patch verb추가 by SISILIA
+
+### Changed
+
+### Fixed
+
+### CRD yaml
+
+### Etc
+  - [etc] 클러스터 등록시, ArgoCD resource 생성 초안 추가, service annotation error수정, 코드리팩터링 by SISILIA
+  - [etc] v5.0.26.1에서 hypercloud-multi-operator-manager-role에 leases.coordination.k8s.io에 대한 create, delete, patch verb추가 by SISILIA
+
+<!--------------------- v5.0.26.2 end --------------------->
+
 <!-------------------- v5.0.26.1 start -------------------->
 
 ## HyperCloud-Multi-Operator_5.0.26.1 (2022. 01. 27. (목) 19:44:33 KST)
