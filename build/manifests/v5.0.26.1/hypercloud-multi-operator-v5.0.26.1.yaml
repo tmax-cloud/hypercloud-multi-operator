@@ -790,7 +790,10 @@ rules:
   resources:
   - leases
   verbs:
+  - create
+  - delete
   - get
+  - patch
   - list
   - update
   - watch
