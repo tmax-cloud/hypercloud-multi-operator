@@ -43,7 +43,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
-	//	fedv1b1 "sigs.k8s.io/kubefed/pkg/apis/core/v1beta1"
 )
 
 // ClusterReconciler reconciles a Memcached object
@@ -166,14 +165,14 @@ func (r *SecretReconciler) deployRolebinding(ctx context.Context, secret *corev1
 			Name: clusterAdminCRBName,
 		},
 		RoleRef: rbacv1.RoleRef{
-			APIGroup: rbacv1.SchemeGroupVersion.Group, //"rbac.authorization.k8s.io"
+			APIGroup: rbacv1.GroupName,
 			Kind:     "ClusterRole",
 			Name:     "cluster-admin",
 		},
 		Subjects: []rbacv1.Subject{
 			{
-				Kind:     rbacv1.UserKind,  //"User",
-				APIGroup: rbacv1.GroupName, //"rbac.authorization.k8s.io",
+				Kind:     rbacv1.UserKind,
+				APIGroup: rbacv1.GroupName,
 				Name:     clm.Annotations["owner"],
 			},
 		},
@@ -212,70 +211,6 @@ func (r *SecretReconciler) deployRolebinding(ctx context.Context, secret *corev1
 		}
 	}
 
-	// developerClusterRole := &rbacv1.ClusterRole{
-	// 	ObjectMeta: metav1.ObjectMeta{
-	// 		Name: "developer",
-	// 	},
-	// 	Rules: []rbacv1.PolicyRule{
-	// 		{
-	// 			APIGroups: targetGroup,
-	// 			Resources: []string{rbacv1.ResourceAll},
-	// 			Verbs:     []string{rbacv1.VerbAll},
-	// 		},
-	// 		{
-	// 			APIGroups: []string{"apiregistration.k8s.io"},
-	// 			Resources: []string{rbacv1.ResourceAll},
-	// 			Verbs:     []string{"get", "list", "watch"},
-	// 		},
-	// 	},
-	// }
-
-	// if _, err := remoteClientset.RbacV1().ClusterRoles().Get(context.TODO(), "developer", metav1.GetOptions{}); err != nil {
-	// 	if errors.IsNotFound(err) {
-	// 		log.Info("Cannot found developer cr from remote cluster. Start to create developer clusterrole to remote")
-	// 		if _, err := remoteClientset.RbacV1().ClusterRoles().Create(context.TODO(), developerClusterRole, metav1.CreateOptions{}); err != nil {
-	// 			log.Error(err, "Cannnot create clusterrole for developer")
-	// 			return ctrl.Result{}, err
-	// 		}
-	// 	} else {
-	// 		log.Error(err, "Failed to get developer clusterrole from remote cluster")
-	// 		return ctrl.Result{}, err
-	// 	}
-	// }
-
-	// guestClusterRole := &rbacv1.ClusterRole{
-	// 	ObjectMeta: metav1.ObjectMeta{
-	// 		Name: "guest",
-	// 	},
-	// 	Rules: []rbacv1.PolicyRule{
-	// 		{
-	// 			APIGroups: targetGroup,
-	// 			Resources: []string{rbacv1.ResourceAll},
-	// 			Verbs:     []string{"get", "list", "watch"},
-	// 		},
-	// 		{
-	// 			APIGroups: []string{"apiregistration.k8s.io"},
-	// 			Resources: []string{rbacv1.ResourceAll},
-	// 			Verbs:     []string{"get", "list", "watch"},
-	// 		},
-	// 	},
-	// }
-
-	// if _, err := remoteClientset.RbacV1().ClusterRoles().Get(context.TODO(), "guest", metav1.GetOptions{}); err != nil {
-	// 	if errors.IsNotFound(err) {
-	// 		log.Info("Cannot found guest cr from remote cluster. Start to create guest clusterrole to remote")
-	// 		if _, err := remoteClientset.RbacV1().ClusterRoles().Create(context.TODO(), guestClusterRole, metav1.CreateOptions{}); err != nil {
-	// 			log.Error(err, "Cannnot create clusterrole for guest")
-	// 			return ctrl.Result{}, err
-	// 		}
-	// 	} else {
-	// 		log.Error(err, "Failed to get guest clusterrole from remote cluster")
-	// 		return ctrl.Result{}, err
-	// 	}
-	// }
-
-	// developerClusterRole := createClusterRole("developer", targetGroup, rbacv1.VerbAll)
-	// guestClusterRole := createClusterRole("developer", targetGroup, rbacv1.VerbAll)
 	crList := []*rbacv1.ClusterRole{
 		createClusterRole("developer", targetGroup, []string{rbacv1.VerbAll}),
 		createClusterRole("guest", targetGroup, []string{"get", "list", "watch"}),
@@ -364,7 +299,7 @@ func (r *SecretReconciler) deployArgocdResources(ctx context.Context, secret *co
 		},
 		RoleRef: rbacv1.RoleRef{
 			Kind:     "ClusterRole",
-			APIGroup: rbacv1.GroupName, //"rbac.authorization.k8s.io",
+			APIGroup: rbacv1.GroupName,
 			Name:     util.ARGOCD_MANAGER_ROLE,
 		},
 		Subjects: []rbacv1.Subject{
@@ -496,7 +431,10 @@ func (r *SecretReconciler) reconcileDelete(ctx context.Context, secret *corev1.S
 		return ctrl.Result{}, err
 	}
 
-	// secert은 이미 삭제되어서 annotation을 get하지 못한다!
+	// todo - shkim
+	// 1. secert은 이미 삭제되어서 annotation을 get하지 못한다!
+	// 2. developer, guest는 cluster role은 있어도 cluster role binding은 없는데
+	// 왜 삭제하려고 시도하나...? 와이..?
 	crbList := []string{
 		"cluster-owner-crb-" + secret.Annotations["owner"],
 		//"hypercloud-admin-clusterrolebinding",
