@@ -38,12 +38,6 @@ import (
 	traefikv2 "github.com/traefik/traefik/v2/pkg/provider/kubernetes/crd/traefik/v1alpha1"
 	clusterv1alpha3 "sigs.k8s.io/cluster-api/api/v1alpha3"
 
-	//fedv1a1 "sigs.k8s.io/kubefed/pkg/apis/core/v1alpha1"
-	//fedv1b1 "sigs.k8s.io/kubefed/pkg/apis/core/v1beta1"
-	//fedmultiv1a1 "sigs.k8s.io/kubefed/pkg/apis/multiclusterdns/v1alpha1"
-
-	console "github.com/tmax-cloud/console-operator/api/v1"
-
 	typesv1beta1 "github.com/tmax-cloud/hypercloud-multi-operator/apis/external/v1beta1"
 
 	controlplanev1 "sigs.k8s.io/cluster-api/controlplane/kubeadm/api/v1alpha3"
@@ -58,21 +52,14 @@ var (
 
 func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
-
 	utilruntime.Must(claimv1alpha1.AddToScheme(scheme))
 	utilruntime.Must(clusterv1alpha1.AddToScheme(scheme))
-
 	utilruntime.Must(clusterv1alpha3.AddToScheme(scheme))
-	//utilruntime.Must(fedv1b1.AddToScheme(scheme))
-	//utilruntime.Must(fedv1a1.AddToScheme(scheme))
-	//utilruntime.Must(fedmultiv1a1.AddToScheme(scheme))
 	utilruntime.Must(typesv1beta1.AddToScheme(scheme))
 	utilruntime.Must(controlplanev1.AddToScheme(scheme))
-	utilruntime.Must(console.AddToScheme(scheme))
 	utilruntime.Must(servicecatalogv1beta1.AddToScheme(scheme))
 	utilruntime.Must(certmanagerv1.AddToScheme((scheme)))
 	utilruntime.Must(traefikv2.AddToScheme(scheme))
-
 	// +kubebuilder:scaffold:scheme
 }
 
@@ -164,14 +151,6 @@ func main() {
 		setupLog.Error(err, "unable to create controller", "controller", "ClusterRegistration")
 		os.Exit(1)
 	}
-	// if err = (&federatedServiceController.KubeFedClusterReconciler{
-	// 	Client: mgr.GetClient(),
-	// 	Log:    ctrl.Log.WithName("controller").WithName("fed/kubefedclusterController"),
-	// 	Scheme: mgr.GetScheme(),
-	// }).SetupWithManager(mgr); err != nil {
-	// 	setupLog.Error(err, "unable to create controller", "controller", "fed/kubefedclusterController")
-	// 	os.Exit(1)
-	// }
 	if err = (&clusterv1alpha1.ClusterRegistration{}).SetupWebhookWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create webhook", "webhook", "ClusterRegistration")
 		os.Exit(1)

@@ -104,7 +104,7 @@ func (r *ClusterClaimReconciler) requeueClusterClaimsForClusterManager(o client.
 
 	//get clusterManager
 	cc := &claimv1alpha1.ClusterClaim{}
-	key := types.NamespacedName{Namespace: clm.Namespace, Name: clm.Labels["parent"]}
+	key := types.NamespacedName{Namespace: clm.Namespace, Name: clm.Labels[util.LabelKeyClmParent]}
 	if err := r.Get(context.TODO(), key, cc); err != nil {
 		if errors.IsNotFound(err) {
 			log.Info("ClusterClaim resource not found. Ignoring since object must be deleted.")
@@ -169,7 +169,7 @@ func (r *ClusterClaimReconciler) SetupWithManager(mgr ctrl.Manager) error {
 			},
 			DeleteFunc: func(e event.DeleteEvent) bool {
 				clm := e.Object.(*clusterv1alpha1.ClusterManager)
-				if val, ok := clm.Labels[util.ClusterTypeKey]; ok && val == util.ClusterTypeCreated {
+				if val, ok := clm.Labels[util.LabelKeyClmClusterType]; ok && val == util.ClusterTypeCreated {
 					return true
 				}
 				return false

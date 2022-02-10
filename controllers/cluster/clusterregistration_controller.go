@@ -37,6 +37,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	kerrors "k8s.io/apimachinery/pkg/util/errors"
+	"k8s.io/client-go/tools/clientcmd"
 
 	// "k8s.io/kubernetes/cmd/kubeadm/app/apis/kubeadm"
 
@@ -142,7 +143,14 @@ func (r *ClusterRegistrationReconciler) CheckValidation(ctx context.Context, Clu
 		} else {
 			// TODO
 			// nodelist가 아닌 api-server call검증 api는 따로 없나...?
-			if nodeList, err := remoteClientset.CoreV1().Nodes().List(context.TODO(), metav1.ListOptions{}); err != nil {
+			if nodeList, err :=
+				remoteClientset.
+					CoreV1().
+					Nodes().
+					List(
+						context.TODO(),
+						metav1.ListOptions{},
+					); err != nil {
 				if nodeList.Items == nil {
 					log.Info("Failed to get nodes for [" + ClusterRegistration.Spec.ClusterName + "]")
 					ClusterRegistration.Status.SetTypedPhase(clusterv1alpha1.ClusterRegistrationPhaseFailed)
@@ -185,28 +193,57 @@ func (r *ClusterRegistrationReconciler) CreateKubeconfigSecret(ctx context.Conte
 	}
 	log.Info("Start to CreateKubeconfigSecret reconcile for [" + ClusterRegistration.Name + "]")
 
+	decodedKubeConfig, _ := b64.StdEncoding.DecodeString(ClusterRegistration.Spec.KubeConfig)
+	kubeConfig, err := clientcmd.Load(decodedKubeConfig)
+	if err != nil {
+		log.Error(err, "Failed to get secret")
+		return ctrl.Result{}, err
+	}
+
+	clusterKeys := make([]string, 0, len(kubeConfig.Clusters))
+	for k := range kubeConfig.Clusters {
+		clusterKeys = append(clusterKeys, k)
+	}
+
+	authinfoKeys := make([]string, 0, len(kubeConfig.AuthInfos))
+	for k := range kubeConfig.AuthInfos {
+		authinfoKeys = append(authinfoKeys, k)
+	}
+
+	serverURI := kubeConfig.Clusters[clusterKeys[0]].Server
+	argoSecretName, err := util.URIToSecretName("cluster", serverURI)
+	if err != nil {
+		log.Error(err, "Failed to parse server uri")
+		return ctrl.Result{}, err
+	}
+
 	kubeconfigSecret := &corev1.Secret{}
+	kubeconfigSecretName := ClusterRegistration.Spec.ClusterName + util.KubeconfigSuffix
 	kubeconfigSecretKey := types.NamespacedName{
-		Name:      ClusterRegistration.Spec.ClusterName + util.KubeconfigSuffix,
+		Name:      kubeconfigSecretName,
 		Namespace: ClusterRegistration.Namespace,
 	}
+
 	if err := r.Get(context.TODO(), kubeconfigSecretKey, kubeconfigSecret); err != nil {
 		if errors.IsNotFound(err) {
 			log.Info("Cannot found kubeconfigSecret, starting to create kubeconfigSecret")
-			encodedKubeConfig, _ := b64.StdEncoding.DecodeString(ClusterRegistration.Spec.KubeConfig)
 			kubeconfigSecret = &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      ClusterRegistration.Spec.ClusterName + util.KubeconfigSuffix,
+					Name:      kubeconfigSecretName,
 					Namespace: ClusterRegistration.Namespace,
 					Annotations: map[string]string{
-						"creator": ClusterRegistration.Annotations["creator"],
+						util.AnnotationKeyOwner:             ClusterRegistration.Annotations[util.AnnotationKeyCreator],
+						util.AnnotationKeyCreator:           ClusterRegistration.Annotations[util.AnnotationKeyCreator],
+						util.AnnotationKeyArgoClusterSecret: argoSecretName,
 					},
 					Finalizers: []string{
 						util.SecretFinalizer,
 					},
 				},
 				StringData: map[string]string{
-					"value": string(encodedKubeConfig),
+					"value":   string(decodedKubeConfig),
+					"cluster": clusterKeys[0],
+					"user":    authinfoKeys[0],
 				},
 			}
 
@@ -234,9 +271,9 @@ func (r *ClusterRegistrationReconciler) CreateClusterManager(ctx context.Context
 	}
 	log.Info("Start to CreateClusterManager reconcile for [" + ClusterRegistration.Name + "]")
 
-	encodedKubeConfig, _ := b64.StdEncoding.DecodeString(ClusterRegistration.Spec.KubeConfig)
+	decodedKubeConfig, _ := b64.StdEncoding.DecodeString(ClusterRegistration.Spec.KubeConfig)
 	reg, _ := regexp.Compile("https://[0-9a-zA-Z./-]+")
-	endpoint := reg.FindString(string(encodedKubeConfig))[len("https://"):]
+	endpoint := reg.FindString(string(decodedKubeConfig))[len("https://"):]
 
 	clm := &clusterv1alpha1.ClusterManager{}
 	clmKey := types.NamespacedName{
@@ -250,14 +287,14 @@ func (r *ClusterRegistrationReconciler) CreateClusterManager(ctx context.Context
 					Name:      ClusterRegistration.Spec.ClusterName,
 					Namespace: ClusterRegistration.Namespace,
 					Annotations: map[string]string{
-						"owner":          ClusterRegistration.Annotations["creator"],
-						"creator":        ClusterRegistration.Annotations["creator"],
-						"endpoint":       endpoint,
-						"hypercloud/dns": os.Getenv("HC_DOMAIN"),
+						util.AnnotationKeyOwner:       ClusterRegistration.Annotations[util.AnnotationKeyCreator],
+						util.AnnotationKeyCreator:     ClusterRegistration.Annotations[util.AnnotationKeyCreator],
+						util.AnnotationKeyClmEndpoint: endpoint,
+						util.AnnotationKeyClmDns:      os.Getenv("HC_DOMAIN"),
 					},
 					Labels: map[string]string{
-						util.ClusterTypeKey: util.ClusterTypeRegistered,
-						"parent":            ClusterRegistration.Name,
+						util.LabelKeyClmClusterType: util.ClusterTypeRegistered,
+						util.LabelKeyClmParent:      ClusterRegistration.Name,
 					},
 				},
 				Spec: clusterv1alpha1.ClusterManagerSpec{},
@@ -277,7 +314,7 @@ func (r *ClusterRegistrationReconciler) CreateClusterManager(ctx context.Context
 			return ctrl.Result{}, err
 		}
 	} else {
-		log.Info("Cannot create ClusterManager. ClusterManager is already exsist")
+		log.Info("Cannot create ClusterManager. ClusterManager is already exist")
 	}
 
 	ClusterRegistration.Status.SetTypedPhase(clusterv1alpha1.ClusterRegistrationPhaseSuccess)
@@ -296,7 +333,7 @@ func (r *ClusterRegistrationReconciler) requeueClusterRegistrationsForClusterMan
 	//get clusterManager
 	clr := &clusterv1alpha1.ClusterRegistration{}
 	key := types.NamespacedName{
-		Name:      clm.Labels["parent"],
+		Name:      clm.Labels[util.LabelKeyClmParent],
 		Namespace: clm.Namespace,
 	}
 	if err := r.Get(context.TODO(), key, clr); err != nil {
@@ -367,7 +404,7 @@ func (r *ClusterRegistrationReconciler) SetupWithManager(mgr ctrl.Manager) error
 			},
 			DeleteFunc: func(e event.DeleteEvent) bool {
 				clm := e.Object.(*clusterv1alpha1.ClusterManager)
-				if val, ok := clm.Labels[util.ClusterTypeKey]; ok && val == util.ClusterTypeRegistered {
+				if val, ok := clm.Labels[util.LabelKeyClmClusterType]; ok && val == util.ClusterTypeRegistered {
 					return true
 				}
 				return false

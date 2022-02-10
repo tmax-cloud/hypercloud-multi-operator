@@ -210,7 +210,7 @@ objects:
       postKubeadmCommands:
       - mkdir -p $HOME/.kube
       - cp /etc/kubernetes/admin.conf $HOME/.kube/config
-      - chown $UESR:$USER $HOME/.kube/config
+      - chown $USER:$USER $HOME/.kube/config
       - kubectl apply -f https://docs.projectcalico.org/manifests/calico.yaml
       - kubectl apply -f https://github.com/tmax-cloud/capi-template-ingress/releases/download/v0.41.0/ingress-nodeport.yaml
       useExperimentalRetryJoin: true
@@ -760,7 +760,7 @@ parameters:
   name: Namespace
   required: false
   value: default
-  valyeType: string
+  valueType: string
 - description: Cluster Owner
   displayName: Owner
   name: Owner

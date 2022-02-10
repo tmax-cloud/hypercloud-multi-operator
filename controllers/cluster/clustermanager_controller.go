@@ -24,8 +24,6 @@ import (
 	"strings"
 	"time"
 
-	//fedv1b1 "sigs.k8s.io/kubefed/pkg/apis/core/v1beta1"
-
 	// "k8s.io/apimachinery/pkg/util/intstr"
 
 	"github.com/go-logr/logr"
@@ -43,6 +41,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	kerrors "k8s.io/apimachinery/pkg/util/errors"
+
 	capiv1 "sigs.k8s.io/cluster-api/api/v1alpha3"
 	controlplanev1 "sigs.k8s.io/cluster-api/controlplane/kubeadm/api/v1alpha3"
 	"sigs.k8s.io/cluster-api/util/patch"
@@ -167,7 +166,7 @@ func (r *ClusterManagerReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	}
 
 	// Handle normal reconciliation loop.
-	if clusterManager.Labels[util.ClusterTypeKey] == util.ClusterTypeRegistered {
+	if clusterManager.Labels[util.LabelKeyClmClusterType] == util.ClusterTypeRegistered {
 		// Handle deletion reconciliation loop.
 		if !clusterManager.ObjectMeta.DeletionTimestamp.IsZero() {
 			clusterManager.Status.Ready = false
@@ -235,7 +234,15 @@ func (r *ClusterManagerReconciler) UpdateClusterManagerStatus(ctx context.Contex
 	}
 
 	var kubeadmConfig *corev1.ConfigMap
-	if kubeadmConfig, err = remoteClientset.CoreV1().ConfigMaps("kube-system").Get(context.TODO(), "kubeadm-config", metav1.GetOptions{}); err != nil {
+	if kubeadmConfig, err =
+		remoteClientset.
+			CoreV1().
+			ConfigMaps(util.KubeNamespace).
+			Get(
+				context.TODO(),
+				"kubeadm-config",
+				metav1.GetOptions{},
+			); err != nil {
 		log.Error(err, "Failed to get kubeadm-config configmap from remote cluster")
 		return ctrl.Result{}, err
 	}
@@ -248,7 +255,14 @@ func (r *ClusterManagerReconciler) UpdateClusterManagerStatus(ctx context.Contex
 	clusterManager.Spec.Version = fmt.Sprintf("%v", data["kubernetesVersion"])
 
 	var nodeList *corev1.NodeList
-	if nodeList, err = remoteClientset.CoreV1().Nodes().List(context.TODO(), metav1.ListOptions{}); err != nil {
+	if nodeList, err =
+		remoteClientset.
+			CoreV1().
+			Nodes().
+			List(
+				context.TODO(),
+				metav1.ListOptions{},
+			); err != nil {
 		log.Error(err, "Failed to list remote K8s nodeList")
 		return ctrl.Result{}, err
 	}
@@ -261,8 +275,8 @@ func (r *ClusterManagerReconciler) UpdateClusterManagerStatus(ctx context.Contex
 	clusterManager.Status.MasterRun = 0
 	clusterManager.Spec.WorkerNum = 0
 	clusterManager.Status.WorkerRun = 0
-	clusterManager.Spec.Provider = util.PROVIDER_UNKNOWN
-	clusterManager.Status.Provider = util.PROVIDER_UNKNOWN
+	clusterManager.Spec.Provider = util.ProviderUnknown
+	clusterManager.Status.Provider = util.ProviderUnknown
 	for _, node := range nodeList.Items {
 		if _, ok := node.Labels["node-role.kubernetes.io/master"]; ok {
 			clusterManager.Spec.MasterNum++
@@ -276,34 +290,43 @@ func (r *ClusterManagerReconciler) UpdateClusterManagerStatus(ctx context.Contex
 			}
 		}
 
-		if node.Spec.ProviderID != "" {
-			providerID := util.GetProviderName(
-				strings.ToUpper(
-					strings.Split(node.Spec.ProviderID, "://")[0],
-				),
+		if clusterManager.Spec.Provider == util.ProviderUnknown && node.Spec.ProviderID != "" {
+			providerID, err := util.GetProviderName(
+				strings.Split(node.Spec.ProviderID, "://")[0],
 			)
+			if err != nil {
+				log.Error(err, "Cannot found given provider name.")
+			}
 			clusterManager.Status.Provider = providerID
 			clusterManager.Spec.Provider = providerID
 		}
 	}
 
-	if clusterManager.Spec.Provider == util.PROVIDER_UNKNOWN {
+	if clusterManager.Spec.Provider == util.ProviderUnknown {
 		reg, _ := regexp.Compile("cloud-provider: [a-zA-Z-_ ]+")
 		matchString := reg.FindString(kubeadmConfig.Data["ClusterConfiguration"])
 		if matchString != "" {
-			cloudProvider := util.GetProviderName(
-				strings.ToUpper(
-					matchString[len("cloud-provider: "):],
-				),
+			cloudProvider, err := util.GetProviderName(
+				matchString[len("cloud-provider: "):],
 			)
-			clusterManager.Spec.Provider = cloudProvider
+			if err != nil {
+				log.Error(err, "Cannot found given provider name.")
+			}
 			clusterManager.Status.Provider = cloudProvider
+			clusterManager.Spec.Provider = cloudProvider
 		}
 	}
 
 	// health check
 	var resp []byte
-	if resp, err = remoteClientset.RESTClient().Get().AbsPath("/readyz").DoRaw(context.TODO()); err != nil {
+	if resp, err =
+		remoteClientset.
+			RESTClient().
+			Get().
+			AbsPath("/readyz").
+			DoRaw(
+				context.TODO(),
+			); err != nil {
 		log.Error(err, "Failed to get remote cluster status")
 		return ctrl.Result{}, err
 	}
@@ -315,12 +338,12 @@ func (r *ClusterManagerReconciler) UpdateClusterManagerStatus(ctx context.Contex
 		// err := errors.NewBadRequest("Failed to healthcheck")
 		// log.Error(err, "Failed to healthcheck")
 		// 잠시 오류난걸 수도 있으니까.. 근데 무한장 wait할 수는 없어서 requeue 횟수를 지정할 수 있으면 좋겠네
-		log.Info("Remote cluster is not ready... watit...")
+		log.Info("Remote cluster is not ready... wait...")
 		return ctrl.Result{RequeueAfter: requeueAfter30Sec}, nil
 	}
 
 	generatedSuffix := util.CreateSuffixString()
-	clusterManager.Annotations["suffix"] = generatedSuffix
+	clusterManager.Annotations[util.AnnotationKeyClmSuffix] = generatedSuffix
 	return ctrl.Result{}, nil
 }
 
@@ -328,7 +351,7 @@ func (r *ClusterManagerReconciler) SetEndpoint(ctx context.Context, clusterManag
 	log := r.Log.WithValues("clustermanager", types.NamespacedName{Name: clusterManager.Name, Namespace: clusterManager.Namespace})
 	log.Info("Start setting endpoint configuration to clusterManager")
 
-	if clusterManager.Annotations["endpoint"] != "" {
+	if clusterManager.Annotations[util.AnnotationKeyClmEndpoint] != "" {
 		log.Info("Endpoint already configured.")
 		return ctrl.Result{}, nil
 	}
@@ -352,21 +375,21 @@ func (r *ClusterManagerReconciler) SetEndpoint(ctx context.Context, clusterManag
 		log.Info("ControlPlain endpoint is not ready yet. requeue after 20sec.")
 		return ctrl.Result{RequeueAfter: requeueAfter20Sec}, nil
 	}
-	clusterManager.Annotations["endpoint"] = cluster.Spec.ControlPlaneEndpoint.Host
+	clusterManager.Annotations[util.AnnotationKeyClmEndpoint] = cluster.Spec.ControlPlaneEndpoint.Host
 
 	return ctrl.Result{}, nil
 }
 func (r *ClusterManagerReconciler) CreateTraefikResources(ctx context.Context, clusterManager *clusterv1alpha1.ClusterManager) (ctrl.Result, error) {
 	log := r.Log.WithValues("clustermanager", types.NamespacedName{Name: clusterManager.Name, Namespace: clusterManager.Namespace})
 
-	if clusterManager.Annotations["endpoint"] == "" {
+	if clusterManager.Annotations[util.AnnotationKeyClmEndpoint] == "" {
 		log.Info("Wait for recognize remote apiserver endpoint")
 		return ctrl.Result{RequeueAfter: requeueAfter20Sec}, nil
 	}
 
 	traefikCertificate := &certmanagerv1.Certificate{}
 	certificateKey := types.NamespacedName{
-		//Name:      clusterManager.Name + "-certificate-" + clusterManager.Annotations["suffix"],
+		//Name:      clusterManager.Name + "-certificate-" + clusterManager.Annotations[util.AnnotationKeyClmSuffix],
 		Name:      clusterManager.Name + "-certificate",
 		Namespace: clusterManager.Namespace,
 	}
@@ -374,9 +397,9 @@ func (r *ClusterManagerReconciler) CreateTraefikResources(ctx context.Context, c
 		if errors.IsNotFound(err) {
 			log.Info("Start creating Certificate")
 			traefikCertificate = util.CreateCertificate(clusterManager)
-			if objCreateErr := r.Create(context.TODO(), traefikCertificate); objCreateErr != nil {
-				log.Error(objCreateErr, "Failed to create Certificate")
-				return ctrl.Result{}, objCreateErr
+			if err := r.Create(context.TODO(), traefikCertificate); err != nil {
+				log.Error(err, "Failed to create Certificate")
+				return ctrl.Result{}, err
 			}
 			ctrl.SetControllerReference(clusterManager, traefikCertificate, r.Scheme)
 		} else {
@@ -389,7 +412,7 @@ func (r *ClusterManagerReconciler) CreateTraefikResources(ctx context.Context, c
 
 	traefikIngress := &networkingv1.Ingress{}
 	ingressKey := types.NamespacedName{
-		//Name:      clusterManager.Name + "-ingress-" + clusterManager.Annotations["suffix"],
+		//Name:      clusterManager.Name + "-ingress-" + clusterManager.Annotations[util.AnnotationKeyClmSuffix],
 		Name:      clusterManager.Name + "-ingress",
 		Namespace: clusterManager.Namespace,
 	}
@@ -397,9 +420,9 @@ func (r *ClusterManagerReconciler) CreateTraefikResources(ctx context.Context, c
 		if errors.IsNotFound(err) {
 			log.Info("Start creating Ingress")
 			traefikIngress = util.CreateIngress(clusterManager)
-			if objCreateErr := r.Create(context.TODO(), traefikIngress); objCreateErr != nil {
-				log.Error(objCreateErr, "Failed to create Ingress")
-				return ctrl.Result{}, objCreateErr
+			if err := r.Create(context.TODO(), traefikIngress); err != nil {
+				log.Error(err, "Failed to create Ingress")
+				return ctrl.Result{}, err
 			}
 			ctrl.SetControllerReference(clusterManager, traefikIngress, r.Scheme)
 		} else {
@@ -412,7 +435,7 @@ func (r *ClusterManagerReconciler) CreateTraefikResources(ctx context.Context, c
 
 	traefikService := &corev1.Service{}
 	serviceKey := types.NamespacedName{
-		//Name:      clusterManager.Name + "-service-" + clusterManager.Annotations["suffix"],
+		//Name:      clusterManager.Name + "-service-" + clusterManager.Annotations[util.AnnotationKeyClmSuffix],
 		Name:      clusterManager.Name + "-service",
 		Namespace: clusterManager.Namespace,
 	}
@@ -420,9 +443,9 @@ func (r *ClusterManagerReconciler) CreateTraefikResources(ctx context.Context, c
 		if errors.IsNotFound(err) {
 			log.Info("Start creating Service")
 			traefikService = util.CreateService(clusterManager)
-			if objCreateErr := r.Create(context.TODO(), traefikService); objCreateErr != nil {
-				log.Error(objCreateErr, "Failed to create Service")
-				return ctrl.Result{}, objCreateErr
+			if err := r.Create(context.TODO(), traefikService); err != nil {
+				log.Error(err, "Failed to create Service")
+				return ctrl.Result{}, err
 			}
 			ctrl.SetControllerReference(clusterManager, traefikService, r.Scheme)
 		} else {
@@ -433,20 +456,20 @@ func (r *ClusterManagerReconciler) CreateTraefikResources(ctx context.Context, c
 		log.Info("Service is already existed")
 	}
 
-	if strings.ToUpper(clusterManager.Spec.Provider) == util.PROVIDER_VSPHERE {
+	if strings.ToUpper(clusterManager.Spec.Provider) == util.ProviderVsphere {
 		traefikEndpoint := &corev1.Endpoints{}
 		endpointKey := types.NamespacedName{
-			// Name: clusterManager.Name + "-endpoint" + clusterManager.Annotations["suffix"],
-			Name:      clusterManager.Name + "-endpoint",
+			// Name: clusterManager.Name + "-service" + clusterManager.Annotations[util.AnnotationKeyClmSuffix],
+			Name:      clusterManager.Name + "-service",
 			Namespace: clusterManager.Namespace,
 		}
 		if err := r.Get(context.TODO(), endpointKey, traefikEndpoint); err != nil {
 			if errors.IsNotFound(err) {
 				log.Info("Start creating endpoint")
 				traefikEndpoint = util.CreateEndpoint(clusterManager)
-				if objCreateErr := r.Create(context.TODO(), traefikEndpoint); objCreateErr != nil {
-					log.Error(objCreateErr, "Failed to create Endpoint")
-					return ctrl.Result{}, objCreateErr
+				if err := r.Create(context.TODO(), traefikEndpoint); err != nil {
+					log.Error(err, "Failed to create Endpoint")
+					return ctrl.Result{}, err
 				}
 				ctrl.SetControllerReference(clusterManager, traefikEndpoint, r.Scheme)
 			} else {
@@ -460,7 +483,7 @@ func (r *ClusterManagerReconciler) CreateTraefikResources(ctx context.Context, c
 
 	traefikMiddleware := &traefikv2.Middleware{}
 	middlewareKey := types.NamespacedName{
-		//Name:      clusterManager.Name + "-prefix-" + clusterManager.Annotations["suffix"],
+		//Name:      clusterManager.Name + "-prefix-" + clusterManager.Annotations[util.AnnotationKeyClmSuffix],
 		Name:      clusterManager.Name + "-prefix",
 		Namespace: clusterManager.Namespace,
 	}
@@ -468,9 +491,9 @@ func (r *ClusterManagerReconciler) CreateTraefikResources(ctx context.Context, c
 		if errors.IsNotFound(err) {
 			log.Info("Start creating Middleware")
 			traefikMiddleware = util.CreateMiddleware(clusterManager)
-			if objCreateErr := r.Create(context.TODO(), traefikMiddleware); objCreateErr != nil {
-				log.Error(objCreateErr, "Failed to create Middleware")
-				return ctrl.Result{}, objCreateErr
+			if err := r.Create(context.TODO(), traefikMiddleware); err != nil {
+				log.Error(err, "Failed to create Middleware")
+				return ctrl.Result{}, err
 			}
 			ctrl.SetControllerReference(clusterManager, traefikMiddleware, r.Scheme)
 		} else {
@@ -513,7 +536,15 @@ func (r *ClusterManagerReconciler) DeployAndUpdateAgentEndpoint(ctx context.Cont
 		}
 
 		// ingress controller 존재하는지 먼저 확인하고 없으면 배포부터해.. 그전에 join되었는지도 먼저 확인해야하나...
-		if _, err = remoteClientset.CoreV1().Namespaces().Get(context.TODO(), util.IngressNginxNamespace, metav1.GetOptions{}); err != nil {
+		if _, err =
+			remoteClientset.
+				CoreV1().
+				Namespaces().
+				Get(
+					context.TODO(),
+					util.IngressNginxNamespace,
+					metav1.GetOptions{},
+				); err != nil {
 			if errors.IsNotFound(err) {
 				log.Info("Cannot found ingress namespace... ingress-nginx is creating... requeue after 30sec")
 				return ctrl.Result{RequeueAfter: requeueAfter60Sec}, nil
@@ -523,7 +554,15 @@ func (r *ClusterManagerReconciler) DeployAndUpdateAgentEndpoint(ctx context.Cont
 			}
 		} else {
 			var ingressController *appsv1.Deployment
-			if ingressController, err = remoteClientset.AppsV1().Deployments(util.IngressNginxNamespace).Get(context.TODO(), util.IngressNginxName, metav1.GetOptions{}); err != nil {
+			if ingressController, err =
+				remoteClientset.
+					AppsV1().
+					Deployments(util.IngressNginxNamespace).
+					Get(
+						context.TODO(),
+						util.IngressNginxName,
+						metav1.GetOptions{},
+					); err != nil {
 				if errors.IsNotFound(err) {
 					log.Info("Cannot found ingress controller... ingress-nginx is creating... requeue after 30sec")
 					return ctrl.Result{RequeueAfter: requeueAfter60Sec}, nil
@@ -556,7 +595,7 @@ func (r *ClusterManagerReconciler) reconcileDeleteForRegisteredClusterManager(ct
 	}
 	if err := r.Get(context.TODO(), kubeconfigSecretKey, kubeconfigSecret); err != nil {
 		if errors.IsNotFound(err) {
-			log.Info("Kubeconfig is succesefully deleted.. Delete clustermanager finalizer")
+			log.Info("Kubeconfig is successfully deleted.. Delete clustermanager finalizer")
 			if err := util.Delete(clusterManager.Namespace, clusterManager.Name); err != nil {
 				log.Error(err, "Failed to delete cluster info from cluster_member table")
 				return ctrl.Result{}, err
@@ -576,7 +615,7 @@ func (r *ClusterManagerReconciler) reconcileDeleteForRegisteredClusterManager(ct
 
 	traefikCertificate := &certmanagerv1.Certificate{}
 	certificateKey := types.NamespacedName{
-		//Name:      clusterManager.Name + "-certificate-" + clusterManager.Annotations["suffix"],
+		//Name:      clusterManager.Name + "-certificate-" + clusterManager.Annotations[util.AnnotationKeyClmSuffix],
 		Name:      clusterManager.Name + "-certificate",
 		Namespace: clusterManager.Namespace,
 	}
@@ -589,15 +628,15 @@ func (r *ClusterManagerReconciler) reconcileDeleteForRegisteredClusterManager(ct
 			return ctrl.Result{}, err
 		}
 	} else {
-		if objDeleteErr := r.Delete(context.TODO(), traefikCertificate); objDeleteErr != nil {
-			log.Error(objDeleteErr, "Failed to delete Certificate")
-			return ctrl.Result{}, objDeleteErr
+		if err := r.Delete(context.TODO(), traefikCertificate); err != nil {
+			log.Error(err, "Failed to delete Certificate")
+			return ctrl.Result{}, err
 		}
 	}
 
 	traefikCertSecret := &corev1.Secret{}
 	certSecretKey := types.NamespacedName{
-		//Name:      clusterManager.Name + "-certificate-" + clusterManager.Annotations["suffix"],
+		//Name:      clusterManager.Name + "-certificate-" + clusterManager.Annotations[util.AnnotationKeyClmSuffix],
 		Name:      clusterManager.Name + "-service-cert",
 		Namespace: clusterManager.Namespace,
 	}
@@ -610,15 +649,15 @@ func (r *ClusterManagerReconciler) reconcileDeleteForRegisteredClusterManager(ct
 			return ctrl.Result{}, err
 		}
 	} else {
-		if objDeleteErr := r.Delete(context.TODO(), traefikCertSecret); objDeleteErr != nil {
-			log.Error(objDeleteErr, "Failed to delete Cert-Secret")
-			return ctrl.Result{}, objDeleteErr
+		if err := r.Delete(context.TODO(), traefikCertSecret); err != nil {
+			log.Error(err, "Failed to delete Cert-Secret")
+			return ctrl.Result{}, err
 		}
 	}
 
 	traefikIngress := &networkingv1.Ingress{}
 	ingressKey := types.NamespacedName{
-		//Name:      clusterManager.Name + "-certificate-" + clusterManager.Annotations["suffix"],
+		//Name:      clusterManager.Name + "-certificate-" + clusterManager.Annotations[util.AnnotationKeyClmSuffix],
 		Name:      clusterManager.Name + "-ingress",
 		Namespace: clusterManager.Namespace,
 	}
@@ -631,15 +670,15 @@ func (r *ClusterManagerReconciler) reconcileDeleteForRegisteredClusterManager(ct
 			return ctrl.Result{}, err
 		}
 	} else {
-		if objDeleteErr := r.Delete(context.TODO(), traefikIngress); objDeleteErr != nil {
-			log.Error(objDeleteErr, "Failed to delete Ingress")
-			return ctrl.Result{}, objDeleteErr
+		if err := r.Delete(context.TODO(), traefikIngress); err != nil {
+			log.Error(err, "Failed to delete Ingress")
+			return ctrl.Result{}, err
 		}
 	}
 
 	traefikService := &corev1.Service{}
 	serviceKey := types.NamespacedName{
-		//Name:      clusterManager.Name + "-service-" + clusterManager.Annotations["suffix"],
+		//Name:      clusterManager.Name + "-service-" + clusterManager.Annotations[util.AnnotationKeyClmSuffix],
 		Name:      clusterManager.Name + "-service",
 		Namespace: clusterManager.Namespace,
 	}
@@ -652,15 +691,35 @@ func (r *ClusterManagerReconciler) reconcileDeleteForRegisteredClusterManager(ct
 			return ctrl.Result{}, err
 		}
 	} else {
-		if objDeleteErr := r.Delete(context.TODO(), traefikService); objDeleteErr != nil {
-			log.Error(objDeleteErr, "Failed to delete Service")
-			return ctrl.Result{}, objDeleteErr
+		if err := r.Delete(context.TODO(), traefikService); err != nil {
+			log.Error(err, "Failed to delete Service")
+			return ctrl.Result{}, err
+		}
+	}
+
+	traefikEndpoint := &corev1.Endpoints{}
+	endpointKey := types.NamespacedName{
+		//Name:      clusterManager.Name + "-service-" + clusterManager.Annotations[util.AnnotationKeyClmSuffix],
+		Name:      clusterManager.Name + "-service",
+		Namespace: clusterManager.Namespace,
+	}
+	if err := r.Get(context.TODO(), endpointKey, traefikEndpoint); err != nil {
+		if errors.IsNotFound(err) {
+			log.Info("Endpoint is already deleted.")
+		} else {
+			log.Error(err, "Failed to get Endpoint information")
+			return ctrl.Result{}, err
+		}
+	} else {
+		if err := r.Delete(context.TODO(), traefikEndpoint); err != nil {
+			log.Error(err, "Failed to delete Endpoint")
+			return ctrl.Result{}, err
 		}
 	}
 
 	traefikMiddleware := &traefikv2.Middleware{}
 	middlewareKey := types.NamespacedName{
-		//Name:      clusterManager.Name + "-prefix-" + clusterManager.Annotations["suffix"],
+		//Name:      clusterManager.Name + "-prefix-" + clusterManager.Annotations[util.AnnotationKeyClmSuffix],
 		Name:      clusterManager.Name + "-prefix",
 		Namespace: clusterManager.Namespace,
 	}
@@ -672,9 +731,9 @@ func (r *ClusterManagerReconciler) reconcileDeleteForRegisteredClusterManager(ct
 			return ctrl.Result{}, err
 		}
 	} else {
-		if objDeleteErr := r.Delete(context.TODO(), traefikMiddleware); objDeleteErr != nil {
-			log.Error(objDeleteErr, "Failed to delete Service")
-			return ctrl.Result{}, objDeleteErr
+		if err := r.Delete(context.TODO(), traefikMiddleware); err != nil {
+			log.Error(err, "Failed to delete Service")
+			return ctrl.Result{}, err
 		}
 	}
 
@@ -727,7 +786,7 @@ func (r *ClusterManagerReconciler) reconcileDelete(ctx context.Context, clusterM
 	} else {
 		traefikCertificate := &certmanagerv1.Certificate{}
 		certificateKey := types.NamespacedName{
-			//Name:      clusterManager.Name + "-certificate-" + clusterManager.Annotations["suffix"],
+			//Name:      clusterManager.Name + "-certificate-" + clusterManager.Annotations[util.AnnotationKeyClmSuffix],
 			Name:      clusterManager.Name + "-certificate",
 			Namespace: clusterManager.Namespace,
 		}
@@ -740,15 +799,15 @@ func (r *ClusterManagerReconciler) reconcileDelete(ctx context.Context, clusterM
 				return ctrl.Result{}, err
 			}
 		} else {
-			if objDeleteErr := r.Delete(context.TODO(), traefikCertificate); objDeleteErr != nil {
-				log.Error(objDeleteErr, "Failed to delete Certificate")
-				return ctrl.Result{}, objDeleteErr
+			if err := r.Delete(context.TODO(), traefikCertificate); err != nil {
+				log.Error(err, "Failed to delete Certificate")
+				return ctrl.Result{}, err
 			}
 		}
 
 		traefikCertSecret := &corev1.Secret{}
 		certSecretKey := types.NamespacedName{
-			//Name:      clusterManager.Name + "-certificate-" + clusterManager.Annotations["suffix"],
+			//Name:      clusterManager.Name + "-certificate-" + clusterManager.Annotations[util.AnnotationKeyClmSuffix],
 			Name:      clusterManager.Name + "-service-cert",
 			Namespace: clusterManager.Namespace,
 		}
@@ -761,15 +820,15 @@ func (r *ClusterManagerReconciler) reconcileDelete(ctx context.Context, clusterM
 				return ctrl.Result{}, err
 			}
 		} else {
-			if objDeleteErr := r.Delete(context.TODO(), traefikCertSecret); objDeleteErr != nil {
-				log.Error(objDeleteErr, "Failed to delete Cert-Secret")
-				return ctrl.Result{}, objDeleteErr
+			if err := r.Delete(context.TODO(), traefikCertSecret); err != nil {
+				log.Error(err, "Failed to delete Cert-Secret")
+				return ctrl.Result{}, err
 			}
 		}
 
 		traefikIngress := &networkingv1.Ingress{}
 		ingressKey := types.NamespacedName{
-			//Name:      clusterManager.Name + "-certificate-" + clusterManager.Annotations["suffix"],
+			//Name:      clusterManager.Name + "-certificate-" + clusterManager.Annotations[util.AnnotationKeyClmSuffix],
 			Name:      clusterManager.Name + "-ingress",
 			Namespace: clusterManager.Namespace,
 		}
@@ -782,15 +841,15 @@ func (r *ClusterManagerReconciler) reconcileDelete(ctx context.Context, clusterM
 				return ctrl.Result{}, err
 			}
 		} else {
-			if objDeleteErr := r.Delete(context.TODO(), traefikIngress); objDeleteErr != nil {
-				log.Error(objDeleteErr, "Failed to delete Ingress")
-				return ctrl.Result{}, objDeleteErr
+			if err := r.Delete(context.TODO(), traefikIngress); err != nil {
+				log.Error(err, "Failed to delete Ingress")
+				return ctrl.Result{}, err
 			}
 		}
 
 		traefikService := &corev1.Service{}
 		serviceKey := types.NamespacedName{
-			//Name:      clusterManager.Name + "-service-" + clusterManager.Annotations["suffix"],
+			//Name:      clusterManager.Name + "-service-" + clusterManager.Annotations[util.AnnotationKeyClmSuffix],
 			Name:      clusterManager.Name + "-service",
 			Namespace: clusterManager.Namespace,
 		}
@@ -803,15 +862,35 @@ func (r *ClusterManagerReconciler) reconcileDelete(ctx context.Context, clusterM
 				return ctrl.Result{}, err
 			}
 		} else {
-			if objDeleteErr := r.Delete(context.TODO(), traefikService); objDeleteErr != nil {
-				log.Error(objDeleteErr, "Failed to delete Service")
-				return ctrl.Result{}, objDeleteErr
+			if err := r.Delete(context.TODO(), traefikService); err != nil {
+				log.Error(err, "Failed to delete Service")
+				return ctrl.Result{}, err
+			}
+		}
+
+		traefikEndpoint := &corev1.Endpoints{}
+		endpointKey := types.NamespacedName{
+			//Name:      clusterManager.Name + "-service-" + clusterManager.Annotations[util.AnnotationKeyClmSuffix],
+			Name:      clusterManager.Name + "-service",
+			Namespace: clusterManager.Namespace,
+		}
+		if err := r.Get(context.TODO(), endpointKey, traefikEndpoint); err != nil {
+			if errors.IsNotFound(err) {
+				log.Info("Endpoint is already deleted.")
+			} else {
+				log.Error(err, "Failed to get Endpoint information")
+				return ctrl.Result{}, err
+			}
+		} else {
+			if err := r.Delete(context.TODO(), traefikEndpoint); err != nil {
+				log.Error(err, "Failed to delete Endpoint")
+				return ctrl.Result{}, err
 			}
 		}
 
 		traefikMiddleware := &traefikv2.Middleware{}
 		middlewareKey := types.NamespacedName{
-			//Name:      clusterManager.Name + "-prefix-" + clusterManager.Annotations["suffix"],
+			//Name:      clusterManager.Name + "-prefix-" + clusterManager.Annotations[util.AnnotationKeyClmSuffix],
 			Name:      clusterManager.Name + "-prefix",
 			Namespace: clusterManager.Namespace,
 		}
@@ -823,11 +902,14 @@ func (r *ClusterManagerReconciler) reconcileDelete(ctx context.Context, clusterM
 				return ctrl.Result{}, err
 			}
 		} else {
-			if objDeleteErr := r.Delete(context.TODO(), traefikMiddleware); objDeleteErr != nil {
-				log.Error(objDeleteErr, "Failed to delete Service")
-				return ctrl.Result{}, objDeleteErr
+			if err := r.Delete(context.TODO(), traefikMiddleware); err != nil {
+				log.Error(err, "Failed to delete Service")
+				return ctrl.Result{}, err
 			}
 		}
+
+		// todo - shkim
+		// traefik endpoint 삭제 추가 필요?
 
 		remoteClientset, err := util.GetRemoteK8sClient(kubeconfigSecret)
 		if err != nil {
@@ -836,17 +918,33 @@ func (r *ClusterManagerReconciler) reconcileDelete(ctx context.Context, clusterM
 		}
 
 		// secret은 존재하는데.. 실제 instance가 없어서 에러 발생
-		if _, err = remoteClientset.CoreV1().Namespaces().Get(context.TODO(), util.IngressNginxNamespace, metav1.GetOptions{}); err != nil {
+		if _, err =
+			remoteClientset.
+				CoreV1().
+				Namespaces().
+				Get(
+					context.TODO(),
+					util.IngressNginxNamespace,
+					metav1.GetOptions{},
+				); err != nil {
 			if errors.IsNotFound(err) {
 				log.Info("Ingress-nginx namespace is already deleted.")
 			} else {
 				log.Info(err.Error())
 				log.Info("Failed to get Ingress-nginx loadbalancer service... may be instance was deleted before secret was deleted...")
-				// log.Info("###################### Never excuted... ############################")
+				// log.Info("###################### Never executed... ############################")
 				// error 처리 필요
 			}
 		} else {
-			if err := remoteClientset.CoreV1().Namespaces().Delete(context.TODO(), util.IngressNginxNamespace, metav1.DeleteOptions{}); err != nil {
+			if err :=
+				remoteClientset.
+					CoreV1().
+					Namespaces().
+					Delete(
+						context.TODO(),
+						util.IngressNginxNamespace,
+						metav1.DeleteOptions{},
+					); err != nil {
 				log.Error(err, "Failed to delete Ingress-nginx namespace")
 				return ctrl.Result{}, err
 			}
@@ -857,7 +955,7 @@ func (r *ClusterManagerReconciler) reconcileDelete(ctx context.Context, clusterM
 	// delete serviceinstance
 	serviceInstance := &servicecatalogv1beta1.ServiceInstance{}
 	serviceInstanceKey := types.NamespacedName{
-		Name:      clusterManager.Name + "-" + clusterManager.Annotations["suffix"],
+		Name:      clusterManager.Name + "-" + clusterManager.Annotations[util.AnnotationKeyClmSuffix],
 		Namespace: clusterManager.Namespace,
 	}
 
@@ -901,7 +999,7 @@ func (r *ClusterManagerReconciler) reconcileDelete(ctx context.Context, clusterM
 
 func (r *ClusterManagerReconciler) reconcilePhase(_ context.Context, clusterManager *clusterv1alpha1.ClusterManager) {
 	if clusterManager.Status.Phase == "" {
-		if clusterManager.Labels[util.ClusterTypeKey] == util.ClusterTypeRegistered {
+		if clusterManager.Labels[util.LabelKeyClmClusterType] == util.ClusterTypeRegistered {
 			clusterManager.Status.SetTypedPhase(clusterv1alpha1.ClusterManagerPhaseRegistering)
 		} else {
 			clusterManager.Status.SetTypedPhase(clusterv1alpha1.ClusterManagerPhaseProvisioning)
@@ -909,7 +1007,7 @@ func (r *ClusterManagerReconciler) reconcilePhase(_ context.Context, clusterMana
 	}
 
 	if clusterManager.Status.Ready {
-		if clusterManager.Labels[util.ClusterTypeKey] == util.ClusterTypeRegistered {
+		if clusterManager.Labels[util.LabelKeyClmClusterType] == util.ClusterTypeRegistered {
 			clusterManager.Status.SetTypedPhase(clusterv1alpha1.ClusterManagerPhaseRegistered)
 		} else {
 			clusterManager.Status.SetTypedPhase(clusterv1alpha1.ClusterManagerPhaseProvisioned)
@@ -924,7 +1022,7 @@ func (r *ClusterManagerReconciler) reconcilePhase(_ context.Context, clusterMana
 func (r *ClusterManagerReconciler) CreateServiceInstance(ctx context.Context, clusterManager *clusterv1alpha1.ClusterManager) (ctrl.Result, error) {
 	log := r.Log.WithValues("clustermanager", types.NamespacedName{Name: clusterManager.Name, Namespace: clusterManager.Namespace})
 
-	if clusterManager.Annotations["suffix"] != "" {
+	if clusterManager.Annotations[util.AnnotationKeyClmSuffix] != "" {
 		return ctrl.Result{}, nil
 	}
 
@@ -940,7 +1038,7 @@ func (r *ClusterManagerReconciler) CreateServiceInstance(ctx context.Context, cl
 				&ClusterParameter{
 					Namespace:         clusterManager.Namespace,
 					ClusterName:       clusterManager.Name,
-					Owner:             clusterManager.Annotations["owner"],
+					Owner:             clusterManager.Annotations[util.AnnotationKeyOwner],
 					KubernetesVersion: clusterManager.Spec.Version,
 					MasterNum:         clusterManager.Spec.MasterNum,
 					WorkerNum:         clusterManager.Spec.WorkerNum,
@@ -950,7 +1048,7 @@ func (r *ClusterManagerReconciler) CreateServiceInstance(ctx context.Context, cl
 			}
 
 			switch strings.ToUpper(clusterManager.Spec.Provider) {
-			case util.PROVIDER_AWS:
+			case util.ProviderAws:
 				if providerJson, err = json.Marshal(
 					&AwsParameter{
 						SshKey:     clusterManager.AwsSpec.SshKey,
@@ -962,7 +1060,7 @@ func (r *ClusterManagerReconciler) CreateServiceInstance(ctx context.Context, cl
 					log.Error(err, "Failed to marshal cluster parameters")
 					return ctrl.Result{}, err
 				}
-			case util.PROVIDER_VSPHERE:
+			case util.ProviderVsphere:
 				if providerJson, err = json.Marshal(
 					&VsphereParameter{
 						PodCidr:             clusterManager.VsphereSpec.PodCidr,
@@ -993,6 +1091,10 @@ func (r *ClusterManagerReconciler) CreateServiceInstance(ctx context.Context, cl
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      clusterManager.Name + "-" + generatedSuffix,
 					Namespace: clusterManager.Namespace,
+					Annotations: map[string]string{
+						util.AnnotationKeyOwner:   clusterManager.Annotations[util.AnnotationKeyCreator],
+						util.AnnotationKeyCreator: clusterManager.Annotations[util.AnnotationKeyCreator],
+					},
 				},
 				Spec: servicecatalogv1beta1.ServiceInstanceSpec{
 					PlanReference: servicecatalogv1beta1.PlanReference{
@@ -1011,7 +1113,7 @@ func (r *ClusterManagerReconciler) CreateServiceInstance(ctx context.Context, cl
 				log.Error(err, "Failed to create "+clusterManager.Name+" serviceInstance")
 				return ctrl.Result{}, err
 			}
-			clusterManager.Annotations["suffix"] = generatedSuffix
+			clusterManager.Annotations[util.AnnotationKeyClmSuffix] = generatedSuffix
 		} else {
 			log.Error(err, "Failed to get serviceInstance")
 			return ctrl.Result{}, err
@@ -1220,8 +1322,8 @@ func (r *ClusterManagerReconciler) SetupWithManager(mgr ctrl.Manager) error {
 					return true
 				},
 				UpdateFunc: func(e event.UpdateEvent) bool {
-					// created clm은 update 필요가 있지만 registerd는 clm update가 필요 없다
-					// 다만 registred인 경우 deleteinotimestamp가 있는경우 delete 수행을 위해 reconcile을 수행하긴 해야한다.
+					// created clm은 update 필요가 있지만 registered는 clm update가 필요 없다
+					// 다만 registered인 경우 deletiontimestamp가 있는경우 delete 수행을 위해 reconcile을 수행하긴 해야한다.
 					oldclm := e.ObjectOld.(*clusterv1alpha1.ClusterManager)
 					newclm := e.ObjectNew.(*clusterv1alpha1.ClusterManager)
 
@@ -1232,11 +1334,11 @@ func (r *ClusterManagerReconciler) SetupWithManager(mgr ctrl.Manager) error {
 					if isDelete || isControlPlaneEndpointUpdate || isFinalized /*|| isAgentEndpointUpdate*/ {
 						return true
 					} else {
-						if newclm.Labels[util.ClusterTypeKey] == util.ClusterTypeCreated {
+						if newclm.Labels[util.LabelKeyClmClusterType] == util.ClusterTypeCreated {
 
 							return true
 						}
-						if newclm.Labels[util.ClusterTypeKey] == util.ClusterTypeRegistered {
+						if newclm.Labels[util.LabelKeyClmClusterType] == util.ClusterTypeRegistered {
 							return false
 						}
 					}

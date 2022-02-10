@@ -118,7 +118,7 @@ func CreateSuffixString() string {
 	rand.Seed(time.Now().UnixNano())
 	var letters = []rune("0123456789abcdefghijklmnopqrstuvwxyz")
 
-	s := make([]rune, SUFFIX_DIGIT)
+	s := make([]rune, SuffixDigit)
 	for i := range s {
 		s[i] = letters[rand.Intn(len(letters))]
 	}
@@ -129,15 +129,15 @@ func CreateSuffixString() string {
 func CreateCertificate(clusterManager *clusterv1alpha1.ClusterManager) *certmanagerv1.Certificate {
 	traefikCertificate := &certmanagerv1.Certificate{
 		ObjectMeta: metav1.ObjectMeta{
-			//Name:      clusterManager.Name + "-certificate" + clusterManager.Annotations["suffix"],
+			//Name:      clusterManager.Name + "-certificate" + clusterManager.Annotations[util.AnnotationKeyClmSuffix],
 			Name:      clusterManager.Name + "-certificate",
 			Namespace: clusterManager.Namespace,
 			Annotations: map[string]string{
-				"owner":   clusterManager.Annotations["creator"],
-				"creator": clusterManager.Annotations["creator"],
+				AnnotationKeyOwner:   clusterManager.Annotations[AnnotationKeyCreator],
+				AnnotationKeyCreator: clusterManager.Annotations[AnnotationKeyCreator],
 			},
 			Labels: map[string]string{
-				"from/clusterManager": clusterManager.Name,
+				LabelKeyClmRef: clusterManager.Name,
 			},
 		},
 		Spec: certmanagerv1.CertificateSpec{
@@ -150,7 +150,7 @@ func CreateCertificate(clusterManager *clusterv1alpha1.ClusterManager) *certmana
 				certmanagerv1.UsageClientAuth,
 			},
 			DNSNames: []string{
-				"multicluster." + clusterManager.Annotations["hypercloud/dns"],
+				"multicluster." + clusterManager.Annotations[AnnotationKeyClmDns],
 			},
 			IssuerRef: cmmetav1.ObjectReference{
 				Name:  "tmaxcloud-issuer",
@@ -164,24 +164,24 @@ func CreateCertificate(clusterManager *clusterv1alpha1.ClusterManager) *certmana
 }
 
 func CreateIngress(clusterManager *clusterv1alpha1.ClusterManager) *networkingv1.Ingress {
-	provider := INGRESS_CLASS
+	provider := HypercloudIngressClass
 	pathType := networkingv1.PathTypePrefix
 	prefixMiddleware := clusterManager.Namespace + "-" + clusterManager.Name + "-prefix@kubernetescrd"
-	multiclusterDNS := "multicluster." + clusterManager.Annotations["hypercloud/dns"]
+	multiclusterDNS := "multicluster." + clusterManager.Annotations[AnnotationKeyClmDns]
 	traefikIngress := &networkingv1.Ingress{
 		ObjectMeta: metav1.ObjectMeta{
-			//Name:      clusterManager.Name + "-ingress-" + clusterManager.Annotations["suffix"],
+			//Name:      clusterManager.Name + "-ingress-" + clusterManager.Annotations[util.AnnotationKeyClmSuffix],
 			Name:      clusterManager.Name + "-ingress",
 			Namespace: clusterManager.Namespace,
 			Annotations: map[string]string{
-				"traefik.ingress.kubernetes.io/router.entrypoints": "websecure",
-				"traefik.ingress.kubernetes.io/router.middlewares": "api-gateway-system-jwt-decode-auth@kubernetescrd," + prefixMiddleware,
-				"owner":   clusterManager.Annotations["creator"],
-				"creator": clusterManager.Annotations["creator"],
+				AnnotationKeyTraefikEntrypoints: "websecure",
+				AnnotationKeyTraefikMiddlewares: "api-gateway-system-jwt-decode-auth@kubernetescrd," + prefixMiddleware,
+				AnnotationKeyOwner:              clusterManager.Annotations[AnnotationKeyCreator],
+				AnnotationKeyCreator:            clusterManager.Annotations[AnnotationKeyCreator],
 			},
 			Labels: map[string]string{
-				"ingress.tmaxcloud.org/name": "multicluster",
-				"from/clusterManager":        clusterManager.Name,
+				LabelKeyHypercloudIngress: HypercloudMultiIngressClass,
+				LabelKeyClmRef:            clusterManager.GetName(),
 			},
 		},
 		Spec: networkingv1.IngressSpec{
@@ -197,7 +197,7 @@ func CreateIngress(clusterManager *clusterv1alpha1.ClusterManager) *networkingv1
 									PathType: &pathType,
 									Backend: networkingv1.IngressBackend{
 										Service: &networkingv1.IngressServiceBackend{
-											Name: clusterManager.Name + "-service",
+											Name: clusterManager.GetName() + "-service",
 											Port: networkingv1.ServiceBackendPort{
 												//Name: strings.ToLower(string(corev1.URISchemeHTTPS)),
 												Name: "https",
@@ -225,25 +225,25 @@ func CreateIngress(clusterManager *clusterv1alpha1.ClusterManager) *networkingv1
 
 func CreateService(clusterManager *clusterv1alpha1.ClusterManager) *corev1.Service {
 	serviceMeta := &metav1.ObjectMeta{
-		//Name:      clusterManager.Name + "-service-" + clusterManager.Annotations["suffix"],
+		//Name:      clusterManager.Name + "-service-" + clusterManager.Annotations[util.AnnotationKeyClmSuffix],
 		Name:      clusterManager.Name + "-service",
 		Namespace: clusterManager.Namespace,
 		Annotations: map[string]string{
-			"owner":   clusterManager.Annotations["creator"],
-			"creator": clusterManager.Annotations["creator"],
-			"traefik.ingress.kubernetes.io/service.serverstransport": "insecure@file",
+			AnnotationKeyOwner:                  clusterManager.Annotations[AnnotationKeyCreator],
+			AnnotationKeyCreator:                clusterManager.Annotations[AnnotationKeyCreator],
+			AnnotationKeyTraefikServerTransport: "insecure@file",
 		},
 		Labels: map[string]string{
-			"from/clusterManager": clusterManager.Name,
+			LabelKeyClmRef: clusterManager.Name,
 		},
 	}
 	traefikService := &corev1.Service{}
 	switch strings.ToUpper(clusterManager.Spec.Provider) {
-	case PROVIDER_AWS:
+	case ProviderAws:
 		traefikService = &corev1.Service{
 			ObjectMeta: *serviceMeta,
 			Spec: corev1.ServiceSpec{
-				ExternalName: clusterManager.Annotations["endpoint"],
+				ExternalName: clusterManager.Annotations[AnnotationKeyClmEndpoint],
 				Ports: []corev1.ServicePort{
 					{
 						//Name:       strings.ToLower(string(corev1.URISchemeHTTPS)),
@@ -256,7 +256,7 @@ func CreateService(clusterManager *clusterv1alpha1.ClusterManager) *corev1.Servi
 				Type: corev1.ServiceTypeExternalName,
 			},
 		}
-	case PROVIDER_VSPHERE:
+	case ProviderVsphere:
 		traefikService = &corev1.Service{
 			ObjectMeta: *serviceMeta,
 			Spec: corev1.ServiceSpec{
@@ -275,7 +275,7 @@ func CreateService(clusterManager *clusterv1alpha1.ClusterManager) *corev1.Servi
 		traefikService = &corev1.Service{
 			ObjectMeta: *serviceMeta,
 			Spec: corev1.ServiceSpec{
-				ExternalName: clusterManager.Annotations["endpoint"],
+				ExternalName: clusterManager.Annotations[AnnotationKeyClmEndpoint],
 				Ports: []corev1.ServicePort{
 					{
 						//Name:       strings.ToLower(string(corev1.URISchemeHTTPS)),
@@ -296,22 +296,22 @@ func CreateService(clusterManager *clusterv1alpha1.ClusterManager) *corev1.Servi
 func CreateEndpoint(clusterManager *clusterv1alpha1.ClusterManager) *corev1.Endpoints {
 	traefikEndpoint := &corev1.Endpoints{
 		ObjectMeta: metav1.ObjectMeta{
-			//Name:      clusterManager.Name + "-endpoint-" + clusterManager.Annotations["suffix"],
-			Name:      clusterManager.Name + "-endpoint",
+			//Name:      clusterManager.Name + "-service-" + clusterManager.Annotations[util.AnnotationKeyClmSuffix],
+			Name:      clusterManager.Name + "-service",
 			Namespace: clusterManager.Namespace,
 			Annotations: map[string]string{
-				"owner":   clusterManager.Annotations["creator"],
-				"creator": clusterManager.Annotations["creator"],
+				AnnotationKeyOwner:   clusterManager.Annotations[AnnotationKeyCreator],
+				AnnotationKeyCreator: clusterManager.Annotations[AnnotationKeyCreator],
 			},
 			Labels: map[string]string{
-				"from/clusterManager": clusterManager.Name,
+				LabelKeyClmRef: clusterManager.Name,
 			},
 		},
 		Subsets: []corev1.EndpointSubset{
 			{
 				Addresses: []corev1.EndpointAddress{
 					{
-						IP: clusterManager.Annotations["endpoint"],
+						IP: clusterManager.Annotations[AnnotationKeyClmEndpoint],
 					},
 				},
 				Ports: []corev1.EndpointPort{
@@ -331,15 +331,15 @@ func CreateEndpoint(clusterManager *clusterv1alpha1.ClusterManager) *corev1.Endp
 func CreateMiddleware(clusterManager *clusterv1alpha1.ClusterManager) *traefikv2.Middleware {
 	traefikMiddleware := &traefikv2.Middleware{
 		ObjectMeta: metav1.ObjectMeta{
-			//Name:      clusterManager.Name + "-prefix-" + clusterManager.Annotations["suffix"],
+			//Name:      clusterManager.Name + "-prefix-" + clusterManager.Annotations[util.AnnotationKeyClmSuffix],
 			Name:      clusterManager.Name + "-prefix",
 			Namespace: clusterManager.Namespace,
 			Annotations: map[string]string{
-				"owner":   clusterManager.Annotations["creator"],
-				"creator": clusterManager.Annotations["creator"],
+				AnnotationKeyOwner:   clusterManager.Annotations[AnnotationKeyCreator],
+				AnnotationKeyCreator: clusterManager.Annotations[AnnotationKeyCreator],
 			},
 			Labels: map[string]string{
-				"from/clusterManager": clusterManager.Name,
+				LabelKeyClmRef: clusterManager.Name,
 			},
 		},
 		Spec: traefikv2.MiddlewareSpec{
@@ -370,11 +370,16 @@ func URIToSecretName(uriType, uri string) (string, error) {
 	return fmt.Sprintf("%s-%s-%v", uriType, host, h.Sum32()), nil
 }
 
-func GetProviderName(provider string) string {
-	providers := map[string]string{
-		"AWS":     "AWS",
-		"VSPHERE": "vSphere",
+func GetProviderName(provider string) (string, error) {
+	provider = strings.ToUpper(provider)
+	providerNamelogo := map[string]string{
+		ProviderAws:     "AWS",
+		ProviderVsphere: "vSphere",
 	}
 
-	return providers[provider]
+	if providerNamelogo[provider] == "" {
+		return ProviderUnknown, fmt.Errorf("Cannot found provider [" + provider + "]")
+	}
+
+	return providerNamelogo[provider], nil
 }
