@@ -1,6 +1,25 @@
 # HyperCloud-Multi-Operator changelog!!
 All notable changes to this project will be documented in this file.
 
+<!-------------------- v5.0.26.3 start -------------------->
+
+## HyperCloud-Multi-Operator_5.0.26.3 (2022. 02. 10. (목) 12:12:30 KST)
+
+### Added
+  - [feat] argocd 클러스터 등록기능 추가 by SISILIA
+
+### Changed
+
+### Fixed
+
+### CRD yaml
+
+### Etc
+  - [etc] update git ignore by SISILIA
+  - [etc] 불필요한 주석 제거 by SISILIA
+
+<!--------------------- v5.0.26.3 end --------------------->
+
 <!-------------------- v5.0.26.2 start -------------------->
 
 ## HyperCloud-Multi-Operator_5.0.26.2 (2022. 02. 04. (금) 21:05:50 KST)
