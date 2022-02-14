@@ -5,6 +5,7 @@ import (
 	"hash/fnv"
 	"math/rand"
 	"net/url"
+	"regexp"
 	"strings"
 	"time"
 
@@ -237,26 +238,9 @@ func CreateService(clusterManager *clusterv1alpha1.ClusterManager) *corev1.Servi
 			LabelKeyClmRef: clusterManager.Name,
 		},
 	}
+
 	traefikService := &corev1.Service{}
-	switch strings.ToUpper(clusterManager.Spec.Provider) {
-	case ProviderAws:
-		traefikService = &corev1.Service{
-			ObjectMeta: *serviceMeta,
-			Spec: corev1.ServiceSpec{
-				ExternalName: clusterManager.Annotations[AnnotationKeyClmEndpoint],
-				Ports: []corev1.ServicePort{
-					{
-						//Name:       strings.ToLower(string(corev1.URISchemeHTTPS)),
-						Name:       "https",
-						Port:       6443,
-						Protocol:   corev1.ProtocolTCP,
-						TargetPort: intstr.FromInt(6443),
-					},
-				},
-				Type: corev1.ServiceTypeExternalName,
-			},
-		}
-	case ProviderVsphere:
+	if IsIpAddress(clusterManager.Annotations[AnnotationKeyClmEndpoint]) {
 		traefikService = &corev1.Service{
 			ObjectMeta: *serviceMeta,
 			Spec: corev1.ServiceSpec{
@@ -271,7 +255,7 @@ func CreateService(clusterManager *clusterv1alpha1.ClusterManager) *corev1.Servi
 				},
 			},
 		}
-	default:
+	} else {
 		traefikService = &corev1.Service{
 			ObjectMeta: *serviceMeta,
 			Spec: corev1.ServiceSpec{
@@ -289,6 +273,57 @@ func CreateService(clusterManager *clusterv1alpha1.ClusterManager) *corev1.Servi
 			},
 		}
 	}
+	// switch strings.ToUpper(clusterManager.Spec.Provider) {
+	// case ProviderAws:
+	// 	traefikService = &corev1.Service{
+	// 		ObjectMeta: *serviceMeta,
+	// 		Spec: corev1.ServiceSpec{
+	// 			ExternalName: clusterManager.Annotations[AnnotationKeyClmEndpoint],
+	// 			Ports: []corev1.ServicePort{
+	// 				{
+	// 					//Name:       strings.ToLower(string(corev1.URISchemeHTTPS)),
+	// 					Name:       "https",
+	// 					Port:       6443,
+	// 					Protocol:   corev1.ProtocolTCP,
+	// 					TargetPort: intstr.FromInt(6443),
+	// 				},
+	// 			},
+	// 			Type: corev1.ServiceTypeExternalName,
+	// 		},
+	// 	}
+	// case ProviderVsphere:
+	// 	traefikService = &corev1.Service{
+	// 		ObjectMeta: *serviceMeta,
+	// 		Spec: corev1.ServiceSpec{
+	// 			Ports: []corev1.ServicePort{
+	// 				{
+	// 					//Name:       strings.ToLower(string(corev1.URISchemeHTTPS)),
+	// 					Name:       "https",
+	// 					Port:       443,
+	// 					Protocol:   corev1.ProtocolTCP,
+	// 					TargetPort: intstr.FromInt(6443),
+	// 				},
+	// 			},
+	// 		},
+	// 	}
+	// default:
+	// 	traefikService = &corev1.Service{
+	// 		ObjectMeta: *serviceMeta,
+	// 		Spec: corev1.ServiceSpec{
+	// 			ExternalName: clusterManager.Annotations[AnnotationKeyClmEndpoint],
+	// 			Ports: []corev1.ServicePort{
+	// 				{
+	// 					//Name:       strings.ToLower(string(corev1.URISchemeHTTPS)),
+	// 					Name:       "https",
+	// 					Port:       6443,
+	// 					Protocol:   corev1.ProtocolTCP,
+	// 					TargetPort: intstr.FromInt(6443),
+	// 				},
+	// 			},
+	// 			Type: corev1.ServiceTypeExternalName,
+	// 		},
+	// 	}
+	// }
 
 	return traefikService
 }
@@ -373,8 +408,8 @@ func URIToSecretName(uriType, uri string) (string, error) {
 func GetProviderName(provider string) (string, error) {
 	provider = strings.ToUpper(provider)
 	providerNamelogo := map[string]string{
-		ProviderAws:     "AWS",
-		ProviderVsphere: "vSphere",
+		ProviderAws:     ProviderAwsLogo,
+		ProviderVsphere: ProviderVsphereLogo,
 	}
 
 	if providerNamelogo[provider] == "" {
@@ -382,4 +417,9 @@ func GetProviderName(provider string) (string, error) {
 	}
 
 	return providerNamelogo[provider], nil
+}
+
+func IsIpAddress(endPoint string) bool {
+	reg, _ := regexp.Compile("[0-9]{1,3}.[0-9]{1,3}.[0-9]{1,3}.[0-9]{1,3}")
+	return reg.MatchString(endPoint)
 }

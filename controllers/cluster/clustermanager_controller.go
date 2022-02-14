@@ -456,7 +456,7 @@ func (r *ClusterManagerReconciler) CreateTraefikResources(ctx context.Context, c
 		log.Info("Service is already existed")
 	}
 
-	if strings.ToUpper(clusterManager.Spec.Provider) == util.ProviderVsphere {
+	if util.IsIpAddress(clusterManager.Annotations[util.AnnotationKeyClmEndpoint]) {
 		traefikEndpoint := &corev1.Endpoints{}
 		endpointKey := types.NamespacedName{
 			// Name: clusterManager.Name + "-service" + clusterManager.Annotations[util.AnnotationKeyClmSuffix],

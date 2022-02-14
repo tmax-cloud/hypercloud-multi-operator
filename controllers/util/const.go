@@ -48,6 +48,9 @@ const (
 	ProviderVsphere = "VSPHERE"
 	ProviderUnknown = "Unknown"
 
+	ProviderAwsLogo     = "AWS"
+	ProviderVsphereLogo = "vSphere"
+
 	ArgoApiGroup           = "argocd.argoproj.io"
 	ArgoNamespace          = "argocd"
 	ArgoServiceAccount     = "argocd-manager"
