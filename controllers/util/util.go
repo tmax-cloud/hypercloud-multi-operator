@@ -169,6 +169,7 @@ func CreateIngress(clusterManager *clusterv1alpha1.ClusterManager) *networkingv1
 	pathType := networkingv1.PathTypePrefix
 	prefixMiddleware := clusterManager.Namespace + "-" + clusterManager.Name + "-prefix@kubernetescrd"
 	multiclusterDNS := "multicluster." + clusterManager.Annotations[AnnotationKeyClmDns]
+	urlPath := "/api/" + clusterManager.Namespace + "/" + clusterManager.Name
 	traefikIngress := &networkingv1.Ingress{
 		ObjectMeta: metav1.ObjectMeta{
 			//Name:      clusterManager.Name + "-ingress-" + clusterManager.Annotations[util.AnnotationKeyClmSuffix],
@@ -194,14 +195,25 @@ func CreateIngress(clusterManager *clusterv1alpha1.ClusterManager) *networkingv1
 						HTTP: &networkingv1.HTTPIngressRuleValue{
 							Paths: []networkingv1.HTTPIngressPath{
 								{
-									Path:     "/api/" + clusterManager.Namespace + "/" + clusterManager.Name,
+									Path:     urlPath,
 									PathType: &pathType,
 									Backend: networkingv1.IngressBackend{
 										Service: &networkingv1.IngressServiceBackend{
 											Name: clusterManager.GetName() + "-service",
 											Port: networkingv1.ServiceBackendPort{
-												//Name: strings.ToLower(string(corev1.URISchemeHTTPS)),
 												Name: "https",
+											},
+										},
+									},
+								},
+								{
+									Path:     urlPath + "/api/prometheus",
+									PathType: &pathType,
+									Backend: networkingv1.IngressBackend{
+										Service: &networkingv1.IngressServiceBackend{
+											Name: clusterManager.GetName() + "-prometheus-service",
+											Port: networkingv1.ServiceBackendPort{
+												Number: 443,
 											},
 										},
 									},
@@ -240,7 +252,7 @@ func CreateService(clusterManager *clusterv1alpha1.ClusterManager) *corev1.Servi
 	}
 
 	traefikService := &corev1.Service{}
-	if IsIpAddress(clusterManager.Annotations[AnnotationKeyClmEndpoint]) {
+	if IsIpAddress(clusterManager.Annotations[AnnotationKeyClmApiserverEndpoint]) {
 		traefikService = &corev1.Service{
 			ObjectMeta: *serviceMeta,
 			Spec: corev1.ServiceSpec{
@@ -259,7 +271,7 @@ func CreateService(clusterManager *clusterv1alpha1.ClusterManager) *corev1.Servi
 		traefikService = &corev1.Service{
 			ObjectMeta: *serviceMeta,
 			Spec: corev1.ServiceSpec{
-				ExternalName: clusterManager.Annotations[AnnotationKeyClmEndpoint],
+				ExternalName: clusterManager.Annotations[AnnotationKeyClmApiserverEndpoint],
 				Ports: []corev1.ServicePort{
 					{
 						//Name:       strings.ToLower(string(corev1.URISchemeHTTPS)),
@@ -273,59 +285,60 @@ func CreateService(clusterManager *clusterv1alpha1.ClusterManager) *corev1.Servi
 			},
 		}
 	}
-	// switch strings.ToUpper(clusterManager.Spec.Provider) {
-	// case ProviderAws:
-	// 	traefikService = &corev1.Service{
-	// 		ObjectMeta: *serviceMeta,
-	// 		Spec: corev1.ServiceSpec{
-	// 			ExternalName: clusterManager.Annotations[AnnotationKeyClmEndpoint],
-	// 			Ports: []corev1.ServicePort{
-	// 				{
-	// 					//Name:       strings.ToLower(string(corev1.URISchemeHTTPS)),
-	// 					Name:       "https",
-	// 					Port:       6443,
-	// 					Protocol:   corev1.ProtocolTCP,
-	// 					TargetPort: intstr.FromInt(6443),
-	// 				},
-	// 			},
-	// 			Type: corev1.ServiceTypeExternalName,
-	// 		},
-	// 	}
-	// case ProviderVsphere:
-	// 	traefikService = &corev1.Service{
-	// 		ObjectMeta: *serviceMeta,
-	// 		Spec: corev1.ServiceSpec{
-	// 			Ports: []corev1.ServicePort{
-	// 				{
-	// 					//Name:       strings.ToLower(string(corev1.URISchemeHTTPS)),
-	// 					Name:       "https",
-	// 					Port:       443,
-	// 					Protocol:   corev1.ProtocolTCP,
-	// 					TargetPort: intstr.FromInt(6443),
-	// 				},
-	// 			},
-	// 		},
-	// 	}
-	// default:
-	// 	traefikService = &corev1.Service{
-	// 		ObjectMeta: *serviceMeta,
-	// 		Spec: corev1.ServiceSpec{
-	// 			ExternalName: clusterManager.Annotations[AnnotationKeyClmEndpoint],
-	// 			Ports: []corev1.ServicePort{
-	// 				{
-	// 					//Name:       strings.ToLower(string(corev1.URISchemeHTTPS)),
-	// 					Name:       "https",
-	// 					Port:       6443,
-	// 					Protocol:   corev1.ProtocolTCP,
-	// 					TargetPort: intstr.FromInt(6443),
-	// 				},
-	// 			},
-	// 			Type: corev1.ServiceTypeExternalName,
-	// 		},
-	// 	}
-	// }
 
 	return traefikService
+}
+
+func CreatePrometheusService(clusterManager *clusterv1alpha1.ClusterManager) *corev1.Service {
+	serviceMeta := &metav1.ObjectMeta{
+		//Name:      clusterManager.Name + "-service-" + clusterManager.Annotations[util.AnnotationKeyClmSuffix],
+		Name:      clusterManager.Name + "-prometheus-service",
+		Namespace: clusterManager.Namespace,
+		Annotations: map[string]string{
+			AnnotationKeyOwner:                  clusterManager.Annotations[AnnotationKeyCreator],
+			AnnotationKeyCreator:                clusterManager.Annotations[AnnotationKeyCreator],
+			AnnotationKeyTraefikServerScheme:    "https",
+			AnnotationKeyTraefikServerTransport: "insecure@file",
+		},
+		Labels: map[string]string{
+			LabelKeyClmRef: clusterManager.Name,
+		},
+	}
+
+	prometheusService := &corev1.Service{}
+	if IsIpAddress(clusterManager.Annotations[AnnotationKeyClmGatewayEndpoint]) {
+		prometheusService = &corev1.Service{
+			ObjectMeta: *serviceMeta,
+			Spec: corev1.ServiceSpec{
+				Ports: []corev1.ServicePort{
+					{
+						//Name:       strings.ToLower(string(corev1.URISchemeHTTPS)),
+						Port:       443,
+						Protocol:   corev1.ProtocolTCP,
+						TargetPort: intstr.FromInt(443),
+					},
+				},
+			},
+		}
+	} else {
+		prometheusService = &corev1.Service{
+			ObjectMeta: *serviceMeta,
+			Spec: corev1.ServiceSpec{
+				ExternalName: clusterManager.Annotations[AnnotationKeyClmGatewayEndpoint],
+				Ports: []corev1.ServicePort{
+					{
+						//Name:       strings.ToLower(string(corev1.URISchemeHTTPS)),
+						Port:       443,
+						Protocol:   corev1.ProtocolTCP,
+						TargetPort: intstr.FromInt(443),
+					},
+				},
+				Type: corev1.ServiceTypeExternalName,
+			},
+		}
+	}
+
+	return prometheusService
 }
 
 func CreateEndpoint(clusterManager *clusterv1alpha1.ClusterManager) *corev1.Endpoints {
@@ -346,14 +359,15 @@ func CreateEndpoint(clusterManager *clusterv1alpha1.ClusterManager) *corev1.Endp
 			{
 				Addresses: []corev1.EndpointAddress{
 					{
-						IP: clusterManager.Annotations[AnnotationKeyClmEndpoint],
+						IP: clusterManager.Annotations[AnnotationKeyClmApiserverEndpoint],
 					},
 				},
 				Ports: []corev1.EndpointPort{
 					{
 						//Name: strings.ToLower(string(corev1.URISchemeHTTPS)),
-						Name: "https",
-						Port: 6443,
+						Name:     "https",
+						Port:     6443,
+						Protocol: corev1.ProtocolTCP,
 					},
 				},
 			},
@@ -361,6 +375,40 @@ func CreateEndpoint(clusterManager *clusterv1alpha1.ClusterManager) *corev1.Endp
 	}
 
 	return traefikEndpoint
+}
+
+func CreatePrometheusEndpoint(clusterManager *clusterv1alpha1.ClusterManager) *corev1.Endpoints {
+	prometheusEndpoint := &corev1.Endpoints{
+		ObjectMeta: metav1.ObjectMeta{
+			//Name:      clusterManager.Name + "-service-" + clusterManager.Annotations[util.AnnotationKeyClmSuffix],
+			Name:      clusterManager.Name + "-prometheus-service",
+			Namespace: clusterManager.Namespace,
+			Annotations: map[string]string{
+				AnnotationKeyOwner:   clusterManager.Annotations[AnnotationKeyCreator],
+				AnnotationKeyCreator: clusterManager.Annotations[AnnotationKeyCreator],
+			},
+			Labels: map[string]string{
+				LabelKeyClmRef: clusterManager.Name,
+			},
+		},
+		Subsets: []corev1.EndpointSubset{
+			{
+				Addresses: []corev1.EndpointAddress{
+					{
+						IP: clusterManager.Annotations[AnnotationKeyClmGatewayEndpoint],
+					},
+				},
+				Ports: []corev1.EndpointPort{
+					{
+						Port:     443,
+						Protocol: corev1.ProtocolTCP,
+					},
+				},
+			},
+		},
+	}
+
+	return prometheusEndpoint
 }
 
 func CreateMiddleware(clusterManager *clusterv1alpha1.ClusterManager) *traefikv2.Middleware {

@@ -43,6 +43,7 @@ const (
 	HypercloudIngressClass             = "tmax-cloud"
 	HypercloudMultiIngressClass        = "multicluster"
 	HypercloudMultiIngressSubdomain    = "multicluster"
+	ApiGatewayNamespace                = "api-gateway-system"
 
 	ProviderAws     = "AWS"
 	ProviderVsphere = "VSPHERE"
@@ -65,7 +66,9 @@ const (
 	AnnotationKeyTraefikServerTransport = "traefik.ingress.kubernetes.io/service.serverstransport"
 	AnnotationKeyTraefikEntrypoints     = "traefik.ingress.kubernetes.io/router.entrypoints"
 	AnnotationKeyTraefikMiddlewares     = "traefik.ingress.kubernetes.io/router.middlewares"
-	AnnotationKeyClmEndpoint            = "clustermanager.tmax.io/endpoint"
+	AnnotationKeyTraefikServerScheme    = "traefik.ingress.kubernetes.io/service.serversscheme"
+	AnnotationKeyClmApiserverEndpoint   = "clustermanager.tmax.io/apiserver.endpoint"
+	AnnotationKeyClmGatewayEndpoint     = "clustermanager.tmax.io/gateway.endpoint"
 	AnnotationKeyClmSuffix              = "clustermanager.tmax.io/suffix"
 	AnnotationKeyClmDns                 = "clustermanager.tmax.io/dns"
 

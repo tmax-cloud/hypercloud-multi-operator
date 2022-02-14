@@ -287,10 +287,10 @@ func (r *ClusterRegistrationReconciler) CreateClusterManager(ctx context.Context
 					Name:      ClusterRegistration.Spec.ClusterName,
 					Namespace: ClusterRegistration.Namespace,
 					Annotations: map[string]string{
-						util.AnnotationKeyOwner:       ClusterRegistration.Annotations[util.AnnotationKeyCreator],
-						util.AnnotationKeyCreator:     ClusterRegistration.Annotations[util.AnnotationKeyCreator],
-						util.AnnotationKeyClmEndpoint: endpoint,
-						util.AnnotationKeyClmDns:      os.Getenv("HC_DOMAIN"),
+						util.AnnotationKeyOwner:                ClusterRegistration.Annotations[util.AnnotationKeyCreator],
+						util.AnnotationKeyCreator:              ClusterRegistration.Annotations[util.AnnotationKeyCreator],
+						util.AnnotationKeyClmApiserverEndpoint: endpoint,
+						util.AnnotationKeyClmDns:               os.Getenv("HC_DOMAIN"),
 					},
 					Labels: map[string]string{
 						util.LabelKeyClmClusterType: util.ClusterTypeRegistered,

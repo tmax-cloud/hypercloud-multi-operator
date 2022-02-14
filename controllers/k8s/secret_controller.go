@@ -55,7 +55,8 @@ type SecretReconciler struct {
 }
 
 const (
-	requeueAfter5Sec = 5 * time.Second
+	requeueAfter5Sec  = 5 * time.Second
+	requeueAfter10min = 600 * time.Second
 )
 
 // +kubebuilder:rbac:groups="",resources=secrets;namespaces;serviceaccounts,verbs=create;delete;get;list;patch;post;update;watch;
@@ -110,8 +111,8 @@ func (r *SecretReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ c
 func (r *SecretReconciler) reconcile(ctx context.Context, secret *corev1.Secret) (ctrl.Result, error) {
 	phases := []func(context.Context, *corev1.Secret) (ctrl.Result, error){
 		r.UpdateClusterManagerControlPlaneEndpoint,
-		r.deployRolebinding,
-		r.deployArgocdResources,
+		r.DeployRolebinding,
+		r.DeployArgocdResources,
 	}
 
 	res := ctrl.Result{}
@@ -130,7 +131,7 @@ func (r *SecretReconciler) reconcile(ctx context.Context, secret *corev1.Secret)
 	return res, kerrors.NewAggregate(errs)
 }
 
-func (r *SecretReconciler) deployRolebinding(ctx context.Context, secret *corev1.Secret) (ctrl.Result, error) {
+func (r *SecretReconciler) DeployRolebinding(ctx context.Context, secret *corev1.Secret) (ctrl.Result, error) {
 	log := r.Log.WithValues("secret", types.NamespacedName{Name: secret.GetName(), Namespace: secret.GetNamespace()})
 	log.Info("Start to reconcile.. Deploy rolebinding to remote")
 
@@ -256,7 +257,7 @@ func (r *SecretReconciler) deployRolebinding(ctx context.Context, secret *corev1
 	return ctrl.Result{}, nil
 }
 
-func (r *SecretReconciler) deployArgocdResources(ctx context.Context, secret *corev1.Secret) (ctrl.Result, error) {
+func (r *SecretReconciler) DeployArgocdResources(ctx context.Context, secret *corev1.Secret) (ctrl.Result, error) {
 	log := r.Log.WithValues("secret", types.NamespacedName{Name: secret.GetName(), Namespace: secret.GetNamespace()})
 	log.Info("Start to reconcile.. Deploy argocd resources to remote")
 

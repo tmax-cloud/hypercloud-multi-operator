@@ -68,6 +68,7 @@ const (
 	requeueAfter30Sec  = 30 * time.Second
 	requeueAfter60Sec  = 60 * time.Second
 	requeueAfter120Sec = 120 * time.Second
+	requeueAfter10min  = 600 * time.Second
 )
 
 type ClusterParameter struct {
@@ -189,6 +190,7 @@ func (r *ClusterManagerReconciler) reconcileForRegisteredClusterManager(ctx cont
 	phases := []func(context.Context, *clusterv1alpha1.ClusterManager) (ctrl.Result, error){
 		r.UpdateClusterManagerStatus,
 		r.CreateTraefikResources,
+		r.UpdatePrometheusService,
 		// r.DeployAndUpdateAgentEndpoint,
 	}
 
@@ -351,7 +353,7 @@ func (r *ClusterManagerReconciler) SetEndpoint(ctx context.Context, clusterManag
 	log := r.Log.WithValues("clustermanager", types.NamespacedName{Name: clusterManager.Name, Namespace: clusterManager.Namespace})
 	log.Info("Start setting endpoint configuration to clusterManager")
 
-	if clusterManager.Annotations[util.AnnotationKeyClmEndpoint] != "" {
+	if clusterManager.Annotations[util.AnnotationKeyClmApiserverEndpoint] != "" {
 		log.Info("Endpoint already configured.")
 		return ctrl.Result{}, nil
 	}
@@ -375,14 +377,14 @@ func (r *ClusterManagerReconciler) SetEndpoint(ctx context.Context, clusterManag
 		log.Info("ControlPlain endpoint is not ready yet. requeue after 20sec.")
 		return ctrl.Result{RequeueAfter: requeueAfter20Sec}, nil
 	}
-	clusterManager.Annotations[util.AnnotationKeyClmEndpoint] = cluster.Spec.ControlPlaneEndpoint.Host
+	clusterManager.Annotations[util.AnnotationKeyClmApiserverEndpoint] = cluster.Spec.ControlPlaneEndpoint.Host
 
 	return ctrl.Result{}, nil
 }
 func (r *ClusterManagerReconciler) CreateTraefikResources(ctx context.Context, clusterManager *clusterv1alpha1.ClusterManager) (ctrl.Result, error) {
 	log := r.Log.WithValues("clustermanager", types.NamespacedName{Name: clusterManager.Name, Namespace: clusterManager.Namespace})
 
-	if clusterManager.Annotations[util.AnnotationKeyClmEndpoint] == "" {
+	if clusterManager.Annotations[util.AnnotationKeyClmApiserverEndpoint] == "" {
 		log.Info("Wait for recognize remote apiserver endpoint")
 		return ctrl.Result{RequeueAfter: requeueAfter20Sec}, nil
 	}
@@ -456,7 +458,7 @@ func (r *ClusterManagerReconciler) CreateTraefikResources(ctx context.Context, c
 		log.Info("Service is already existed")
 	}
 
-	if util.IsIpAddress(clusterManager.Annotations[util.AnnotationKeyClmEndpoint]) {
+	if util.IsIpAddress(clusterManager.Annotations[util.AnnotationKeyClmApiserverEndpoint]) {
 		traefikEndpoint := &corev1.Endpoints{}
 		endpointKey := types.NamespacedName{
 			// Name: clusterManager.Name + "-service" + clusterManager.Annotations[util.AnnotationKeyClmSuffix],
@@ -584,6 +586,113 @@ func (r *ClusterManagerReconciler) DeployAndUpdateAgentEndpoint(ctx context.Cont
 	return ctrl.Result{}, nil
 }
 
+func (r *ClusterManagerReconciler) UpdatePrometheusService(ctx context.Context, clusterManager *clusterv1alpha1.ClusterManager) (reconcile.Result, error) {
+	targetClm := types.NamespacedName{
+		Name:      clusterManager.GetName(),
+		Namespace: clusterManager.GetNamespace(),
+	}
+	log := r.Log.WithValues("clustermanager", targetClm)
+	log.Info("Start to reconcile UpdatePrometheusService... ")
+
+	kubeconfigSecret := &corev1.Secret{}
+	kubeconfigSecretKey := types.NamespacedName{
+		Name:      clusterManager.Name + util.KubeconfigSuffix,
+		Namespace: clusterManager.Namespace,
+	}
+	if err := r.Get(context.TODO(), kubeconfigSecretKey, kubeconfigSecret); err != nil {
+		if errors.IsNotFound(err) {
+			log.Info("Cannot found kubeconfig secret. Wait to create kubeconfig secret.")
+			return ctrl.Result{RequeueAfter: requeueAfter10Sec}, nil
+		} else {
+			log.Error(err, "Failed to get kubeconfig secret")
+			return ctrl.Result{}, err
+		}
+	}
+
+	remoteClientset, err := util.GetRemoteK8sClient(kubeconfigSecret)
+	if err != nil {
+		log.Error(err, "Failed to get remoteK8sClient")
+		return ctrl.Result{}, err
+	}
+
+	if gatewayService, err :=
+		remoteClientset.
+			CoreV1().
+			Services(util.ApiGatewayNamespace).
+			Get(
+				context.TODO(),
+				"gateway",
+				metav1.GetOptions{},
+			); err != nil {
+		if errors.IsNotFound(err) {
+			log.Error(err, "Cannot found gateway Service. Wait for installing api-gateway. Requeue after 10 mins")
+			return ctrl.Result{RequeueAfter: requeueAfter10min}, err
+		}
+
+		log.Error(err, "Failed to get gateway Service")
+		return ctrl.Result{}, err
+	} else {
+		if gatewayService.Status.LoadBalancer.Ingress[0].Hostname == "" &&
+			gatewayService.Status.LoadBalancer.Ingress[0].IP == "" {
+			err := fmt.Errorf("gateway service doesn't have hostname or ip address")
+			log.Error(err, "Service for api-gateway is not Ready")
+			return ctrl.Result{RequeueAfter: requeueAfter10min}, err
+		}
+
+		clusterManager.Annotations[util.AnnotationKeyClmGatewayEndpoint] =
+			gatewayService.Status.LoadBalancer.Ingress[0].Hostname + gatewayService.Status.LoadBalancer.Ingress[0].IP
+	}
+
+	prometheusService := &corev1.Service{}
+	serviceKey := types.NamespacedName{
+		Name:      clusterManager.GetName() + "-prometheus-service",
+		Namespace: clusterManager.GetNamespace(),
+	}
+	if err := r.Get(context.TODO(), serviceKey, prometheusService); err != nil {
+		if errors.IsNotFound(err) {
+			log.Info("Service for prometheus is not found. start to create")
+			prometheusService = util.CreatePrometheusService(clusterManager)
+			if err := r.Create(context.TODO(), prometheusService); err != nil {
+				log.Error(err, "Failed to create Service for prometheus")
+				return ctrl.Result{}, err
+			}
+			ctrl.SetControllerReference(clusterManager, prometheusService, r.Scheme)
+		} else {
+			log.Error(err, "Failed to get Service for prometheus")
+			return ctrl.Result{}, err
+		}
+	} else {
+		log.Info("Service for prometheus is already existed")
+	}
+
+	if util.IsIpAddress(clusterManager.Annotations[util.AnnotationKeyClmApiserverEndpoint]) {
+		prometheusEndpoint := &corev1.Endpoints{}
+		endpointKey := types.NamespacedName{
+			Name:      clusterManager.GetName() + "-prometheus-service",
+			Namespace: clusterManager.GetNamespace(),
+		}
+		if err := r.Get(context.TODO(), endpointKey, prometheusEndpoint); err != nil {
+			if errors.IsNotFound(err) {
+				log.Info("Endpoint for prometheus is not found. start to create")
+				prometheusEndpoint = util.CreatePrometheusEndpoint(clusterManager)
+				if err := r.Create(context.TODO(), prometheusEndpoint); err != nil {
+					log.Error(err, "Failed to create Endpoint for prometheus")
+					return ctrl.Result{}, err
+				}
+				ctrl.SetControllerReference(clusterManager, prometheusEndpoint, r.Scheme)
+			} else {
+				log.Error(err, "Failed to get Endpoint for prometheus")
+				return ctrl.Result{}, err
+			}
+		} else {
+			log.Info("Endpoint for prometheus is already existed")
+		}
+	}
+
+	//clusterManager.Status.
+	return ctrl.Result{}, nil
+}
+
 func (r *ClusterManagerReconciler) reconcileDeleteForRegisteredClusterManager(ctx context.Context, clusterManager *clusterv1alpha1.ClusterManager) (reconcile.Result, error) {
 	log := r.Log.WithValues("clustermanager", types.NamespacedName{Name: clusterManager.Name, Namespace: clusterManager.Namespace})
 	log.Info("Start to reconcileDeleteForRegisteredClusterManager reconcile for [" + clusterManager.Name + "]")
@@ -604,13 +713,12 @@ func (r *ClusterManagerReconciler) reconcileDeleteForRegisteredClusterManager(ct
 			log.Error(err, "Failed to get kubeconfig secret")
 			return ctrl.Result{}, err
 		}
-	}
-
-	// delete 를 계~~ 속 보내겠는데...?
-	log.Info("Start to delete kubeconfig secret")
-	if err := r.Delete(context.TODO(), kubeconfigSecret); err != nil {
-		log.Error(err, "Failed to delete kubeconfigSecret")
-		return ctrl.Result{}, err
+	} else {
+		log.Info("Start to delete kubeconfig secret")
+		if err := r.Delete(context.TODO(), kubeconfigSecret); err != nil {
+			log.Error(err, "Failed to delete kubeconfigSecret")
+			return ctrl.Result{}, err
+		}
 	}
 
 	traefikCertificate := &certmanagerv1.Certificate{}
@@ -732,7 +840,45 @@ func (r *ClusterManagerReconciler) reconcileDeleteForRegisteredClusterManager(ct
 		}
 	} else {
 		if err := r.Delete(context.TODO(), traefikMiddleware); err != nil {
-			log.Error(err, "Failed to delete Service")
+			log.Error(err, "Failed to delete Middleware")
+			return ctrl.Result{}, err
+		}
+	}
+
+	prometheusService := &corev1.Service{}
+	prometheusServiceKey := types.NamespacedName{
+		Name:      clusterManager.GetName() + "-prometheus-service",
+		Namespace: clusterManager.GetNamespace(),
+	}
+	if err := r.Get(context.TODO(), prometheusServiceKey, prometheusService); err != nil {
+		if errors.IsNotFound(err) {
+			log.Info("Service for prometheus is already deleted.")
+		} else {
+			log.Error(err, "Failed to get Service for prometheus information")
+			return ctrl.Result{}, err
+		}
+	} else {
+		if err := r.Delete(context.TODO(), prometheusService); err != nil {
+			log.Error(err, "Failed to delete Service for prometheus")
+			return ctrl.Result{}, err
+		}
+	}
+
+	prometheusEndpoint := &corev1.Endpoints{}
+	prometheusEndpointKey := types.NamespacedName{
+		Name:      clusterManager.GetName() + "-prometheus-service",
+		Namespace: clusterManager.GetNamespace(),
+	}
+	if err := r.Get(context.TODO(), prometheusEndpointKey, prometheusEndpoint); err != nil {
+		if errors.IsNotFound(err) {
+			log.Info("Endpoint for prometheus is already deleted.")
+		} else {
+			log.Error(err, "Failed to get Endpoint for prometheus information")
+			return ctrl.Result{}, err
+		}
+	} else {
+		if err := r.Delete(context.TODO(), prometheusEndpoint); err != nil {
+			log.Error(err, "Failed to delete Endpoint for prometheus")
 			return ctrl.Result{}, err
 		}
 	}
