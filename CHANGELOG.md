@@ -1,40 +1,12 @@
 # HyperCloud-Multi-Operator changelog!!
 All notable changes to this project will be documented in this file.
 
-<<<<<<< HEAD
-<!-------------------- v5.0.25.19 start -------------------->
-
-## HyperCloud-Multi-Operator_5.0.25.19 (2021. 12. 20. (월) 18:04:06 KST)
-
-### Added
-=======
 <!-------------------- v5.0.26.2 start -------------------->
 
 ## HyperCloud-Multi-Operator_5.0.26.2 (2022. 02. 04. (금) 21:05:50 KST)
 
 ### Added
   - [feat] role에 leases.coordination.k8s.io에 대한 create, delete, patch verb추가 by SISILIA
->>>>>>> shinhan2
-
-### Changed
-
-### Fixed
-
-### CRD yaml
-
-### Etc
-<<<<<<< HEAD
-  - [etc] CRD version v1beta1으로 변경 by SISILIA
-
-<!--------------------- v5.0.25.19 end --------------------->
-
-<!-------------------- v5.0.25.18 start -------------------->
-
-## HyperCloud-Multi-Operator_5.0.25.18 (2021. 12. 15. (수) 11:48:10 KST)
-
-### Added
-  - [feat] serviceaccount 변경으로 인한 capi를 위한 cluster role 추가 by SISILIA
-=======
   - [etc] 클러스터 등록시, ArgoCD resource 생성 초안 추가, service annotation error수정, 코드리팩터링 by SISILIA
   - [etc] v5.0.26.1에서 hypercloud-multi-operator-manager-role에 leases.coordination.k8s.io에 대한 create, delete, patch verb추가 by SISILIA
 
@@ -46,7 +18,19 @@ All notable changes to this project will be documented in this file.
 
 ### Added
   - [feat] 하이퍼클라우드 커스텀 도메인 env 추가 by SISILIA
->>>>>>> shinhan2
+  - [etc] rbac 리소스 권한 추가 by SISILIA
+  - [etc] rbac 리소스 권한 추가 by SISILIA
+
+<!--------------------- v5.0.26.1 end --------------------->
+
+<!-------------------- v5.0.26.0 start -------------------->
+
+## HyperCloud-Multi-Operator_5.0.26.0 (2022. 01. 21. (금) 13:40:34 KST)
+
+### Added
+  - [feat] traefike resource관리를 위한 cluster role 추가 by SISILIA
+  - [feat] traeif resource 생성 기능 추가 by SISILIA
+  - [feat] traeif resource 생성 기능 추가 by SISILIA
 
 ### Changed
 
@@ -55,7 +39,40 @@ All notable changes to this project will be documented in this file.
 ### CRD yaml
 
 ### Etc
-<<<<<<< HEAD
+
+<!--------------------- v5.0.26.0 end --------------------->
+
+<!-------------------- v5.0.25.19 start -------------------->
+
+## HyperCloud-Multi-Operator_5.0.25.19 (2021. 12. 20. (월) 18:04:06 KST)
+
+### Added
+
+### Changed
+
+### Fixed
+
+### CRD yaml
+
+### Etc
+  - [etc] CRD version v1beta1으로 변경 by SISILIA
+
+<!--------------------- v5.0.25.19 end --------------------->
+
+<!-------------------- v5.0.25.18 start -------------------->
+
+## HyperCloud-Multi-Operator_5.0.25.18 (2021. 12. 15. (수) 11:48:10 KST)
+
+### Added
+  - [feat] serviceaccount 변경으로 인한 capi를 위한 cluster role 추가 by SISILIA
+
+### Changed
+
+### Fixed
+
+### CRD yaml
+
+### Etc
   - [etc] webhook configuration v1 sideEffects 버그 수정 by SISILIA
 
 <!--------------------- v5.0.25.18 end --------------------->
@@ -82,21 +99,6 @@ All notable changes to this project will be documented in this file.
 ## HyperCloud-Multi-Operator_5.0.25.16 (2021. 12. 13. (월) 18:06:01 KST)
 
 ### Added
-=======
-  - [etc] rbac 리소스 권한 추가 by SISILIA
-  - [etc] rbac 리소스 권한 추가 by SISILIA
-
-<!--------------------- v5.0.26.1 end --------------------->
-
-<!-------------------- v5.0.26.0 start -------------------->
-
-## HyperCloud-Multi-Operator_5.0.26.0 (2022. 01. 21. (금) 13:40:34 KST)
-
-### Added
-  - [feat] traefike resource관리를 위한 cluster role 추가 by SISILIA
-  - [feat] traeif resource 생성 기능 추가 by SISILIA
-  - [feat] traeif resource 생성 기능 추가 by SISILIA
->>>>>>> shinhan2
 
 ### Changed
 
@@ -105,11 +107,6 @@ All notable changes to this project will be documented in this file.
 ### CRD yaml
 
 ### Etc
-<<<<<<< HEAD
-  - [etc] 오타 수정 by SISILIA
-
-<!--------------------- v5.0.25.16 end --------------------->
-=======
   - [etc] webhook admission review version list에 v1beta1 추가 by SISILIA
   - [etc] cluster manager status 버그 수정 by SISILIA
   - [etc] 오타 수정 by SISILIA
@@ -120,7 +117,6 @@ All notable changes to this project will be documented in this file.
   - [etc] webhook configuration v1 버그 수정 by SISILIA
 
 <!--------------------- v5.0.26.0 end --------------------->
->>>>>>> shinhan2
 
 <!-------------------- v5.0.25.15 start -------------------->
 

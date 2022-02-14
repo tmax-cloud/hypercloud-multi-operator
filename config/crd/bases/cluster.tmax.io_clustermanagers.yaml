@@ -108,13 +108,6 @@ spec:
         status:
           description: ClusterManagerStatus defines the observed state of ClusterManager
           properties:
-<<<<<<< HEAD
-            agentEndpoint:
-              type: string
-            agentReady:
-              type: boolean
-=======
->>>>>>> shinhan2
             controlPlaneEndpoint:
               type: string
             controlPlaneReady:
@@ -161,11 +154,7 @@ spec:
                   systemUUID:
                     description: SystemUUID reported by the node. For unique machine
                       identification MachineID is preferred. This field is specific
-<<<<<<< HEAD
-                      to Red Hat hosts https://access.redhat.com/documentation/en-US/Red_Hat_Subscription_Management/1/html/RHSM/getting-system-uuid.html
-=======
                       to Red Hat hosts https://access.redhat.com/documentation/en-us/red_hat_subscription_management/1/html/rhsm/uuid
->>>>>>> shinhan2
                     type: string
                 required:
                 - architecture
