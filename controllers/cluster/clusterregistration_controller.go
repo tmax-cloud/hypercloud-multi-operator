@@ -200,17 +200,7 @@ func (r *ClusterRegistrationReconciler) CreateKubeconfigSecret(ctx context.Conte
 		return ctrl.Result{}, err
 	}
 
-	clusterKeys := make([]string, 0, len(kubeConfig.Clusters))
-	for k := range kubeConfig.Clusters {
-		clusterKeys = append(clusterKeys, k)
-	}
-
-	authinfoKeys := make([]string, 0, len(kubeConfig.AuthInfos))
-	for k := range kubeConfig.AuthInfos {
-		authinfoKeys = append(authinfoKeys, k)
-	}
-
-	serverURI := kubeConfig.Clusters[clusterKeys[0]].Server
+	serverURI := kubeConfig.Clusters[kubeConfig.Contexts[kubeConfig.CurrentContext].Cluster].Server
 	argoSecretName, err := util.URIToSecretName("cluster", serverURI)
 	if err != nil {
 		log.Error(err, "Failed to parse server uri")
@@ -241,9 +231,7 @@ func (r *ClusterRegistrationReconciler) CreateKubeconfigSecret(ctx context.Conte
 					},
 				},
 				StringData: map[string]string{
-					"value":   string(decodedKubeConfig),
-					"cluster": clusterKeys[0],
-					"user":    authinfoKeys[0],
+					"value": string(decodedKubeConfig),
 				},
 			}
 

@@ -402,9 +402,9 @@ func (r *SecretReconciler) DeployArgocdResources(ctx context.Context, secret *co
 		&argocdv1alpha1.ClusterConfig{
 			TLSClientConfig: argocdv1alpha1.TLSClientConfig{
 				Insecure: false,
-				CertData: kubeConfig.AuthInfos[string(secret.Data["user"])].ClientCertificateData,
-				KeyData:  kubeConfig.AuthInfos[string(secret.Data["user"])].ClientKeyData,
-				CAData:   kubeConfig.Clusters[string(secret.Data["cluster"])].CertificateAuthorityData,
+				CertData: kubeConfig.AuthInfos[kubeConfig.Contexts[kubeConfig.CurrentContext].AuthInfo].ClientCertificateData,
+				KeyData:  kubeConfig.AuthInfos[kubeConfig.Contexts[kubeConfig.CurrentContext].AuthInfo].ClientKeyData,
+				CAData:   kubeConfig.Clusters[kubeConfig.Contexts[kubeConfig.CurrentContext].Cluster].CertificateAuthorityData,
 			},
 		},
 	)
@@ -437,7 +437,7 @@ func (r *SecretReconciler) DeployArgocdResources(ctx context.Context, secret *co
 				StringData: map[string]string{
 					"config": string(configJson),
 					"name":   clusterName,
-					"server": kubeConfig.Clusters[string(secret.Data["cluster"])].Server,
+					"server": kubeConfig.Clusters[kubeConfig.Contexts[kubeConfig.CurrentContext].Cluster].Server,
 				},
 			}
 			if err := r.Create(context.TODO(), argocdClusterSecret); err != nil {
