@@ -48,6 +48,10 @@ type ClusterManagerSpec struct {
 	// +kubebuilder:validation:Required
 	// The number of worker node
 	WorkerNum int `json:"workerNum"`
+	// The version of kubernetes
+	// KubernetesVersion string `json:"kubernetesVersion"`
+	// The owner of cluster
+	// Owner string `json:"owner"`
 }
 
 // ProviderAwsSpec defines
@@ -102,13 +106,13 @@ type ClusterManagerStatus struct {
 	Version              string                  `json:"version,omitempty"`
 	Ready                bool                    `json:"ready,omitempty"`
 	ControlPlaneReady    bool                    `json:"controlPlaneReady,omitempty"`
-	AgentReady           bool                    `json:"agentReady,omitempty"`
 	MasterRun            int                     `json:"masterRun,omitempty"`
 	WorkerRun            int                     `json:"workerRun,omitempty"`
 	NodeInfo             []corev1.NodeSystemInfo `json:"nodeInfo,omitempty"`
 	Phase                string                  `json:"phase,omitempty"`
 	ControlPlaneEndpoint string                  `json:"controlPlaneEndpoint,omitempty"`
-	AgentEndpoint        string                  `json:"agentEndpoint,omitempty"`
+	//AgentEndpoint        string                  `json:"agentEndpoint,omitempty"`
+	//AgentReady           bool                    `json:"agentReady,omitempty"`
 }
 type ClusterManagerPhase string
 
@@ -165,9 +169,11 @@ type ClusterManager struct {
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
 	Spec        ClusterManagerSpec   `json:"spec"`
+	Status      ClusterManagerStatus `json:"status,omitempty"`
 	AwsSpec     ProviderAwsSpec      `json:"awsSpec,omitempty"`
 	VsphereSpec ProviderVsphereSpec  `json:"vsphereSpec,omitempty"`
-	Status      ClusterManagerStatus `json:"status,omitempty"`
+	// AwsSpec     claimv1.AwsClaimSpec     `json:"awsSpec,omitempty"`
+	// VsphereSpec claimv1.VsphereClaimSpec `json:"vsphereSpec,omitempty"`
 }
 
 // +kubebuilder:object:root=true

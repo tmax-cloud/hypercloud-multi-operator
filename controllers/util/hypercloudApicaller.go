@@ -23,14 +23,14 @@ func Delete(namespace, cluster string) error {
 	client := &http.Client{Transport: tr}
 	req, err := http.NewRequest("DELETE", url, nil)
 	if err != nil {
-		log.Fatalf("An Error Occured %v", err)
+		log.Fatalf("An Error Occurred %v", err)
 		return err
 	}
 	_, err = client.Do(req)
 
 	// _, err := client.Post(url, "application/json", nil)
 	if err != nil {
-		log.Fatalf("An Error Occured %v", err)
+		log.Fatalf("An Error Occurred %v", err)
 		return err
 	}
 	return nil
@@ -54,7 +54,7 @@ func Insert(clusterManager *clusterv1alpha1.ClusterManager) error {
 	_, err := client.Post(url, "application/json", buff)
 
 	if err != nil {
-		log.Fatalf("An Error Occured %v", err)
+		log.Fatalf("An Error Occurred %v", err)
 		return err
 	}
 	return nil

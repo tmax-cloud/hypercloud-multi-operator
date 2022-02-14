@@ -9,8 +9,22 @@ rules:
 - apiGroups:
   - ""
   resources:
+  - endpoints
+  - services
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - ""
+  resources:
   - namespaces
   - secrets
+  - serviceaccounts
   verbs:
   - create
   - delete
@@ -18,6 +32,18 @@ rules:
   - list
   - patch
   - post
+  - update
+  - watch
+- apiGroups:
+  - cert-manager.io
+  resources:
+  - certificates
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
   - update
   - watch
 - apiGroups:
@@ -58,8 +84,10 @@ rules:
   - clustermanagers/status
   verbs:
   - get
+  - list
   - patch
   - update
+  - watch
 - apiGroups:
   - cluster.tmax.io
   resources:
@@ -106,8 +134,10 @@ rules:
   - machinedeployments/status
   verbs:
   - get
+  - list
   - patch
   - update
+  - watch
 - apiGroups:
   - controlplane.cluster.x-k8s.io
   resources:
@@ -126,26 +156,53 @@ rules:
   - kubeadmcontrolplanes/status
   verbs:
   - get
+  - list
   - patch
   - update
+  - watch
 - apiGroups:
-  - core.kubefed.io
+  - coordination.k8s.io
   resources:
-  - kubefedclusters
-  - kubefedconfigs
+  - leases
   verbs:
   - create
   - delete
   - get
   - list
   - patch
-  - post
+  - update
+  - watch
+- apiGroups:
+  - networking.k8s.io
+  resources:
+  - ingresses
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
   - update
   - watch
 - apiGroups:
   - rbac.authorization.k8s.io
   resources:
   - clusterrolebindings
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - rbac.authorization.k8s.io
+  resources:
+  - clusterrolebindings
+  - clusterroles
+  - rolebindings
+  - roles
   verbs:
   - create
   - delete
@@ -208,5 +265,19 @@ rules:
   - serviceinstances/status
   verbs:
   - get
+  - list
   - patch
   - update
+  - watch
+- apiGroups:
+  - traefik.containo.us
+  resources:
+  - middlewares
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch

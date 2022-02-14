@@ -99,7 +99,7 @@ objects:
       postKubeadmCommands:
       - mkdir -p $HOME/.kube
       - cp /etc/kubernetes/admin.conf $HOME/.kube/config
-      - chown $USER:$USER $HOME/.kube/config
+      - chown $UESR:$USER $HOME/.kube/config
       - kubectl apply -f https://docs.projectcalico.org/manifests/calico.yaml
       - kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/controller-v0.41.0/deploy/static/provider/aws/deploy.yaml
     replicas: ${MasterNum}
@@ -171,7 +171,7 @@ parameters:
   name: Namespace
   required: false
   value: default
-  valueType: string
+  valyeType: string
 - description: Cluster Owner
   displayName: Owner
   name: Owner
