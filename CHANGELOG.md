@@ -1,6 +1,37 @@
 # HyperCloud-Multi-Operator changelog!!
 All notable changes to this project will be documented in this file.
 
+<!-------------------- v5.0.26.4 start -------------------->
+
+## HyperCloud-Multi-Operator_5.0.26.4 (2022. 02. 15. (화) 10:36:53 KST)
+
+### Added
+  - [feat] prometheus를 위한 service 및 endponit 생성 로직 추가 by SISILIA
+  - [feat] argocd 클러스터 등록기능 추가 by SISILIA
+  - [feat] serviceaccount 변경으로 인한 capi를 위한 cluster role 추가 by SISILIA
+
+### Changed
+  - [mod] service 및 endpoint 생성 로직분기 기준을 provider가 아닌 endpoint가 ip address / dns 분기로 변경 by SISILIA
+
+### Fixed
+  - [ims][276626] webhookconfiguration admissionreviewversions bug 수정 by SISILIA
+
+### CRD yaml
+
+### Etc
+  - [etc] code refactoring by SISILIA
+  - [etc] remove temp files by SISILIA
+  - [etc] fix merge confict by SISILIA
+  - [etc] merge shinhan2 to main by SISILIA
+  - [etc] update git ignore by SISILIA
+  - [etc] 불필요한 주석 제거 by SISILIA
+  - [etc] CRD version v1beta1으로 변경 by SISILIA
+  - [etc] webhook configuration v1 sideEffects 버그 수정 by SISILIA
+  - [etc] webhook configuration v1 버그 수정 by SISILIA
+  - [etc] 오타 수정 by SISILIA
+
+<!--------------------- v5.0.26.4 end --------------------->
+
 <!-------------------- v5.0.26.2 start -------------------->
 
 ## HyperCloud-Multi-Operator_5.0.26.2 (2022. 02. 04. (금) 21:05:50 KST)
