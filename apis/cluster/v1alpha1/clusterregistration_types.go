@@ -1,6 +1,4 @@
 /*
-
-
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
@@ -19,6 +17,7 @@ package v1alpha1
 import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 )
 
 // ClusterRegistrationSpec defines the desired state of ClusterRegistration
@@ -35,16 +34,16 @@ type ClusterRegistrationSpec struct {
 
 // ClusterRegistrationStatus defines the observed state of ClusterRegistration
 type ClusterRegistrationStatus struct {
-	Provider  string                  `json:"provider,omitempty"`
-	Version   string                  `json:"version,omitempty"`
-	Ready     bool                    `json:"ready,omitempty"`
-	MasterNum int                     `json:"masterNum,omitempty"`
-	MasterRun int                     `json:"masterRun,omitempty"`
-	WorkerNum int                     `json:"workerNum,omitempty"`
-	WorkerRun int                     `json:"workerRun,omitempty"`
-	NodeInfo  []corev1.NodeSystemInfo `json:"nodeInfo,omitempty"`
-	Phase     string                  `json:"phase,omitempty"`
-	Reason    string                  `json:"reason,omitempty"`
+	Provider  string                    `json:"provider,omitempty"`
+	Version   string                    `json:"version,omitempty"`
+	Ready     bool                      `json:"ready,omitempty"`
+	MasterNum int                       `json:"masterNum,omitempty"`
+	MasterRun int                       `json:"masterRun,omitempty"`
+	WorkerNum int                       `json:"workerNum,omitempty"`
+	WorkerRun int                       `json:"workerRun,omitempty"`
+	NodeInfo  []corev1.NodeSystemInfo   `json:"nodeInfo,omitempty"`
+	Phase     ClusterRegistrationPhase  `json:"phase,omitempty"`
+	Reason    ClusterRegistrationReason `json:"reason,omitempty"`
 }
 
 type ClusterRegistrationPhase string
@@ -86,11 +85,11 @@ const (
 )
 
 func (c *ClusterRegistrationStatus) SetTypedPhase(p ClusterRegistrationPhase) {
-	c.Phase = string(p)
+	c.Phase = p
 }
 
 func (c *ClusterRegistrationStatus) SetTypedReason(p ClusterRegistrationReason) {
-	c.Reason = string(p)
+	c.Reason = p
 }
 
 // +kubebuilder:object:root=true
@@ -118,4 +117,11 @@ type ClusterRegistrationList struct {
 
 func init() {
 	SchemeBuilder.Register(&ClusterRegistration{}, &ClusterRegistrationList{})
+}
+
+func (c *ClusterRegistration) GetNamespacedName() types.NamespacedName {
+	return types.NamespacedName{
+		Name:      c.Name,
+		Namespace: c.Namespace,
+	}
 }

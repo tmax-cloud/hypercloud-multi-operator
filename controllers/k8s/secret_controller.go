@@ -1,6 +1,4 @@
 /*
-
-
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
@@ -19,21 +17,17 @@ package controllers
 import (
 	"context"
 	"strings"
-	"time"
 
 	"github.com/go-logr/logr"
 	clusterv1alpha1 "github.com/tmax-cloud/hypercloud-multi-operator/apis/cluster/v1alpha1"
 	"github.com/tmax-cloud/hypercloud-multi-operator/controllers/util"
 
 	corev1 "k8s.io/api/core/v1"
-	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	kerrors "k8s.io/apimachinery/pkg/util/errors"
-	"k8s.io/client-go/rest"
-	"k8s.io/client-go/tools/clientcmd"
 
 	"sigs.k8s.io/cluster-api/util/patch"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -53,11 +47,6 @@ type SecretReconciler struct {
 	Scheme *runtime.Scheme
 }
 
-const (
-	requeueAfter5Sec  = 5 * time.Second
-	requeueAfter10min = 600 * time.Second
-)
-
 // +kubebuilder:rbac:groups="",resources=secrets;namespaces;serviceaccounts,verbs=create;delete;get;list;patch;post;update;watch;
 
 func (r *SecretReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ ctrl.Result, reterr error) {
@@ -70,9 +59,10 @@ func (r *SecretReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ c
 		Name:      strings.Split(req.NamespacedName.Name, util.KubeconfigSuffix)[0] + util.KubeconfigSuffix,
 		Namespace: req.NamespacedName.Namespace,
 	}
-	if err := r.Get(context.TODO(), secretKey, secret); err != nil {
+	if err := r.Get(context.TODO(), secretKey /* req.NamespacedName */, secret); err != nil {
 		if errors.IsNotFound(err) {
-			log.Info("Secret resource not found. Ignoring since object must be deleted.")
+			log.Info("Secret resource not found. Ignoring since object must be deleted")
+
 			return ctrl.Result{}, nil
 		}
 
@@ -93,13 +83,25 @@ func (r *SecretReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ c
 	}()
 
 	// Add finalizer first if not exist to avoid the race condition between init and delete
-	if !controllerutil.ContainsFinalizer(secret, util.SecretFinalizer) {
-		controllerutil.AddFinalizer(secret, util.SecretFinalizer)
-		return ctrl.Result{}, nil
-	}
+	// if !controllerutil.ContainsFinalizer(secret, clusterv1alpha1.ClusterManagerFinalizer) {
+	// 	controllerutil.AddFinalizer(secret, clusterv1alpha1.ClusterManagerFinalizer)
+	// 	return ctrl.Result{}, nil
+	// }
 
 	// Handle deletion reconciliation loop.
 	if !secret.ObjectMeta.GetDeletionTimestamp().IsZero() {
+		// clm := &clusterv1alpha1.ClusterManager{}
+		// clmKey := types.NamespacedName{
+		// 	Name:      secret.Labels[clusterv1alpha1.LabelKeyClmName],
+		// 	Namespace: secret.Labels[clusterv1alpha1.LabelKeyClmNamespace],
+		// }
+		// if err := r.Get(context.TODO(), clmKey, clm); err != nil {
+		// 	// ...
+		// }
+
+		// if clm.ObjectMeta.GetDeletionTimestamp().IsZero() {
+		// 	return r.reconcileRecreate(context.TODO(), secret)
+		// }
 		return r.reconcileDelete(context.TODO(), secret)
 	}
 
@@ -131,8 +133,14 @@ func (r *SecretReconciler) reconcile(ctx context.Context, secret *corev1.Secret)
 }
 
 func (r *SecretReconciler) reconcileDelete(ctx context.Context, secret *corev1.Secret) (reconcile.Result, error) {
-	log := r.Log.WithValues("secret", types.NamespacedName{Name: secret.GetName(), Namespace: secret.GetNamespace()})
-	log.Info("Start to reconcile reconcileDelete... ")
+	log := r.Log.WithValues(
+		"secret",
+		types.NamespacedName{
+			Name:      secret.Name,
+			Namespace: secret.Namespace,
+		},
+	)
+	log.Info("Start to reconcile delete")
 
 	remoteClientset, err := util.GetRemoteK8sClient(secret)
 	if err != nil {
@@ -159,8 +167,8 @@ func (r *SecretReconciler) reconcileDelete(ctx context.Context, secret *corev1.S
 				log.Error(err, "Failed to get ServiceAccount ["+targetSa+"] from remote cluster")
 				return ctrl.Result{}, err
 			}
-
 		} else {
+			log.Info("Start to delete ServiceAccount [" + targetSa + "] from remote cluster")
 			if err :=
 				remoteClientset.
 					CoreV1().
@@ -170,9 +178,10 @@ func (r *SecretReconciler) reconcileDelete(ctx context.Context, secret *corev1.S
 						targetSa,
 						metav1.DeleteOptions{},
 					); err != nil {
-				log.Error(err, "Cannot delete ServiceAccount ["+targetSa+"]")
+				log.Error(err, "Cannot delete ServiceAccount ["+targetSa+"] from remote cluster")
 				return ctrl.Result{}, err
 			}
+			log.Info("Delete ServiceAccount [" + targetSa + "] from remote cluster successfully")
 		}
 	}
 
@@ -198,6 +207,7 @@ func (r *SecretReconciler) reconcileDelete(ctx context.Context, secret *corev1.S
 				return ctrl.Result{}, err
 			}
 		} else {
+			log.Info("Start to delete clusterrolebinding [" + targetCrb + "] from remote cluster")
 			if err :=
 				remoteClientset.
 					RbacV1().
@@ -207,9 +217,10 @@ func (r *SecretReconciler) reconcileDelete(ctx context.Context, secret *corev1.S
 						targetCrb,
 						metav1.DeleteOptions{},
 					); err != nil {
-				log.Error(err, "Cannot delete ClusterRoleBinding ["+targetCrb+"]")
+				log.Error(err, "Cannot delete ClusterRoleBinding ["+targetCrb+"] from remote cluster")
 				return ctrl.Result{}, err
 			}
+			log.Info("Delete ClusterRoleBinding [" + targetCrb + "] from remote cluster successfully")
 		}
 	}
 
@@ -235,6 +246,7 @@ func (r *SecretReconciler) reconcileDelete(ctx context.Context, secret *corev1.S
 				return ctrl.Result{}, err
 			}
 		} else {
+			log.Info("Start to delete ClusterRole [" + targetCr + "] from remote cluster")
 			if err :=
 				remoteClientset.
 					RbacV1().
@@ -244,9 +256,10 @@ func (r *SecretReconciler) reconcileDelete(ctx context.Context, secret *corev1.S
 						targetCr,
 						metav1.DeleteOptions{},
 					); err != nil {
-				log.Error(err, "Cannot delete ClusterRole ["+targetCr+"]")
+				log.Error(err, "Cannot delete ClusterRole ["+targetCr+"] from remote cluster")
 				return ctrl.Result{}, err
 			}
+			log.Info("Delete ClusterRole [" + targetCr + "] from remote cluster successfully")
 		}
 	}
 
@@ -257,39 +270,44 @@ func (r *SecretReconciler) reconcileDelete(ctx context.Context, secret *corev1.S
 	}
 	if err := r.Get(context.TODO(), secretKey, argoClusterSecret); err != nil {
 		if errors.IsNotFound(err) {
-			log.Info("Cannot found Secret [" + argoClusterSecret.GetName() + "] from remote cluster. Maybe already deleted")
+			log.Info("Cannot found Secret [" + argoClusterSecret.Name + "]. Maybe already deleted")
 		} else {
-			log.Error(err, "Failed to get Secret ["+argoClusterSecret.GetName()+"] from remote cluster")
+			log.Error(err, "Failed to get Secret ["+argoClusterSecret.Name+"]")
 			return ctrl.Result{}, err
 		}
 	} else {
+		log.Info("Start to delete Secret [" + argoClusterSecret.Name + "]")
 		if err := r.Delete(context.TODO(), argoClusterSecret); err != nil {
-			log.Error(err, "Cannot delete Secret ["+argoClusterSecret.GetName()+"]")
+			log.Error(err, "Cannot delete Secret ["+argoClusterSecret.Name+"]")
 		}
+		log.Info("Delete Secret [" + argoClusterSecret.Name + "] successfully")
 	}
 	// 클러스터를 사용중이던 사용자의 crb도 지워야되나.. db에서 읽어서 지워야 하는데?
 
-	controllerutil.RemoveFinalizer(secret, util.SecretFinalizer)
-
+	controllerutil.RemoveFinalizer(secret, clusterv1alpha1.ClusterManagerFinalizer)
+	// controllerutil.RemoveFinalizer(argoClusterSecret, clusterv1alpha1.ClusterManagerFinalizer)
 	return ctrl.Result{}, nil
 }
 
 func (r *SecretReconciler) SetupWithManager(mgr ctrl.Manager) error {
-
 	controller, err := ctrl.NewControllerManagedBy(mgr).
 		For(&corev1.Secret{}).
 		WithEventFilter(
 			predicate.Funcs{
 				CreateFunc: func(e event.CreateEvent) bool {
+					// secret := e.Object.(*corev1.Secret).DeepCopy()
+					// if secret.Labels[util.LabelKeyClmSecretType] == util.ClmSecretTypeArgo {
+					// 	return true
+					// }
 					return false
 				},
 				UpdateFunc: func(e event.UpdateEvent) bool {
 					oldSecret := e.ObjectOld.(*corev1.Secret).DeepCopy()
 					newSecret := e.ObjectNew.(*corev1.Secret).DeepCopy()
-					isTarget := strings.Contains(oldSecret.GetName(), util.KubeconfigSuffix)
+					isTarget := strings.Contains(oldSecret.Name, util.KubeconfigSuffix)
 					isDelete := oldSecret.GetDeletionTimestamp().IsZero() && !newSecret.GetDeletionTimestamp().IsZero()
-					isFinalized := !controllerutil.ContainsFinalizer(oldSecret, util.SecretFinalizer) &&
-						controllerutil.ContainsFinalizer(newSecret, util.SecretFinalizer)
+					isFinalized := !controllerutil.ContainsFinalizer(oldSecret, clusterv1alpha1.ClusterManagerFinalizer) &&
+						controllerutil.ContainsFinalizer(newSecret, clusterv1alpha1.ClusterManagerFinalizer)
 
 					if isTarget && (isDelete || isFinalized) {
 						return true
@@ -326,7 +344,6 @@ func (r *SecretReconciler) SetupWithManager(mgr ctrl.Manager) error {
 				return false
 			},
 			DeleteFunc: func(e event.DeleteEvent) bool {
-
 				return false
 			},
 			GenericFunc: func(e event.GenericEvent) bool {
@@ -334,37 +351,4 @@ func (r *SecretReconciler) SetupWithManager(mgr ctrl.Manager) error {
 			},
 		},
 	)
-}
-
-func getKubeConfig(secret corev1.Secret) (*rest.Config, error) {
-	if value, ok := secret.Data["value"]; ok {
-		if clientConfig, err := clientcmd.NewClientConfigFromBytes(value); err == nil {
-			if restConfig, err := clientConfig.ClientConfig(); err == nil {
-				return restConfig, nil
-			}
-		}
-	}
-	return nil, errors.NewBadRequest("getClientConfig Error")
-}
-
-func createClusterRole(name string, targetGroup []string, verbList []string) *rbacv1.ClusterRole {
-	clusterRole := &rbacv1.ClusterRole{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: name,
-		},
-		Rules: []rbacv1.PolicyRule{
-			{
-				APIGroups: targetGroup,
-				Resources: []string{rbacv1.ResourceAll},
-				Verbs:     verbList,
-			},
-			{
-				APIGroups: []string{"apiregistration.k8s.io"},
-				Resources: []string{rbacv1.ResourceAll},
-				Verbs:     []string{"get", "list", "watch"},
-			},
-		},
-	}
-
-	return clusterRole
 }

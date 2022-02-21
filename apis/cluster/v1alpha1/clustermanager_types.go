@@ -1,6 +1,4 @@
 /*
-
-
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
@@ -19,6 +17,7 @@ package v1alpha1
 import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 )
 
 // type NodeInfo struct {
@@ -111,10 +110,16 @@ type ClusterManagerStatus struct {
 	NodeInfo             []corev1.NodeSystemInfo `json:"nodeInfo,omitempty"`
 	Phase                string                  `json:"phase,omitempty"`
 	ControlPlaneEndpoint string                  `json:"controlPlaneEndpoint,omitempty"`
+	ArgoReady            bool                    `json:"argoReady,omitempty"`
+	TraefikReady         bool                    `json:"traefikReady,omitempty"`
+	PrometheusReady      bool                    `json:"prometheusReady,omitempty"`
 	//AgentEndpoint        string                  `json:"agentEndpoint,omitempty"`
 	//AgentReady           bool                    `json:"agentReady,omitempty"`
 }
+
 type ClusterManagerPhase string
+
+//type ClusterType string
 
 const (
 	// ClusterManagerPhasePending is the first state a Cluster is assigned by
@@ -146,6 +151,28 @@ const (
 
 	// ClusterManagerPhaseUnknown is returned if the Cluster state cannot be determined.
 	ClusterManagerPhaseUnknown = ClusterManagerPhase("Unknown")
+
+	ClusterManagerFinalizer = "clustermanager.cluster.tmax.io/finalizer"
+
+	// ClusterTypeCreated    = ClusterType("created")
+	// ClusterTypeRegistered = ClusterType("registered")
+	ClusterTypeCreated    = "created"
+	ClusterTypeRegistered = "registered"
+
+	AnnotationKeyClmApiserver = "clustermanager.cluster.tmax.io/apiserver"
+	AnnotationKeyClmGateway   = "clustermanager.cluster.tmax.io/gateway"
+	AnnotationKeyClmSuffix    = "clustermanager.cluster.tmax.io/suffix"
+	AnnotationKeyClmDomain    = "clustermanager.cluster.tmax.io/domain"
+
+	LabelKeyClmName        = "clustermanager.cluster.tmax.io/clm-name"
+	LabelKeyClmNamespace   = "clustermanager.cluster.tmax.io/clm-namespace"
+	LabelKeyClcName        = "clustermanager.cluster.tmax.io/clc-name"
+	LabelKeyClrName        = "clustermanager.cluster.tmax.io/clr-name"
+	LabelKeyClmClusterType = "clustermanager.cluster.tmax.io/cluster-type"
+
+	// LabelKeyClmClusterTypeDefunct = "type"
+	// LabelKeyClcNameDefunct = "parent"
+	// LabelKeyClrNameDefunct = "parent"
 )
 
 func (c *ClusterManagerStatus) SetTypedPhase(p ClusterManagerPhase) {
@@ -186,4 +213,11 @@ type ClusterManagerList struct {
 
 func init() {
 	SchemeBuilder.Register(&ClusterManager{}, &ClusterManagerList{})
+}
+
+func (c *ClusterManager) GetNamespacedName() types.NamespacedName {
+	return types.NamespacedName{
+		Name:      c.Name,
+		Namespace: c.Namespace,
+	}
 }

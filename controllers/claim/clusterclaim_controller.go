@@ -1,6 +1,4 @@
 /*
-
-
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
@@ -21,12 +19,12 @@ import (
 
 	"github.com/go-logr/logr"
 	claimv1alpha1 "github.com/tmax-cloud/hypercloud-multi-operator/apis/claim/v1alpha1"
-
 	clusterv1alpha1 "github.com/tmax-cloud/hypercloud-multi-operator/apis/cluster/v1alpha1"
-	"github.com/tmax-cloud/hypercloud-multi-operator/controllers/util"
+
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/event"
@@ -67,7 +65,7 @@ func (r *ClusterClaimReconciler) Reconcile(ctx context.Context, req ctrl.Request
 
 	if err := r.Get(context.TODO(), req.NamespacedName, clusterClaim); err != nil {
 		if errors.IsNotFound(err) {
-			log.Info("ClusterClaim resource not found. Ignoring since object must be deleted.")
+			log.Info("ClusterClaim resource not found. Ignoring since object must be deleted")
 			return ctrl.Result{}, nil
 		}
 		log.Error(err, "Failed to get ClusterClaim")
@@ -104,10 +102,13 @@ func (r *ClusterClaimReconciler) requeueClusterClaimsForClusterManager(o client.
 
 	//get clusterManager
 	cc := &claimv1alpha1.ClusterClaim{}
-	key := types.NamespacedName{Namespace: clm.Namespace, Name: clm.Labels[util.LabelKeyClmParent]}
+	key := types.NamespacedName{
+		Name:      clm.Labels[clusterv1alpha1.LabelKeyClcName],
+		Namespace: clm.Namespace,
+	}
 	if err := r.Get(context.TODO(), key, cc); err != nil {
 		if errors.IsNotFound(err) {
-			log.Info("ClusterClaim resource not found. Ignoring since object must be deleted.")
+			log.Info("ClusterClaim resource not found. Ignoring since object must be deleted")
 			return nil
 		}
 		log.Error(err, "Failed to get ClusterClaim")
@@ -134,19 +135,15 @@ func (r *ClusterClaimReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		WithEventFilter(
 			predicate.Funcs{
 				CreateFunc: func(e event.CreateEvent) bool {
-
 					return true
 				},
 				UpdateFunc: func(e event.UpdateEvent) bool {
-
 					return true
 				},
 				DeleteFunc: func(e event.DeleteEvent) bool {
-
 					return false
 				},
 				GenericFunc: func(e event.GenericEvent) bool {
-
 					return false
 				},
 			},
@@ -169,7 +166,8 @@ func (r *ClusterClaimReconciler) SetupWithManager(mgr ctrl.Manager) error {
 			},
 			DeleteFunc: func(e event.DeleteEvent) bool {
 				clm := e.Object.(*clusterv1alpha1.ClusterManager)
-				if val, ok := clm.Labels[util.LabelKeyClmClusterType]; ok && val == util.ClusterTypeCreated {
+				if val, ok := clm.Labels[clusterv1alpha1.LabelKeyClmClusterType]; ok &&
+					val == clusterv1alpha1.ClusterTypeCreated {
 					return true
 				}
 				return false

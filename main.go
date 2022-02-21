@@ -1,6 +1,4 @@
 /*
-
-
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
@@ -20,29 +18,25 @@ import (
 	"flag"
 	"os"
 
-	"k8s.io/apimachinery/pkg/runtime"
-	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
-	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
-	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
-	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/log/zap"
-
+	// +kubebuilder:scaffold:imports
+	certmanagerv1 "github.com/jetstack/cert-manager/pkg/apis/certmanager/v1"
+	servicecatalogv1beta1 "github.com/kubernetes-sigs/service-catalog/pkg/apis/servicecatalog/v1beta1"
 	claimv1alpha1 "github.com/tmax-cloud/hypercloud-multi-operator/apis/claim/v1alpha1"
 	clusterv1alpha1 "github.com/tmax-cloud/hypercloud-multi-operator/apis/cluster/v1alpha1"
 	claimcontroller "github.com/tmax-cloud/hypercloud-multi-operator/controllers/claim"
 	clustercontroller "github.com/tmax-cloud/hypercloud-multi-operator/controllers/cluster"
-
-	// +kubebuilder:scaffold:imports
-	certmanagerv1 "github.com/jetstack/cert-manager/pkg/apis/certmanager/v1"
-	servicecatalogv1beta1 "github.com/kubernetes-sigs/service-catalog/pkg/apis/servicecatalog/v1beta1"
-	traefikv2 "github.com/traefik/traefik/v2/pkg/provider/kubernetes/crd/traefik/v1alpha1"
-	clusterv1alpha3 "sigs.k8s.io/cluster-api/api/v1alpha3"
-
-	typesv1beta1 "github.com/tmax-cloud/hypercloud-multi-operator/apis/external/v1beta1"
-
-	controlplanev1 "sigs.k8s.io/cluster-api/controlplane/kubeadm/api/v1alpha3"
-
 	k8scontroller "github.com/tmax-cloud/hypercloud-multi-operator/controllers/k8s"
+	traefikv2 "github.com/traefik/traefik/v2/pkg/provider/kubernetes/crd/traefik/v1alpha1"
+
+	"k8s.io/apimachinery/pkg/runtime"
+	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
+	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
+	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
+
+	clusterv1alpha3 "sigs.k8s.io/cluster-api/api/v1alpha3"
+	controlplanev1 "sigs.k8s.io/cluster-api/controlplane/kubeadm/api/v1alpha3"
+	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 )
 
 var (
@@ -55,7 +49,6 @@ func init() {
 	utilruntime.Must(claimv1alpha1.AddToScheme(scheme))
 	utilruntime.Must(clusterv1alpha1.AddToScheme(scheme))
 	utilruntime.Must(clusterv1alpha3.AddToScheme(scheme))
-	utilruntime.Must(typesv1beta1.AddToScheme(scheme))
 	utilruntime.Must(controlplanev1.AddToScheme(scheme))
 	utilruntime.Must(servicecatalogv1beta1.AddToScheme(scheme))
 	utilruntime.Must(certmanagerv1.AddToScheme((scheme)))
@@ -133,14 +126,6 @@ func main() {
 	// 	Scheme: mgr.GetScheme(),
 	// }).SetupWithManager(mgr); err != nil {
 	// 	setupLog.Error(err, "unable to create controller", "controller", "serviceController")
-	// 	os.Exit(1)
-	// }
-	// if err = (&federatedServiceController.FederatedServiceReconciler{
-	// 	Client: mgr.GetClient(),
-	// 	Log:    ctrl.Log.WithName("controller").WithName("fed/federatedserviceController"),
-	// 	Scheme: mgr.GetScheme(),
-	// }).SetupWithManager(mgr); err != nil {
-	// 	setupLog.Error(err, "unable to create controller", "controller", "fed/federatedserviceController")
 	// 	os.Exit(1)
 	// }
 	if err = (&clustercontroller.ClusterRegistrationReconciler{

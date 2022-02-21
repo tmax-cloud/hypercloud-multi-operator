@@ -1,6 +1,4 @@
 /*
-
-
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
@@ -18,7 +16,6 @@ package controllers
 
 import (
 	"context"
-	"strings"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -29,6 +26,7 @@ import (
 	traefikv2 "github.com/traefik/traefik/v2/pkg/provider/kubernetes/crd/traefik/v1alpha1"
 
 	corev1 "k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -50,12 +48,10 @@ import (
 )
 
 const (
-	requeueAfter10Sec  = 10 * time.Second
-	requeueAfter20Sec  = 20 * time.Second
-	requeueAfter30Sec  = 30 * time.Second
-	requeueAfter60Sec  = 60 * time.Second
-	requeueAfter120Sec = 120 * time.Second
-	requeueAfter10min  = 600 * time.Second
+	requeueAfter10Sec = 10 * time.Second
+	requeueAfter20Sec = 20 * time.Second
+	requeueAfter30Sec = 30 * time.Second
+	requeueAfter1Min  = 1 * time.Minute
 )
 
 type ClusterParameter struct {
@@ -123,7 +119,7 @@ func (r *ClusterManagerReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	clusterManager := &clusterv1alpha1.ClusterManager{}
 	if err := r.Get(context.TODO(), req.NamespacedName, clusterManager); err != nil {
 		if errors.IsNotFound(err) {
-			log.Info("ClusterManager resource not found. Ignoring since object must be deleted.")
+			log.Info("ClusterManager resource not found. Ignoring since object must be deleted")
 			return ctrl.Result{}, nil
 		}
 		log.Error(err, "Failed to get ClusterManager")
@@ -148,28 +144,27 @@ func (r *ClusterManagerReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	}()
 
 	// Add finalizer first if not exist to avoid the race condition between init and delete
-	if !controllerutil.ContainsFinalizer(clusterManager, util.ClusterManagerFinalizer) {
-		controllerutil.AddFinalizer(clusterManager, util.ClusterManagerFinalizer)
+	if !controllerutil.ContainsFinalizer(clusterManager, clusterv1alpha1.ClusterManagerFinalizer) {
+		controllerutil.AddFinalizer(clusterManager, clusterv1alpha1.ClusterManagerFinalizer)
 		return ctrl.Result{}, nil
 	}
 
 	// Handle normal reconciliation loop.
-	if clusterManager.Labels[util.LabelKeyClmClusterType] == util.ClusterTypeRegistered {
+	if clusterManager.Labels[clusterv1alpha1.LabelKeyClmClusterType] == clusterv1alpha1.ClusterTypeRegistered {
 		// Handle deletion reconciliation loop.
 		if !clusterManager.ObjectMeta.DeletionTimestamp.IsZero() {
 			clusterManager.Status.Ready = false
 			return r.reconcileDeleteForRegisteredClusterManager(context.TODO(), clusterManager)
 		}
 		return r.reconcileForRegisteredClusterManager(context.TODO(), clusterManager)
+	} else {
+		// Handle deletion reconciliation loop.
+		if !clusterManager.ObjectMeta.DeletionTimestamp.IsZero() {
+			clusterManager.Status.Ready = false
+			return r.reconcileDelete(context.TODO(), clusterManager)
+		}
+		return r.reconcile(context.TODO(), clusterManager)
 	}
-
-	// Handle deletion reconciliation loop.
-	if !clusterManager.ObjectMeta.DeletionTimestamp.IsZero() {
-		clusterManager.Status.Ready = false
-		return r.reconcileDelete(context.TODO(), clusterManager)
-	}
-
-	return r.reconcile(context.TODO(), clusterManager)
 }
 
 // reconcile handles cluster reconciliation.
@@ -177,6 +172,7 @@ func (r *ClusterManagerReconciler) reconcileForRegisteredClusterManager(ctx cont
 	phases := []func(context.Context, *clusterv1alpha1.ClusterManager) (ctrl.Result, error){
 		r.UpdateClusterManagerStatus,
 		r.CreateTraefikResources,
+		r.CreateArgocdClusterSecret,
 		r.UpdatePrometheusService,
 		// r.DeployAndUpdateAgentEndpoint,
 	}
@@ -198,21 +194,22 @@ func (r *ClusterManagerReconciler) reconcileForRegisteredClusterManager(ctx cont
 }
 
 func (r *ClusterManagerReconciler) reconcileDeleteForRegisteredClusterManager(ctx context.Context, clusterManager *clusterv1alpha1.ClusterManager) (reconcile.Result, error) {
-	log := r.Log.WithValues("clustermanager", types.NamespacedName{Name: clusterManager.Name, Namespace: clusterManager.Namespace})
-	log.Info("Start to reconcileDeleteForRegisteredClusterManager reconcile for [" + clusterManager.Name + "]")
+	log := r.Log.WithValues("clustermanager", clusterManager.GetNamespacedName())
+	log.Info("Start to reconcile delete for registered ClusterManager")
 
-	kubeconfigSecret := &corev1.Secret{}
-	kubeconfigSecretKey := types.NamespacedName{
+	if err := util.Delete(clusterManager.Namespace, clusterManager.Name); err != nil {
+		log.Error(err, "Failed to delete cluster info from cluster_member table")
+		return ctrl.Result{}, err
+	}
+
+	key := types.NamespacedName{
 		Name:      clusterManager.Name + util.KubeconfigSuffix,
 		Namespace: clusterManager.Namespace,
 	}
-	if err := r.Get(context.TODO(), kubeconfigSecretKey, kubeconfigSecret); err != nil {
+	kubeconfigSecret := &corev1.Secret{}
+	if err := r.Get(context.TODO(), key, kubeconfigSecret); err != nil {
 		if errors.IsNotFound(err) {
-			log.Info("Kubeconfig is successfully deleted.. Delete clustermanager finalizer")
-			if err := util.Delete(clusterManager.Namespace, clusterManager.Name); err != nil {
-				log.Error(err, "Failed to delete cluster info from cluster_member table")
-				return ctrl.Result{}, err
-			}
+			log.Info("Kubeconfig is already deleted")
 		} else {
 			log.Error(err, "Failed to get kubeconfig secret")
 			return ctrl.Result{}, err
@@ -225,18 +222,16 @@ func (r *ClusterManagerReconciler) reconcileDeleteForRegisteredClusterManager(ct
 		}
 	}
 
-	traefikCertificate := &certmanagerv1.Certificate{}
-	certificateKey := types.NamespacedName{
-		//Name:      clusterManager.Name + "-certificate-" + clusterManager.Annotations[util.AnnotationKeyClmSuffix],
+	key = types.NamespacedName{
 		Name:      clusterManager.Name + "-certificate",
 		Namespace: clusterManager.Namespace,
 	}
-	if err := r.Get(context.TODO(), certificateKey, traefikCertificate); err != nil {
+	traefikCertificate := &certmanagerv1.Certificate{}
+	if err := r.Get(context.TODO(), key, traefikCertificate); err != nil {
 		if errors.IsNotFound(err) {
-			log.Info("Certificate is already deleted.")
-			//if err := util.Delete(clusterManager.Namespace, clusterManager.)
+			log.Info("Certificate is already deleted")
 		} else {
-			log.Error(err, "Failed to get Certificate information")
+			log.Error(err, "Failed to get Certificate")
 			return ctrl.Result{}, err
 		}
 	} else {
@@ -246,18 +241,16 @@ func (r *ClusterManagerReconciler) reconcileDeleteForRegisteredClusterManager(ct
 		}
 	}
 
-	traefikCertSecret := &corev1.Secret{}
-	certSecretKey := types.NamespacedName{
-		//Name:      clusterManager.Name + "-certificate-" + clusterManager.Annotations[util.AnnotationKeyClmSuffix],
+	key = types.NamespacedName{
 		Name:      clusterManager.Name + "-service-cert",
 		Namespace: clusterManager.Namespace,
 	}
-	if err := r.Get(context.TODO(), certSecretKey, traefikCertSecret); err != nil {
+	traefikCertSecret := &corev1.Secret{}
+	if err := r.Get(context.TODO(), key, traefikCertSecret); err != nil {
 		if errors.IsNotFound(err) {
-			log.Info("Cert-Secret is already deleted.")
-			//if err := util.Delete(clusterManager.Namespace, clusterManager.)
+			log.Info("Cert-Secret is already deleted")
 		} else {
-			log.Error(err, "Failed to get Cert-Secret information")
+			log.Error(err, "Failed to get Cert-Secret")
 			return ctrl.Result{}, err
 		}
 	} else {
@@ -267,18 +260,16 @@ func (r *ClusterManagerReconciler) reconcileDeleteForRegisteredClusterManager(ct
 		}
 	}
 
-	traefikIngress := &networkingv1.Ingress{}
-	ingressKey := types.NamespacedName{
-		//Name:      clusterManager.Name + "-certificate-" + clusterManager.Annotations[util.AnnotationKeyClmSuffix],
+	key = types.NamespacedName{
 		Name:      clusterManager.Name + "-ingress",
 		Namespace: clusterManager.Namespace,
 	}
-	if err := r.Get(context.TODO(), ingressKey, traefikIngress); err != nil {
+	traefikIngress := &networkingv1.Ingress{}
+	if err := r.Get(context.TODO(), key, traefikIngress); err != nil {
 		if errors.IsNotFound(err) {
-			log.Info("Ingress is already deleted.")
-			//if err := util.Delete(clusterManager.Namespace, clusterManager.)
+			log.Info("Ingress is already deleted")
 		} else {
-			log.Error(err, "Failed to get Certificate information")
+			log.Error(err, "Failed to get Certificate")
 			return ctrl.Result{}, err
 		}
 	} else {
@@ -288,18 +279,16 @@ func (r *ClusterManagerReconciler) reconcileDeleteForRegisteredClusterManager(ct
 		}
 	}
 
-	traefikService := &corev1.Service{}
-	serviceKey := types.NamespacedName{
-		//Name:      clusterManager.Name + "-service-" + clusterManager.Annotations[util.AnnotationKeyClmSuffix],
+	key = types.NamespacedName{
 		Name:      clusterManager.Name + "-service",
 		Namespace: clusterManager.Namespace,
 	}
-	if err := r.Get(context.TODO(), serviceKey, traefikService); err != nil {
+	traefikService := &corev1.Service{}
+	if err := r.Get(context.TODO(), key, traefikService); err != nil {
 		if errors.IsNotFound(err) {
-			log.Info("Service is already deleted.")
-			//if err := util.Delete(clusterManager.Namespace, clusterManager.)
+			log.Info("Service is already deleted")
 		} else {
-			log.Error(err, "Failed to get Service information")
+			log.Error(err, "Failed to get Service")
 			return ctrl.Result{}, err
 		}
 	} else {
@@ -309,17 +298,16 @@ func (r *ClusterManagerReconciler) reconcileDeleteForRegisteredClusterManager(ct
 		}
 	}
 
-	traefikEndpoint := &corev1.Endpoints{}
-	endpointKey := types.NamespacedName{
-		//Name:      clusterManager.Name + "-service-" + clusterManager.Annotations[util.AnnotationKeyClmSuffix],
+	key = types.NamespacedName{
 		Name:      clusterManager.Name + "-service",
 		Namespace: clusterManager.Namespace,
 	}
-	if err := r.Get(context.TODO(), endpointKey, traefikEndpoint); err != nil {
+	traefikEndpoint := &corev1.Endpoints{}
+	if err := r.Get(context.TODO(), key, traefikEndpoint); err != nil {
 		if errors.IsNotFound(err) {
-			log.Info("Endpoint is already deleted.")
+			log.Info("Endpoint is already deleted")
 		} else {
-			log.Error(err, "Failed to get Endpoint information")
+			log.Error(err, "Failed to get Endpoint")
 			return ctrl.Result{}, err
 		}
 	} else {
@@ -329,17 +317,16 @@ func (r *ClusterManagerReconciler) reconcileDeleteForRegisteredClusterManager(ct
 		}
 	}
 
-	traefikMiddleware := &traefikv2.Middleware{}
-	middlewareKey := types.NamespacedName{
-		//Name:      clusterManager.Name + "-prefix-" + clusterManager.Annotations[util.AnnotationKeyClmSuffix],
+	key = types.NamespacedName{
 		Name:      clusterManager.Name + "-prefix",
 		Namespace: clusterManager.Namespace,
 	}
-	if err := r.Get(context.TODO(), middlewareKey, traefikMiddleware); err != nil {
+	traefikMiddleware := &traefikv2.Middleware{}
+	if err := r.Get(context.TODO(), key, traefikMiddleware); err != nil {
 		if errors.IsNotFound(err) {
-			log.Info("Middleware is already deleted.")
+			log.Info("Middleware is already deleted")
 		} else {
-			log.Error(err, "Failed to get Middleware information")
+			log.Error(err, "Failed to get Middleware")
 			return ctrl.Result{}, err
 		}
 	} else {
@@ -349,16 +336,16 @@ func (r *ClusterManagerReconciler) reconcileDeleteForRegisteredClusterManager(ct
 		}
 	}
 
-	prometheusService := &corev1.Service{}
-	prometheusServiceKey := types.NamespacedName{
-		Name:      clusterManager.GetName() + "-prometheus-service",
-		Namespace: clusterManager.GetNamespace(),
+	key = types.NamespacedName{
+		Name:      clusterManager.Name + "-prometheus-service",
+		Namespace: clusterManager.Namespace,
 	}
-	if err := r.Get(context.TODO(), prometheusServiceKey, prometheusService); err != nil {
+	prometheusService := &corev1.Service{}
+	if err := r.Get(context.TODO(), key, prometheusService); err != nil {
 		if errors.IsNotFound(err) {
-			log.Info("Service for prometheus is already deleted.")
+			log.Info("Service for prometheus is already deleted")
 		} else {
-			log.Error(err, "Failed to get Service for prometheus information")
+			log.Error(err, "Failed to get Service for prometheus")
 			return ctrl.Result{}, err
 		}
 	} else {
@@ -368,16 +355,16 @@ func (r *ClusterManagerReconciler) reconcileDeleteForRegisteredClusterManager(ct
 		}
 	}
 
-	prometheusEndpoint := &corev1.Endpoints{}
-	prometheusEndpointKey := types.NamespacedName{
-		Name:      clusterManager.GetName() + "-prometheus-service",
-		Namespace: clusterManager.GetNamespace(),
+	key = types.NamespacedName{
+		Name:      clusterManager.Name + "-prometheus-service",
+		Namespace: clusterManager.Namespace,
 	}
-	if err := r.Get(context.TODO(), prometheusEndpointKey, prometheusEndpoint); err != nil {
+	prometheusEndpoint := &corev1.Endpoints{}
+	if err := r.Get(context.TODO(), key, prometheusEndpoint); err != nil {
 		if errors.IsNotFound(err) {
-			log.Info("Endpoint for prometheus is already deleted.")
+			log.Info("Endpoint for prometheus is already deleted")
 		} else {
-			log.Error(err, "Failed to get Endpoint for prometheus information")
+			log.Error(err, "Failed to get Endpoint for prometheus")
 			return ctrl.Result{}, err
 		}
 	} else {
@@ -387,7 +374,7 @@ func (r *ClusterManagerReconciler) reconcileDeleteForRegisteredClusterManager(ct
 		}
 	}
 
-	controllerutil.RemoveFinalizer(clusterManager, util.ClusterManagerFinalizer)
+	controllerutil.RemoveFinalizer(clusterManager, clusterv1alpha1.ClusterManagerFinalizer)
 	return ctrl.Result{}, nil
 }
 
@@ -400,6 +387,7 @@ func (r *ClusterManagerReconciler) reconcile(ctx context.Context, clusterManager
 		r.DeployAndUpdateAgentEndpoint,
 		r.kubeadmControlPlaneUpdate,
 		r.machineDeploymentUpdate,
+		r.CreateArgocdClusterSecret,
 		r.UpdatePrometheusService,
 	}
 
@@ -414,20 +402,23 @@ func (r *ClusterManagerReconciler) reconcile(ctx context.Context, clusterManager
 		if len(errs) > 0 {
 			continue
 		}
+
 		res = util.LowestNonZeroResult(res, phaseResult)
 	}
+
 	return res, kerrors.NewAggregate(errs)
 }
 
 func (r *ClusterManagerReconciler) reconcileDelete(ctx context.Context, clusterManager *clusterv1alpha1.ClusterManager) (reconcile.Result, error) {
-	log := r.Log.WithValues("clustermanager", types.NamespacedName{Name: clusterManager.Name, Namespace: clusterManager.Namespace})
+	log := r.Log.WithValues("clustermanager", clusterManager.GetNamespacedName())
+	log.Info("Start reconcile phase for delete")
 
-	kubeconfigSecret := &corev1.Secret{}
-	kubeconfigSecretKey := types.NamespacedName{
+	key := types.NamespacedName{
 		Name:      clusterManager.Name + util.KubeconfigSuffix,
 		Namespace: clusterManager.Namespace,
 	}
-	if err := r.Get(context.TODO(), kubeconfigSecretKey, kubeconfigSecret); err != nil {
+	kubeconfigSecret := &corev1.Secret{}
+	if err := r.Get(context.TODO(), key, kubeconfigSecret); err != nil {
 		if errors.IsNotFound(err) {
 			log.Info("Kubeconfig Secret is already deleted. Waiting cluster to be deleted...")
 		} else {
@@ -435,18 +426,16 @@ func (r *ClusterManagerReconciler) reconcileDelete(ctx context.Context, clusterM
 			return ctrl.Result{}, err
 		}
 	} else {
-		traefikCertificate := &certmanagerv1.Certificate{}
-		certificateKey := types.NamespacedName{
-			//Name:      clusterManager.Name + "-certificate-" + clusterManager.Annotations[util.AnnotationKeyClmSuffix],
+		key = types.NamespacedName{
 			Name:      clusterManager.Name + "-certificate",
 			Namespace: clusterManager.Namespace,
 		}
-		if err := r.Get(context.TODO(), certificateKey, traefikCertificate); err != nil {
+		traefikCertificate := &certmanagerv1.Certificate{}
+		if err := r.Get(context.TODO(), key, traefikCertificate); err != nil {
 			if errors.IsNotFound(err) {
-				log.Info("Certificate is already deleted.")
-				//if err := util.Delete(clusterManager.Namespace, clusterManager.)
+				log.Info("Certificate is already deleted")
 			} else {
-				log.Error(err, "Failed to get Certificate information")
+				log.Error(err, "Failed to get Certificate")
 				return ctrl.Result{}, err
 			}
 		} else {
@@ -456,18 +445,16 @@ func (r *ClusterManagerReconciler) reconcileDelete(ctx context.Context, clusterM
 			}
 		}
 
-		traefikCertSecret := &corev1.Secret{}
-		certSecretKey := types.NamespacedName{
-			//Name:      clusterManager.Name + "-certificate-" + clusterManager.Annotations[util.AnnotationKeyClmSuffix],
+		key = types.NamespacedName{
 			Name:      clusterManager.Name + "-service-cert",
 			Namespace: clusterManager.Namespace,
 		}
-		if err := r.Get(context.TODO(), certSecretKey, traefikCertSecret); err != nil {
+		traefikCertSecret := &corev1.Secret{}
+		if err := r.Get(context.TODO(), key, traefikCertSecret); err != nil {
 			if errors.IsNotFound(err) {
-				log.Info("Cert-Secret is already deleted.")
-				//if err := util.Delete(clusterManager.Namespace, clusterManager.)
+				log.Info("Cert-Secret is already deleted")
 			} else {
-				log.Error(err, "Failed to get Cert-Secret information")
+				log.Error(err, "Failed to get Cert-Secret")
 				return ctrl.Result{}, err
 			}
 		} else {
@@ -477,18 +464,16 @@ func (r *ClusterManagerReconciler) reconcileDelete(ctx context.Context, clusterM
 			}
 		}
 
-		traefikIngress := &networkingv1.Ingress{}
-		ingressKey := types.NamespacedName{
-			//Name:      clusterManager.Name + "-certificate-" + clusterManager.Annotations[util.AnnotationKeyClmSuffix],
+		key = types.NamespacedName{
 			Name:      clusterManager.Name + "-ingress",
 			Namespace: clusterManager.Namespace,
 		}
-		if err := r.Get(context.TODO(), ingressKey, traefikIngress); err != nil {
+		traefikIngress := &networkingv1.Ingress{}
+		if err := r.Get(context.TODO(), key, traefikIngress); err != nil {
 			if errors.IsNotFound(err) {
-				log.Info("Ingress is already deleted.")
-				//if err := util.Delete(clusterManager.Namespace, clusterManager.)
+				log.Info("Ingress is already deleted")
 			} else {
-				log.Error(err, "Failed to get Certificate information")
+				log.Error(err, "Failed to get Certificate")
 				return ctrl.Result{}, err
 			}
 		} else {
@@ -498,18 +483,16 @@ func (r *ClusterManagerReconciler) reconcileDelete(ctx context.Context, clusterM
 			}
 		}
 
-		traefikService := &corev1.Service{}
-		serviceKey := types.NamespacedName{
-			//Name:      clusterManager.Name + "-service-" + clusterManager.Annotations[util.AnnotationKeyClmSuffix],
+		key = types.NamespacedName{
 			Name:      clusterManager.Name + "-service",
 			Namespace: clusterManager.Namespace,
 		}
-		if err := r.Get(context.TODO(), serviceKey, traefikService); err != nil {
+		traefikService := &corev1.Service{}
+		if err := r.Get(context.TODO(), key, traefikService); err != nil {
 			if errors.IsNotFound(err) {
-				log.Info("Service is already deleted.")
-				//if err := util.Delete(clusterManager.Namespace, clusterManager.)
+				log.Info("Service is already deleted")
 			} else {
-				log.Error(err, "Failed to get Service information")
+				log.Error(err, "Failed to get Service")
 				return ctrl.Result{}, err
 			}
 		} else {
@@ -519,17 +502,16 @@ func (r *ClusterManagerReconciler) reconcileDelete(ctx context.Context, clusterM
 			}
 		}
 
-		traefikEndpoint := &corev1.Endpoints{}
-		endpointKey := types.NamespacedName{
-			//Name:      clusterManager.Name + "-service-" + clusterManager.Annotations[util.AnnotationKeyClmSuffix],
+		key = types.NamespacedName{
 			Name:      clusterManager.Name + "-service",
 			Namespace: clusterManager.Namespace,
 		}
-		if err := r.Get(context.TODO(), endpointKey, traefikEndpoint); err != nil {
+		traefikEndpoint := &corev1.Endpoints{}
+		if err := r.Get(context.TODO(), key, traefikEndpoint); err != nil {
 			if errors.IsNotFound(err) {
-				log.Info("Endpoint is already deleted.")
+				log.Info("Endpoint is already deleted")
 			} else {
-				log.Error(err, "Failed to get Endpoint information")
+				log.Error(err, "Failed to get Endpoint")
 				return ctrl.Result{}, err
 			}
 		} else {
@@ -539,17 +521,16 @@ func (r *ClusterManagerReconciler) reconcileDelete(ctx context.Context, clusterM
 			}
 		}
 
-		traefikMiddleware := &traefikv2.Middleware{}
-		middlewareKey := types.NamespacedName{
-			//Name:      clusterManager.Name + "-prefix-" + clusterManager.Annotations[util.AnnotationKeyClmSuffix],
+		key = types.NamespacedName{
 			Name:      clusterManager.Name + "-prefix",
 			Namespace: clusterManager.Namespace,
 		}
-		if err := r.Get(context.TODO(), middlewareKey, traefikMiddleware); err != nil {
+		traefikMiddleware := &traefikv2.Middleware{}
+		if err := r.Get(context.TODO(), key, traefikMiddleware); err != nil {
 			if errors.IsNotFound(err) {
-				log.Info("Middleware is already deleted.")
+				log.Info("Middleware is already deleted")
 			} else {
-				log.Error(err, "Failed to get Middleware information")
+				log.Error(err, "Failed to get Middleware")
 				return ctrl.Result{}, err
 			}
 		} else {
@@ -559,16 +540,16 @@ func (r *ClusterManagerReconciler) reconcileDelete(ctx context.Context, clusterM
 			}
 		}
 
-		prometheusService := &corev1.Service{}
-		prometheusServiceKey := types.NamespacedName{
-			Name:      clusterManager.GetName() + "-prometheus-service",
-			Namespace: clusterManager.GetNamespace(),
+		key = types.NamespacedName{
+			Name:      clusterManager.Name + "-prometheus-service",
+			Namespace: clusterManager.Namespace,
 		}
-		if err := r.Get(context.TODO(), prometheusServiceKey, prometheusService); err != nil {
+		prometheusService := &corev1.Service{}
+		if err := r.Get(context.TODO(), key, prometheusService); err != nil {
 			if errors.IsNotFound(err) {
-				log.Info("Service for prometheus is already deleted.")
+				log.Info("Service for prometheus is already deleted")
 			} else {
-				log.Error(err, "Failed to get Service for prometheus information")
+				log.Error(err, "Failed to get Service for prometheus")
 				return ctrl.Result{}, err
 			}
 		} else {
@@ -578,16 +559,16 @@ func (r *ClusterManagerReconciler) reconcileDelete(ctx context.Context, clusterM
 			}
 		}
 
-		prometheusEndpoint := &corev1.Endpoints{}
-		prometheusEndpointKey := types.NamespacedName{
-			Name:      clusterManager.GetName() + "-prometheus-service",
-			Namespace: clusterManager.GetNamespace(),
+		key = types.NamespacedName{
+			Name:      clusterManager.Name + "-prometheus-service",
+			Namespace: clusterManager.Namespace,
 		}
-		if err := r.Get(context.TODO(), prometheusEndpointKey, prometheusEndpoint); err != nil {
+		prometheusEndpoint := &corev1.Endpoints{}
+		if err := r.Get(context.TODO(), key, prometheusEndpoint); err != nil {
 			if errors.IsNotFound(err) {
-				log.Info("Endpoint for prometheus is already deleted.")
+				log.Info("Endpoint for prometheus is already deleted")
 			} else {
-				log.Error(err, "Failed to get Endpoint for prometheus information")
+				log.Error(err, "Failed to get Endpoint for prometheus")
 				return ctrl.Result{}, err
 			}
 		} else {
@@ -596,8 +577,6 @@ func (r *ClusterManagerReconciler) reconcileDelete(ctx context.Context, clusterM
 				return ctrl.Result{}, err
 			}
 		}
-		// todo - shkim
-		// traefik endpoint 삭제 추가 필요?
 
 		remoteClientset, err := util.GetRemoteK8sClient(kubeconfigSecret)
 		if err != nil {
@@ -606,17 +585,17 @@ func (r *ClusterManagerReconciler) reconcileDelete(ctx context.Context, clusterM
 		}
 
 		// secret은 존재하는데.. 실제 instance가 없어서 에러 발생
-		if _, err =
-			remoteClientset.
-				CoreV1().
-				Namespaces().
-				Get(
-					context.TODO(),
-					util.IngressNginxNamespace,
-					metav1.GetOptions{},
-				); err != nil {
+		_, err = remoteClientset.
+			CoreV1().
+			Namespaces().
+			Get(
+				context.TODO(),
+				util.IngressNginxNamespace,
+				metav1.GetOptions{},
+			)
+		if err != nil {
 			if errors.IsNotFound(err) {
-				log.Info("Ingress-nginx namespace is already deleted.")
+				log.Info("Ingress-nginx namespace is already deleted")
 			} else {
 				log.Info(err.Error())
 				log.Info("Failed to get Ingress-nginx loadbalancer service... may be instance was deleted before secret was deleted...")
@@ -624,30 +603,28 @@ func (r *ClusterManagerReconciler) reconcileDelete(ctx context.Context, clusterM
 				// error 처리 필요
 			}
 		} else {
-			if err :=
-				remoteClientset.
-					CoreV1().
-					Namespaces().
-					Delete(
-						context.TODO(),
-						util.IngressNginxNamespace,
-						metav1.DeleteOptions{},
-					); err != nil {
+			err := remoteClientset.
+				CoreV1().
+				Namespaces().
+				Delete(
+					context.TODO(),
+					util.IngressNginxNamespace,
+					metav1.DeleteOptions{},
+				)
+			if err != nil {
 				log.Error(err, "Failed to delete Ingress-nginx namespace")
 				return ctrl.Result{}, err
 			}
 		}
 	}
 
-	// aaa
 	// delete serviceinstance
-	serviceInstance := &servicecatalogv1beta1.ServiceInstance{}
-	serviceInstanceKey := types.NamespacedName{
-		Name:      clusterManager.Name + "-" + clusterManager.Annotations[util.AnnotationKeyClmSuffix],
+	key = types.NamespacedName{
+		Name:      clusterManager.Name + "-" + clusterManager.Annotations[clusterv1alpha1.AnnotationKeyClmSuffix],
 		Namespace: clusterManager.Namespace,
 	}
-
-	if err := r.Get(context.TODO(), serviceInstanceKey, serviceInstance); err != nil {
+	serviceInstance := &servicecatalogv1beta1.ServiceInstance{}
+	if err := r.Get(context.TODO(), key, serviceInstance); err != nil {
 		if errors.IsNotFound(err) {
 			log.Info("ServiceInstance is already deleted. Waiting cluster to be deleted")
 		} else {
@@ -662,32 +639,29 @@ func (r *ClusterManagerReconciler) reconcileDelete(ctx context.Context, clusterM
 	}
 
 	//delete handling
+	key = clusterManager.GetNamespacedName()
 	cluster := &capiv1.Cluster{}
-	clusterKey := types.NamespacedName{
-		Name:      clusterManager.Name,
-		Namespace: clusterManager.Namespace,
-	}
-
-	if err := r.Get(context.TODO(), clusterKey, cluster); err != nil {
+	if err := r.Get(context.TODO(), key, cluster); err != nil {
 		if errors.IsNotFound(err) {
 			if err := util.Delete(clusterManager.Namespace, clusterManager.Name); err != nil {
 				log.Error(err, "Failed to delete cluster info from cluster_member table")
 				return ctrl.Result{}, err
 			}
-			controllerutil.RemoveFinalizer(clusterManager, util.ClusterManagerFinalizer)
+			controllerutil.RemoveFinalizer(clusterManager, clusterv1alpha1.ClusterManagerFinalizer)
 			return ctrl.Result{}, nil
 		} else {
 			log.Error(err, "Failed to get cluster")
 			return ctrl.Result{}, err
 		}
 	}
-	log.Info("Cluster is deleteing... requeue request")
-	return ctrl.Result{RequeueAfter: requeueAfter60Sec}, nil
+
+	log.Info("Cluster is deleteing. Requeue after 1min")
+	return ctrl.Result{RequeueAfter: requeueAfter1Min}, nil
 }
 
 func (r *ClusterManagerReconciler) reconcilePhase(_ context.Context, clusterManager *clusterv1alpha1.ClusterManager) {
 	if clusterManager.Status.Phase == "" {
-		if clusterManager.Labels[util.LabelKeyClmClusterType] == util.ClusterTypeRegistered {
+		if clusterManager.Labels[clusterv1alpha1.LabelKeyClmClusterType] == clusterv1alpha1.ClusterTypeRegistered {
 			clusterManager.Status.SetTypedPhase(clusterv1alpha1.ClusterManagerPhaseRegistering)
 		} else {
 			clusterManager.Status.SetTypedPhase(clusterv1alpha1.ClusterManagerPhaseProvisioning)
@@ -695,7 +669,7 @@ func (r *ClusterManagerReconciler) reconcilePhase(_ context.Context, clusterMana
 	}
 
 	if clusterManager.Status.Ready {
-		if clusterManager.Labels[util.LabelKeyClmClusterType] == util.ClusterTypeRegistered {
+		if clusterManager.Labels[clusterv1alpha1.LabelKeyClmClusterType] == clusterv1alpha1.ClusterTypeRegistered {
 			clusterManager.Status.SetTypedPhase(clusterv1alpha1.ClusterManagerPhaseRegistered)
 		} else {
 			clusterManager.Status.SetTypedPhase(clusterv1alpha1.ClusterManagerPhaseProvisioned)
@@ -707,128 +681,7 @@ func (r *ClusterManagerReconciler) reconcilePhase(_ context.Context, clusterMana
 	}
 }
 
-func (r *ClusterManagerReconciler) requeueClusterManagersForCluster(o client.Object) []ctrl.Request {
-	c := o.DeepCopyObject().(*capiv1.Cluster)
-	log := r.Log.WithValues("objectMapper", "clusterToClusterManager", "namespace", c.Namespace, c.Kind, c.Name)
-	log.Info("Start to requeueClusterManagersForCluster mapping...")
-
-	//get ClusterManager
-	clm := &clusterv1alpha1.ClusterManager{}
-	key := types.NamespacedName{
-		Name:      c.Name,
-		Namespace: c.Namespace,
-	}
-
-	if err := r.Get(context.TODO(), key, clm); err != nil {
-		if errors.IsNotFound(err) {
-			log.Info("ClusterManager resource not found. Ignoring since object must be deleted.")
-			return nil
-		}
-
-		log.Error(err, "Failed to get ClusterManager")
-		return nil
-	}
-
-	//create helper for patch
-	helper, _ := patch.NewHelper(clm, r.Client)
-	defer func() {
-		if err := helper.Patch(context.TODO(), clm); err != nil {
-			log.Error(err, "ClusterManager patch error")
-		}
-	}()
-	// clm.Status.SetTypedPhase(clusterv1alpha1.ClusterManagerPhaseProvisioned)
-	clm.Status.ControlPlaneReady = c.Status.ControlPlaneInitialized
-
-	return nil
-}
-
-func (r *ClusterManagerReconciler) requeueClusterManagersForKubeadmControlPlane(o client.Object) []ctrl.Request {
-	cp := o.DeepCopyObject().(*controlplanev1.KubeadmControlPlane)
-	log := r.Log.WithValues("objectMapper", "kubeadmControlPlaneToClusterManagers", "namespace", cp.Namespace, cp.Kind, cp.Name)
-
-	// Don't handle deleted kubeadmcontrolplane
-	if !cp.ObjectMeta.DeletionTimestamp.IsZero() {
-		log.V(4).Info("kubeadmcontrolplane has a deletion timestamp, skipping mapping.")
-		return nil
-	}
-
-	//get ClusterManager
-	clm := &clusterv1alpha1.ClusterManager{}
-	CpName := cp.Name
-	pivot := strings.Index(cp.Name, "-control-plane")
-	if pivot != -1 {
-		CpName = cp.Name[0:pivot]
-	}
-	key := types.NamespacedName{
-		// Name:      strings.Split(cp.Name, "-control-plane")[0],
-		Name:      CpName,
-		Namespace: cp.Namespace,
-	}
-	if err := r.Get(context.TODO(), key, clm); err != nil {
-		if errors.IsNotFound(err) {
-			log.Info("ClusterManager resource not found. Ignoring since object must be deleted.")
-			return nil
-		}
-
-		log.Error(err, "Failed to get ClusterManager")
-		return nil
-	}
-
-	//create helper for patch
-	helper, _ := patch.NewHelper(clm, r.Client)
-	defer func() {
-		if err := helper.Patch(context.TODO(), clm); err != nil {
-			log.Error(err, "ClusterManager patch error")
-		}
-	}()
-
-	clm.Status.MasterRun = int(cp.Status.Replicas)
-
-	return nil
-}
-
-func (r *ClusterManagerReconciler) requeueClusterManagersForMachineDeployment(o client.Object) []ctrl.Request {
-	md := o.DeepCopyObject().(*capiv1.MachineDeployment)
-	log := r.Log.WithValues("objectMapper", "kubeadmControlPlaneToClusterManagers", "namespace", md.Namespace, "machinedeployment", md.Name)
-
-	// Don't handle deleted machinedeployment
-	if !md.ObjectMeta.DeletionTimestamp.IsZero() {
-		log.V(4).Info("machinedeployment has a deletion timestamp, skipping mapping.")
-		return nil
-	}
-
-	//get ClusterManager
-	clm := &clusterv1alpha1.ClusterManager{}
-	key := types.NamespacedName{
-		//Name:      md.Name[0 : len(md.Name)-len("-md-0")],
-		Name:      strings.Split(md.Name, "-md-0")[0],
-		Namespace: md.Namespace,
-	}
-	if err := r.Get(context.TODO(), key, clm); err != nil {
-		if errors.IsNotFound(err) {
-			log.Info("ClusterManager is deleted deleted.")
-			// return nil
-		}
-
-		log.Error(err, "Failed to get ClusterManager")
-		return nil
-	}
-
-	//create helper for patch
-	helper, _ := patch.NewHelper(clm, r.Client)
-	defer func() {
-		if err := helper.Patch(context.TODO(), clm); err != nil {
-			log.Error(err, "ClusterManager patch error")
-		}
-	}()
-
-	clm.Status.WorkerRun = int(md.Status.Replicas)
-
-	return nil
-}
-
 func (r *ClusterManagerReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	// controller, err := ctrl.NewControllerManagedBy(mgr).
 	controller, err := ctrl.NewControllerManagedBy(mgr).
 		For(&clusterv1alpha1.ClusterManager{}).
 		WithEventFilter(
@@ -842,18 +695,25 @@ func (r *ClusterManagerReconciler) SetupWithManager(mgr ctrl.Manager) error {
 					oldclm := e.ObjectOld.(*clusterv1alpha1.ClusterManager)
 					newclm := e.ObjectNew.(*clusterv1alpha1.ClusterManager)
 
-					isFinalized := !controllerutil.ContainsFinalizer(oldclm, util.ClusterManagerFinalizer) && controllerutil.ContainsFinalizer(newclm, util.ClusterManagerFinalizer)
-					isDelete := oldclm.DeletionTimestamp.IsZero() && !newclm.DeletionTimestamp.IsZero()
-					isControlPlaneEndpointUpdate := oldclm.Status.ControlPlaneEndpoint == "" && newclm.Status.ControlPlaneEndpoint != ""
-					//isAgentEndpointUpdate := oldclm.Status.AgentEndpoint == "" && newclm.Status.AgentEndpoint != ""
-					if isDelete || isControlPlaneEndpointUpdate || isFinalized /*|| isAgentEndpointUpdate*/ {
+					isFinalized := !controllerutil.ContainsFinalizer(oldclm, clusterv1alpha1.ClusterManagerFinalizer) &&
+						controllerutil.ContainsFinalizer(newclm, clusterv1alpha1.ClusterManagerFinalizer)
+					isDelete := oldclm.DeletionTimestamp.IsZero() &&
+						!newclm.DeletionTimestamp.IsZero()
+					isControlPlaneEndpointUpdate := oldclm.Status.ControlPlaneEndpoint == "" &&
+						newclm.Status.ControlPlaneEndpoint != ""
+					isSubResourceNotReady := newclm.Status.ArgoReady == false ||
+						newclm.Status.TraefikReady == false ||
+						newclm.Status.PrometheusReady == false
+					if isDelete || isControlPlaneEndpointUpdate || isFinalized {
 						return true
 					} else {
-						if newclm.Labels[util.LabelKeyClmClusterType] == util.ClusterTypeCreated {
-
+						if newclm.Labels[clusterv1alpha1.LabelKeyClmClusterType] == clusterv1alpha1.ClusterTypeCreated {
 							return true
 						}
-						if newclm.Labels[util.LabelKeyClmClusterType] == util.ClusterTypeRegistered {
+						if newclm.Labels[clusterv1alpha1.LabelKeyClmClusterType] == clusterv1alpha1.ClusterTypeRegistered {
+							if isSubResourceNotReady {
+								return true
+							}
 							return false
 						}
 					}
@@ -923,15 +783,7 @@ func (r *ClusterManagerReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		},
 	)
 
-	// controller.Watch(
-	// 	&source.Kind{Type: &certmanagerv1.Certificate{}},
-	// 	handler.EnqueueRequestsFromMapFunc(r.),
-	// 	predicate.Funcs{
-
-	// 	}
-	// )
-
-	return controller.Watch(
+	controller.Watch(
 		&source.Kind{Type: &capiv1.MachineDeployment{}},
 		handler.EnqueueRequestsFromMapFunc(r.requeueClusterManagersForMachineDeployment),
 		predicate.Funcs{
@@ -948,6 +800,181 @@ func (r *ClusterManagerReconciler) SetupWithManager(mgr ctrl.Manager) error {
 				return true
 			},
 			DeleteFunc: func(e event.DeleteEvent) bool {
+				return false
+			},
+			GenericFunc: func(e event.GenericEvent) bool {
+				return false
+			},
+		},
+	)
+
+	subResources := []client.Object{
+		&certmanagerv1.Certificate{},
+		&networkingv1.Ingress{},
+		&v1.Service{},
+		&v1.Endpoints{},
+		&traefikv2.Middleware{},
+	}
+	for _, resource := range subResources {
+		controller.Watch(
+			&source.Kind{Type: resource},
+			handler.EnqueueRequestsFromMapFunc(r.requeueClusterManagersForSubresources),
+			predicate.Funcs{
+				UpdateFunc: func(e event.UpdateEvent) bool {
+					return false
+				},
+				CreateFunc: func(e event.CreateEvent) bool {
+					return false
+				},
+				DeleteFunc: func(e event.DeleteEvent) bool {
+					_, ok := e.Object.GetLabels()[clusterv1alpha1.LabelKeyClmName]
+					if ok {
+						return true
+					}
+					return false
+				},
+				GenericFunc: func(e event.GenericEvent) bool {
+					return false
+				},
+			},
+		)
+	}
+	// controller.Watch(
+	// 	&source.Kind{Type: &certmanagerv1.Certificate{}},
+	// 	handler.EnqueueRequestsFromMapFunc(r.requeueClusterManagersForSubresources),
+	// 	predicate.Funcs{
+	// 		UpdateFunc: func(e event.UpdateEvent) bool {
+	// 			return false
+	// 		},
+	// 		CreateFunc: func(e event.CreateEvent) bool {
+	// 			return false
+	// 		},
+	// 		DeleteFunc: func(e event.DeleteEvent) bool {
+	// 			certificate := e.Object.(*certmanagerv1.Certificate)
+	// 			_, ok := certificate.Labels[clusterv1alpha1.LabelKeyClmName]
+	// 			if ok {
+	// 				return true
+	// 			}
+	// 			return false
+	// 		},
+	// 		GenericFunc: func(e event.GenericEvent) bool {
+	// 			return false
+	// 		},
+	// 	},
+	// )
+
+	// controller.Watch(
+	// 	&source.Kind{Type: &networkingv1.Ingress{}},
+	// 	handler.EnqueueRequestsFromMapFunc(r.requeueClusterManagersForSubresources),
+	// 	predicate.Funcs{
+	// 		UpdateFunc: func(e event.UpdateEvent) bool {
+	// 			return false
+	// 		},
+	// 		CreateFunc: func(e event.CreateEvent) bool {
+	// 			return false
+	// 		},
+	// 		DeleteFunc: func(e event.DeleteEvent) bool {
+	// 			ingress := e.Object.(*networkingv1.Ingress)
+	// 			_, ok := ingress.Labels[clusterv1alpha1.LabelKeyClmName]
+	// 			if ok {
+	// 				return true
+	// 			}
+	// 			return false
+	// 		},
+	// 		GenericFunc: func(e event.GenericEvent) bool {
+	// 			return false
+	// 		},
+	// 	},
+	// )
+
+	// controller.Watch(
+	// 	&source.Kind{Type: &v1.Service{}},
+	// 	handler.EnqueueRequestsFromMapFunc(r.requeueClusterManagersForSubresources),
+	// 	predicate.Funcs{
+	// 		UpdateFunc: func(e event.UpdateEvent) bool {
+	// 			return false
+	// 		},
+	// 		CreateFunc: func(e event.CreateEvent) bool {
+	// 			return false
+	// 		},
+	// 		DeleteFunc: func(e event.DeleteEvent) bool {
+	// 			service := e.Object.(*v1.Service)
+	// 			_, ok := service.Labels[clusterv1alpha1.LabelKeyClmName]
+	// 			if ok {
+	// 				return true
+	// 			}
+	// 			return false
+	// 		},
+	// 		GenericFunc: func(e event.GenericEvent) bool {
+	// 			return false
+	// 		},
+	// 	},
+	// )
+
+	// controller.Watch(
+	// 	&source.Kind{Type: &v1.Endpoints{}},
+	// 	handler.EnqueueRequestsFromMapFunc(r.requeueClusterManagersForSubresources),
+	// 	predicate.Funcs{
+	// 		UpdateFunc: func(e event.UpdateEvent) bool {
+	// 			return false
+	// 		},
+	// 		CreateFunc: func(e event.CreateEvent) bool {
+	// 			return false
+	// 		},
+	// 		DeleteFunc: func(e event.DeleteEvent) bool {
+	// 			endpoint := e.Object.(*v1.Endpoints)
+	// 			_, ok := endpoint.Labels[clusterv1alpha1.LabelKeyClmName]
+	// 			if ok {
+	// 				return true
+	// 			}
+	// 			return false
+	// 		},
+	// 		GenericFunc: func(e event.GenericEvent) bool {
+	// 			return false
+	// 		},
+	// 	},
+	// )
+
+	// controller.Watch(
+	// 	&source.Kind{Type: &traefikv2.Middleware{}},
+	// 	handler.EnqueueRequestsFromMapFunc(r.requeueClusterManagersForSubresources),
+	// 	predicate.Funcs{
+	// 		UpdateFunc: func(e event.UpdateEvent) bool {
+	// 			return false
+	// 		},
+	// 		CreateFunc: func(e event.CreateEvent) bool {
+	// 			return false
+	// 		},
+	// 		DeleteFunc: func(e event.DeleteEvent) bool {
+	// 			ingress := e.Object.(*traefikv2.Middleware)
+	// 			_, ok := ingress.Labels[clusterv1alpha1.LabelKeyClmName]
+	// 			if ok {
+	// 				return true
+	// 			}
+	// 			return false
+	// 		},
+	// 		GenericFunc: func(e event.GenericEvent) bool {
+	// 			return false
+	// 		},
+	// 	},
+	// )
+
+	return controller.Watch(
+		&source.Kind{Type: &corev1.Secret{}},
+		handler.EnqueueRequestsFromMapFunc(r.requeueClusterManagersForSubresources),
+		predicate.Funcs{
+			UpdateFunc: func(e event.UpdateEvent) bool {
+				return false
+			},
+			CreateFunc: func(e event.CreateEvent) bool {
+				return false
+			},
+			DeleteFunc: func(e event.DeleteEvent) bool {
+				secret := e.Object.(*corev1.Secret)
+				val, ok := secret.Labels[util.LabelKeyClmSecretType]
+				if ok && val == util.ClmSecretTypeArgo {
+					return true
+				}
 				return false
 			},
 			GenericFunc: func(e event.GenericEvent) bool {

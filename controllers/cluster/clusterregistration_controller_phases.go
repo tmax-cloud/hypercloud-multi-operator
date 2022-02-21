@@ -1,6 +1,4 @@
 /*
-
-
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
@@ -35,10 +33,10 @@ import (
 )
 
 func (r *ClusterRegistrationReconciler) CheckValidation(ctx context.Context, ClusterRegistration *clusterv1alpha1.ClusterRegistration) (ctrl.Result, error) {
-	log := r.Log.WithValues("ClusterRegistration", types.NamespacedName{Name: ClusterRegistration.Name, Namespace: ClusterRegistration.Namespace})
 	if ClusterRegistration.Status.Phase != "" {
-		return ctrl.Result{Requeue: false}, nil
+		return ctrl.Result{}, nil
 	}
+	log := r.Log.WithValues("ClusterRegistration", ClusterRegistration.GetNamespacedName())
 	log.Info("Start to CheckValidation reconcile for [" + ClusterRegistration.Name + "]")
 
 	// decode base64 encoded kubeconfig file
@@ -70,7 +68,7 @@ func (r *ClusterRegistrationReconciler) CheckValidation(ctx context.Context, Clu
 					log.Info("Failed to get nodes for [" + ClusterRegistration.Spec.ClusterName + "]")
 					ClusterRegistration.Status.SetTypedPhase(clusterv1alpha1.ClusterRegistrationPhaseFailed)
 					ClusterRegistration.Status.SetTypedReason(clusterv1alpha1.ClusterRegistrationReasonClusterNotFound)
-					return ctrl.Result{Requeue: false}, nil
+					return ctrl.Result{}, nil
 				}
 			}
 		}
@@ -101,12 +99,11 @@ func (r *ClusterRegistrationReconciler) CheckValidation(ctx context.Context, Clu
 }
 
 func (r *ClusterRegistrationReconciler) CreateKubeconfigSecret(ctx context.Context, ClusterRegistration *clusterv1alpha1.ClusterRegistration) (ctrl.Result, error) {
-	log := r.Log.WithValues("ClusterRegistration", types.NamespacedName{Name: ClusterRegistration.Name, Namespace: ClusterRegistration.Namespace})
-	if ClusterRegistration.Status.Phase != string(clusterv1alpha1.ClusterRegistrationPhaseValidated) {
-		log.Info("Wait for ClusterRegistration validation.....")
+	if ClusterRegistration.Status.Phase != clusterv1alpha1.ClusterRegistrationPhaseValidated {
 		return ctrl.Result{}, nil
 	}
-	log.Info("Start to CreateKubeconfigSecret reconcile for [" + ClusterRegistration.Name + "]")
+	log := r.Log.WithValues("ClusterRegistration", ClusterRegistration.GetNamespacedName())
+	log.Info("Start to reconcile phase for CreateKubeconfigSecret")
 
 	decodedKubeConfig, _ := b64.StdEncoding.DecodeString(ClusterRegistration.Spec.KubeConfig)
 	kubeConfig, err := clientcmd.Load(decodedKubeConfig)
@@ -131,7 +128,6 @@ func (r *ClusterRegistrationReconciler) CreateKubeconfigSecret(ctx context.Conte
 
 	if err := r.Get(context.TODO(), kubeconfigSecretKey, kubeconfigSecret); err != nil {
 		if errors.IsNotFound(err) {
-			log.Info("Cannot found kubeconfigSecret, starting to create kubeconfigSecret")
 			kubeconfigSecret = &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      kubeconfigSecretName,
@@ -141,8 +137,9 @@ func (r *ClusterRegistrationReconciler) CreateKubeconfigSecret(ctx context.Conte
 						util.AnnotationKeyCreator:           ClusterRegistration.Annotations[util.AnnotationKeyCreator],
 						util.AnnotationKeyArgoClusterSecret: argoSecretName,
 					},
-					Finalizers: []string{
-						util.SecretFinalizer,
+					Labels: map[string]string{
+						util.LabelKeyClmSecretType:      util.ClmSecretTypeKubeconfig,
+						clusterv1alpha1.LabelKeyClmName: ClusterRegistration.Spec.ClusterName,
 					},
 				},
 				StringData: map[string]string{
@@ -151,15 +148,14 @@ func (r *ClusterRegistrationReconciler) CreateKubeconfigSecret(ctx context.Conte
 			}
 
 			if err = r.Create(context.TODO(), kubeconfigSecret); err != nil {
-				log.Error(err, "Failed to create KubeconfigSecret")
+				log.Error(err, "Failed to create kubeconfig Secret")
 				return ctrl.Result{}, err
 			}
+			log.Info("Create kubeconfig Secret successfully")
 		} else {
 			log.Error(err, "Failed to get kubeconfigSecret")
 			return ctrl.Result{}, err
 		}
-	} else {
-		log.Info("Kubeconfig secret is already exist")
 	}
 
 	ClusterRegistration.Status.SetTypedPhase(clusterv1alpha1.ClusterRegistrationPhaseSecretCreated)
@@ -167,12 +163,11 @@ func (r *ClusterRegistrationReconciler) CreateKubeconfigSecret(ctx context.Conte
 }
 
 func (r *ClusterRegistrationReconciler) CreateClusterManager(ctx context.Context, ClusterRegistration *clusterv1alpha1.ClusterRegistration) (ctrl.Result, error) {
-	log := r.Log.WithValues("ClusterRegistration", types.NamespacedName{Name: ClusterRegistration.Name, Namespace: ClusterRegistration.Namespace})
-	if ClusterRegistration.Status.Phase != string(clusterv1alpha1.ClusterRegistrationPhaseSecretCreated) {
-		log.Info("Wait for creating KubeconfigSecret")
+	if ClusterRegistration.Status.Phase != clusterv1alpha1.ClusterRegistrationPhaseSecretCreated {
 		return ctrl.Result{}, nil
 	}
-	log.Info("Start to CreateClusterManager reconcile for [" + ClusterRegistration.Name + "]")
+	log := r.Log.WithValues("ClusterRegistration", ClusterRegistration.GetNamespacedName())
+	log.Info("Start to reconcile phase for CreateClusterManager ")
 
 	decodedKubeConfig, _ := b64.StdEncoding.DecodeString(ClusterRegistration.Spec.KubeConfig)
 	reg, _ := regexp.Compile("https://[0-9a-zA-Z./-]+")
@@ -190,14 +185,14 @@ func (r *ClusterRegistrationReconciler) CreateClusterManager(ctx context.Context
 					Name:      ClusterRegistration.Spec.ClusterName,
 					Namespace: ClusterRegistration.Namespace,
 					Annotations: map[string]string{
-						util.AnnotationKeyOwner:                ClusterRegistration.Annotations[util.AnnotationKeyCreator],
-						util.AnnotationKeyCreator:              ClusterRegistration.Annotations[util.AnnotationKeyCreator],
-						util.AnnotationKeyClmApiserverEndpoint: endpoint,
-						util.AnnotationKeyClmDns:               os.Getenv("HC_DOMAIN"),
+						util.AnnotationKeyOwner:                   ClusterRegistration.Annotations[util.AnnotationKeyCreator],
+						util.AnnotationKeyCreator:                 ClusterRegistration.Annotations[util.AnnotationKeyCreator],
+						clusterv1alpha1.AnnotationKeyClmApiserver: endpoint,
+						clusterv1alpha1.AnnotationKeyClmDomain:    os.Getenv("HC_DOMAIN"),
 					},
 					Labels: map[string]string{
-						util.LabelKeyClmClusterType: util.ClusterTypeRegistered,
-						util.LabelKeyClmParent:      ClusterRegistration.Name,
+						clusterv1alpha1.LabelKeyClmClusterType: clusterv1alpha1.ClusterTypeRegistered,
+						clusterv1alpha1.LabelKeyClrName:        ClusterRegistration.Name,
 					},
 				},
 				Spec: clusterv1alpha1.ClusterManagerSpec{},
