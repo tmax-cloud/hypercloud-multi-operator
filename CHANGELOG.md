@@ -1,6 +1,25 @@
 # HyperCloud-Multi-Operator changelog!!
 All notable changes to this project will be documented in this file.
 
+<!-------------------- v5.0.26.5 start -------------------->
+
+## HyperCloud-Multi-Operator_5.0.26.5 (2022. 02. 25. (금) 15:22:37 KST)
+
+### Added
+  - [feat] single cluster를 위한 리소스(Ingress, Certificate etc.)가 삭제되면 재생성 되는 로직 추가 by SISILIA
+
+### Changed
+
+### Fixed
+
+### CRD yaml
+
+### Etc
+  - [etc] cluster 삭제시 secret 삭제되지 않는 버그 수정 by SISILIA
+  - [etc] code refactoring by SISILIA
+
+<!--------------------- v5.0.26.5 end --------------------->
+
 <!-------------------- v5.0.26.4 start -------------------->
 
 ## HyperCloud-Multi-Operator_5.0.26.4 (2022. 02. 15. (화) 10:36:53 KST)
