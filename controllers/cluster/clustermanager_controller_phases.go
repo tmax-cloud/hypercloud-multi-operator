@@ -219,6 +219,7 @@ func (r *ClusterManagerReconciler) CreateTraefikResources(ctx context.Context, c
 	}
 
 	if !util.IsIpAddress(clusterManager.Annotations[clusterv1alpha1.AnnotationKeyClmApiserver]) {
+		clusterManager.Status.TraefikReady = true
 		return ctrl.Result{}, nil
 	}
 
@@ -607,6 +608,7 @@ func (r *ClusterManagerReconciler) UpdatePrometheusService(ctx context.Context, 
 	}
 
 	if !util.IsIpAddress(clusterManager.Annotations[clusterv1alpha1.AnnotationKeyClmApiserver]) {
+		clusterManager.Status.PrometheusReady = true
 		return ctrl.Result{}, nil
 	}
 
