@@ -50,26 +50,26 @@ func (r *ClusterRegistrationReconciler) Reconcile(ctx context.Context, req ctrl.
 	_ = context.Background()
 	log := r.Log.WithValues("clusterregistration", req.NamespacedName)
 
-	ClusterRegistration := &clusterv1alpha1.ClusterRegistration{}
-	if err := r.Get(context.TODO(), req.NamespacedName, ClusterRegistration); err != nil {
-		if errors.IsNotFound(err) {
-			log.Info("ClusterRegistration resource not found. Ignoring since object must be deleted")
-			return ctrl.Result{}, nil
-		}
+	// get ClusterRegistration
+	clusterRegistration := &clusterv1alpha1.ClusterRegistration{}
+	if err := r.Get(context.TODO(), req.NamespacedName, clusterRegistration); errors.IsNotFound(err) {
+		log.Info("ClusterRegistration not found. Ignoring since object must be deleted")
+		return ctrl.Result{}, nil
+	} else if err != nil {
 		log.Error(err, "Failed to get ClusterRegistration")
 		return ctrl.Result{}, err
 	}
 
-	patchHelper, err := patch.NewHelper(ClusterRegistration, r.Client)
+	patchHelper, err := patch.NewHelper(clusterRegistration, r.Client)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
 
 	defer func() {
 		// Always reconcile the Status.Phase field.
-		r.reconcilePhase(context.TODO(), ClusterRegistration)
+		r.reconcilePhase(context.TODO(), clusterRegistration)
 
-		if err := patchHelper.Patch(context.TODO(), ClusterRegistration); err != nil {
+		if err := patchHelper.Patch(context.TODO(), clusterRegistration); err != nil {
 			// if err := patchClusterRegistration(context.TODO(), patchHelper, ClusterRegistration, patchOpts...); err != nil {
 			// reterr = kerrors.NewAggregate([]error{reterr, err})
 			reterr = err
@@ -77,7 +77,7 @@ func (r *ClusterRegistrationReconciler) Reconcile(ctx context.Context, req ctrl.
 	}()
 
 	// Handle normal reconciliation loop.
-	return r.reconcile(context.TODO(), ClusterRegistration)
+	return r.reconcile(context.TODO(), clusterRegistration)
 }
 
 // reconcile handles cluster reconciliation.
@@ -114,17 +114,17 @@ func (r *ClusterRegistrationReconciler) reconcilePhase(_ context.Context, Cluste
 func (r *ClusterRegistrationReconciler) requeueClusterRegistrationsForClusterManager(o client.Object) []ctrl.Request {
 	clm := o.DeepCopyObject().(*clusterv1alpha1.ClusterManager)
 	log := r.Log.WithValues("ClusterRegistration-ObjectMapper", "clusterManagerToClusterClusterRegistrations", "ClusterRegistration", clm.Name)
-	//get clusterManager
-	clr := &clusterv1alpha1.ClusterRegistration{}
+
+	//get clusterRegistration
 	key := types.NamespacedName{
 		Name:      clm.Labels[clusterv1alpha1.LabelKeyClrName],
 		Namespace: clm.Namespace,
 	}
-	if err := r.Get(context.TODO(), key, clr); err != nil {
-		if errors.IsNotFound(err) {
-			log.Info("ClusterRegistration resource not found. Ignoring since object must be deleted")
-			return nil
-		}
+	clr := &clusterv1alpha1.ClusterRegistration{}
+	if err := r.Get(context.TODO(), key, clr); errors.IsNotFound(err) {
+		log.Info("ClusterRegistration resource not found. Ignoring since object must be deleted")
+		return nil
+	} else if err != nil {
 		log.Error(err, "Failed to get ClusterRegistration")
 		return nil
 	}
@@ -133,6 +133,7 @@ func (r *ClusterRegistrationReconciler) requeueClusterRegistrationsForClusterMan
 		log.Info("ClusterRegistration for ClusterManager [" + clr.Spec.ClusterName + "] is already delete... Do not update cc status to delete ")
 		return nil
 	}
+
 	clr.Status.Phase = "Deleted"
 	clr.Status.Reason = "cluster is deleted"
 	err := r.Status().Update(context.TODO(), clr)
@@ -147,16 +148,26 @@ func (r *ClusterRegistrationReconciler) requeueClusterRegistrationsForSecret(o c
 	secret := o.DeepCopyObject().(*corev1.Secret)
 	log := r.Log.WithValues("ClusterRegistration-ObjectMapper", "clusterManagerToClusterClusterRegistrations", "ClusterRegistration", secret.Name)
 
-	clr := &clusterv1alpha1.ClusterRegistration{}
 	key := types.NamespacedName{
 		Name:      secret.Labels[clusterv1alpha1.LabelKeyClmName],
 		Namespace: secret.Namespace,
 	}
+	clm := &clusterv1alpha1.ClusterManager{}
+	if err := r.Get(context.TODO(), key, clm); err != nil {
+		log.Error(err, "Failed to get ClusterManager")
+		return nil
+	}
+
+	if !clm.GetDeletionTimestamp().IsZero() {
+		return nil
+	}
+
+	key = types.NamespacedName{
+		Name:      clm.Labels[clusterv1alpha1.LabelKeyClrName],
+		Namespace: secret.Namespace,
+	}
+	clr := &clusterv1alpha1.ClusterRegistration{}
 	if err := r.Get(context.TODO(), key, clr); err != nil {
-		if errors.IsNotFound(err) {
-			log.Info("ClusterRegistration resource not found. Ignoring since object must be deleted")
-			return nil
-		}
 		log.Error(err, "Failed to get ClusterRegistration")
 		return nil
 	}
@@ -214,8 +225,7 @@ func (r *ClusterRegistrationReconciler) SetupWithManager(mgr ctrl.Manager) error
 		return err
 	}
 
-	//return controller.Watch(
-	controller.Watch(
+	return controller.Watch(
 		&source.Kind{Type: &clusterv1alpha1.ClusterManager{}},
 		handler.EnqueueRequestsFromMapFunc(r.requeueClusterRegistrationsForClusterManager),
 		predicate.Funcs{
@@ -238,29 +248,4 @@ func (r *ClusterRegistrationReconciler) SetupWithManager(mgr ctrl.Manager) error
 			},
 		},
 	)
-
-	return controller.Watch(
-		&source.Kind{Type: &corev1.Secret{}},
-		handler.EnqueueRequestsFromMapFunc(r.requeueClusterRegistrationsForSecret),
-		predicate.Funcs{
-			UpdateFunc: func(e event.UpdateEvent) bool {
-				return false
-			},
-			CreateFunc: func(e event.CreateEvent) bool {
-				return false
-			},
-			DeleteFunc: func(e event.DeleteEvent) bool {
-				secret := e.Object.(*corev1.Secret).DeepCopy()
-				val, ok := secret.Labels[util.LabelKeyClmSecretType]
-				if ok && val == util.ClmSecretTypeKubeconfig {
-					return true
-				}
-				return false
-			},
-			GenericFunc: func(e event.GenericEvent) bool {
-				return false
-			},
-		},
-	)
-
 }

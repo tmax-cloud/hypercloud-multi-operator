@@ -33,13 +33,11 @@ import (
 )
 
 func (r *SecretReconciler) UpdateClusterManagerControlPlaneEndpoint(ctx context.Context, secret *corev1.Secret) (ctrl.Result, error) {
-	log := r.Log.WithValues(
-		"secret",
-		types.NamespacedName{
-			Name:      secret.Name,
-			Namespace: secret.Namespace,
-		},
-	)
+	key := types.NamespacedName{
+		Name:      secret.Name,
+		Namespace: secret.Namespace,
+	}
+	log := r.Log.WithValues("secret", key)
 	log.Info("Start to reconcile phase for UpdateClusterManagerControleplaneEndpoint... ")
 
 	kubeConfig, err := clientcmd.Load(secret.Data["value"])
@@ -47,29 +45,30 @@ func (r *SecretReconciler) UpdateClusterManagerControlPlaneEndpoint(ctx context.
 		log.Error(err, "Failed to get kubeconfig data from secret")
 		return ctrl.Result{}, err
 	}
-	clm := &clusterv1alpha1.ClusterManager{}
-	clmKey := types.NamespacedName{
+
+	key = types.NamespacedName{
 		Name:      strings.Split(secret.Name, util.KubeconfigSuffix)[0],
 		Namespace: secret.Namespace,
 	}
-	if err := r.Get(context.TODO(), clmKey, clm); err != nil {
-		if errors.IsNotFound(err) {
-			log.Info("Cannot found clusterManager")
-			// return ctrl.Result{RequeueAfter: requeueAfter5Sec}, nil
-		} else {
-			log.Error(err, "Failed to get clusterManager + ["+clm.Name+"]")
-			return ctrl.Result{}, err
-		}
+	clm := &clusterv1alpha1.ClusterManager{}
+	err = r.Get(context.TODO(), key, clm)
+	if errors.IsNotFound(err) {
+		log.Info("Cannot found clusterManager")
+		// return ctrl.Result{RequeueAfter: requeueAfter5Sec}, nil
+	} else if err != nil {
+		log.Error(err, "Failed to get clusterManager + ["+clm.Name+"]")
+		return ctrl.Result{}, err
 	} else {
-		if !strings.EqualFold(clm.Status.ControlPlaneEndpoint, kubeConfig.Clusters[kubeConfig.Contexts[kubeConfig.CurrentContext].Cluster].Server) {
-			log.Info("Update clustermanager status.. add controleplane endpoint")
+		server := kubeConfig.Clusters[kubeConfig.Contexts[kubeConfig.CurrentContext].Cluster].Server
+		if !strings.EqualFold(clm.Status.ControlPlaneEndpoint, server) {
+			log.Info("Update clustermanager status. add controleplane endpoint")
 			helper, _ := patch.NewHelper(clm, r.Client)
 			defer func() {
 				if err := helper.Patch(context.TODO(), clm); err != nil {
 					log.Error(err, "ClusterManager patch error")
 				}
 			}()
-			clm.Status.ControlPlaneEndpoint = kubeConfig.Clusters[kubeConfig.Contexts[kubeConfig.CurrentContext].Cluster].Server
+			clm.Status.ControlPlaneEndpoint = server
 		}
 	}
 
@@ -87,11 +86,11 @@ func (r *SecretReconciler) DeployRolebinding(ctx context.Context, secret *corev1
 	log.Info("Start to reconcile phase for Deploy rolebinding to remote")
 
 	clm := &clusterv1alpha1.ClusterManager{}
-	clmKey := types.NamespacedName{
+	key := types.NamespacedName{
 		Name:      strings.Split(secret.Name, util.KubeconfigSuffix)[0],
 		Namespace: secret.Namespace,
 	}
-	if err := r.Get(context.TODO(), clmKey, clm); err != nil {
+	if err := r.Get(context.TODO(), key, clm); err != nil {
 		log.Error(err, "Failed to get ClusterManager")
 		return ctrl.Result{}, err
 	}
@@ -135,38 +134,23 @@ func (r *SecretReconciler) DeployRolebinding(ctx context.Context, secret *corev1
 		"metrics.k8s.io",
 	}
 
-	allRule := &rbacv1.PolicyRule{}
-	allRule.APIGroups = append(allRule.APIGroups, targetGroup...)
-	allRule.Resources = append(allRule.Resources, rbacv1.ResourceAll)
-	allRule.Verbs = append(allRule.Verbs, rbacv1.VerbAll)
-
-	if _, err :=
-		remoteClientset.
+	_, err = remoteClientset.
+		RbacV1().
+		ClusterRoleBindings().
+		Get(context.TODO(), clusterAdminCRBName, metav1.GetOptions{})
+	if errors.IsNotFound(err) {
+		_, err := remoteClientset.
 			RbacV1().
 			ClusterRoleBindings().
-			Get(
-				context.TODO(),
-				clusterAdminCRBName,
-				metav1.GetOptions{},
-			); err != nil {
-		if errors.IsNotFound(err) {
-			if _, err :=
-				remoteClientset.
-					RbacV1().
-					ClusterRoleBindings().
-					Create(
-						context.TODO(),
-						clusterAdminCRB,
-						metav1.CreateOptions{},
-					); err != nil {
-				log.Error(err, "Cannot create clusterrolebinding for cluster-admin")
-				return ctrl.Result{}, err
-			}
-			log.Info("Create cluster-admin clusterrolebinding to remote successfully")
-		} else {
-			log.Error(err, "Failed to get cluster-admin clusterrolebinding from remote cluster")
+			Create(context.TODO(), clusterAdminCRB, metav1.CreateOptions{})
+		if err != nil {
+			log.Error(err, "Cannot create ClusterRoleBinding for cluster-admin")
 			return ctrl.Result{}, err
 		}
+		log.Info("Create ClusterRoleBinding for cluster-admin to remote cluster successfully")
+	} else if err != nil {
+		log.Error(err, "Failed to get ClusterRoleBinding for cluster-admin from remote cluster")
+		return ctrl.Result{}, err
 	}
 
 	crList := []*rbacv1.ClusterRole{
@@ -175,33 +159,23 @@ func (r *SecretReconciler) DeployRolebinding(ctx context.Context, secret *corev1
 	}
 
 	for _, targetCr := range crList {
-		if _, err :=
-			remoteClientset.
+		_, err := remoteClientset.
+			RbacV1().
+			ClusterRoles().
+			Get(context.TODO(), targetCr.Name, metav1.GetOptions{})
+		if errors.IsNotFound(err) {
+			_, err := remoteClientset.
 				RbacV1().
 				ClusterRoles().
-				Get(
-					context.TODO(),
-					targetCr.Name,
-					metav1.GetOptions{},
-				); err != nil {
-			if errors.IsNotFound(err) {
-				if _, err :=
-					remoteClientset.
-						RbacV1().
-						ClusterRoles().
-						Create(
-							context.TODO(),
-							targetCr,
-							metav1.CreateOptions{},
-						); err != nil {
-					log.Error(err, "Cannot create clusterrole ["+targetCr.Name+"]")
-					return ctrl.Result{}, err
-				}
-				log.Info("Create [" + targetCr.Name + "] clusterrole to remote successfully")
-			} else {
-				log.Error(err, "Failed to get clusterrole ["+targetCr.Name+"] from remote cluster")
+				Create(context.TODO(), targetCr, metav1.CreateOptions{})
+			if err != nil {
+				log.Error(err, "Cannot create ClusteRrole ["+targetCr.Name+"] to remote cluster")
 				return ctrl.Result{}, err
 			}
+			log.Info("Create ClusteRrole [" + targetCr.Name + "] to remote cluster successfully")
+		} else if err != nil {
+			log.Error(err, "Failed to get ClusteRrole ["+targetCr.Name+"] from remote cluster")
+			return ctrl.Result{}, err
 		}
 	}
 
@@ -223,36 +197,23 @@ func (r *SecretReconciler) DeployArgocdResources(ctx context.Context, secret *co
 			Name: util.ArgoServiceAccount,
 		},
 	}
-	if _, err :=
-		remoteClientset.
+	_, err = remoteClientset.
+		CoreV1().
+		ServiceAccounts(util.KubeNamespace).
+		Get(context.TODO(), util.ArgoServiceAccount, metav1.GetOptions{})
+	if errors.IsNotFound(err) {
+		_, err := remoteClientset.
 			CoreV1().
 			ServiceAccounts(util.KubeNamespace).
-			Get(
-				context.TODO(),
-				util.ArgoServiceAccount,
-				metav1.GetOptions{},
-			); err != nil {
-		if errors.IsNotFound(err) {
-			_, err :=
-				remoteClientset.
-					CoreV1().
-					ServiceAccounts(util.KubeNamespace).
-					Create(
-						context.TODO(),
-						argocdManager,
-						metav1.CreateOptions{},
-					)
-			if err != nil {
-				log.Error(err, "Cannot create ServiceAccount for ["+util.ArgoClusterRole+"]")
-				return ctrl.Result{}, err
-			}
-			log.Info("Create ServiceAccount for [" + util.ArgoClusterRole + "] to remote cluster successfully")
-		} else {
-			log.Error(err, "Failed to get ServiceAccount ["+util.ArgoServiceAccount+"] from remote cluster")
+			Create(context.TODO(), argocdManager, metav1.CreateOptions{})
+		if err != nil {
+			log.Error(err, "Cannot create ServiceAccount for argocd ["+util.ArgoClusterRole+"] to remote cluster")
 			return ctrl.Result{}, err
 		}
-	} else {
-		log.Info("ServiceAccount for argocd is already created")
+		log.Info("Create ServiceAccount for argocd [" + util.ArgoClusterRole + "] to remote cluster successfully")
+	} else if err != nil {
+		log.Error(err, "Failed to get ServiceAccount for argocd ["+util.ArgoServiceAccount+"] from remote cluster")
+		return ctrl.Result{}, err
 	}
 
 	argocdManagerRole := &rbacv1.ClusterRole{
@@ -271,31 +232,23 @@ func (r *SecretReconciler) DeployArgocdResources(ctx context.Context, secret *co
 			},
 		},
 	}
-	if _, err :=
-		remoteClientset.
+	_, err = remoteClientset.
+		RbacV1().
+		ClusterRoles().
+		Get(context.TODO(), util.ArgoClusterRole, metav1.GetOptions{})
+	if errors.IsNotFound(err) {
+		_, err := remoteClientset.
 			RbacV1().
 			ClusterRoles().
-			Get(context.TODO(), util.ArgoClusterRole, metav1.GetOptions{}); err != nil {
-		if errors.IsNotFound(err) {
-			if _, err :=
-				remoteClientset.
-					RbacV1().
-					ClusterRoles().
-					Create(
-						context.TODO(),
-						argocdManagerRole,
-						metav1.CreateOptions{},
-					); err != nil {
-				log.Error(err, "Cannot create ClusterRole for ["+util.ArgoClusterRole+"]")
-				return ctrl.Result{}, err
-			}
-			log.Info("Create ClusterRole for [" + util.ArgoClusterRole + "] to remote cluster successfully")
-		} else {
-			log.Error(err, "Failed to get ClusterRole ["+util.ArgoClusterRole+"] from remote cluster")
+			Create(context.TODO(), argocdManagerRole, metav1.CreateOptions{})
+		if err != nil {
+			log.Error(err, "Cannot create ClusterRole for argocd ["+util.ArgoClusterRole+"] to remote cluster")
 			return ctrl.Result{}, err
 		}
-	} else {
-		log.Info("ClusterRole for argocd is already created")
+		log.Info("Create ClusterRole for argocd [" + util.ArgoClusterRole + "] to remote cluster successfully")
+	} else if err != nil {
+		log.Error(err, "Failed to get ClusterRole for argocd ["+util.ArgoClusterRole+"] from remote cluster")
+		return ctrl.Result{}, err
 	}
 
 	argocdManagerRoleBinding := &rbacv1.ClusterRoleBinding{
@@ -315,35 +268,23 @@ func (r *SecretReconciler) DeployArgocdResources(ctx context.Context, secret *co
 			},
 		},
 	}
-	if _, err :=
-		remoteClientset.
+	_, err = remoteClientset.
+		RbacV1().
+		ClusterRoleBindings().
+		Get(context.TODO(), util.ArgoClusterRoleBinding, metav1.GetOptions{})
+	if errors.IsNotFound(err) {
+		_, err := remoteClientset.
 			RbacV1().
 			ClusterRoleBindings().
-			Get(
-				context.TODO(),
-				util.ArgoClusterRoleBinding,
-				metav1.GetOptions{},
-			); err != nil {
-		if errors.IsNotFound(err) {
-			if _, err :=
-				remoteClientset.
-					RbacV1().
-					ClusterRoleBindings().
-					Create(
-						context.TODO(),
-						argocdManagerRoleBinding,
-						metav1.CreateOptions{},
-					); err != nil {
-				log.Error(err, "Cannot create ClusterRoleBinding for ["+util.ArgoClusterRoleBinding+"]")
-				return ctrl.Result{}, err
-			}
-			log.Info("Create ClusterRoleBinding for argocd to remote cluster successfully")
-		} else {
-			log.Error(err, "Failed to get ClusterRoleBinding ["+util.ArgoClusterRoleBinding+"] from remote cluster")
+			Create(context.TODO(), argocdManagerRoleBinding, metav1.CreateOptions{})
+		if err != nil {
+			log.Error(err, "Cannot create ClusterRoleBinding for argocd ["+util.ArgoClusterRoleBinding+"] to remote cluster")
 			return ctrl.Result{}, err
 		}
-	} else {
-		log.Info("ClusterRoleBinding for argocd is already created")
+		log.Info("Create ClusterRoleBinding for argocd [" + util.ArgoClusterRoleBinding + "] to remote cluster successfully")
+	} else if err != nil {
+		log.Error(err, "Failed to get ClusterRoleBinding for argocd ["+util.ArgoClusterRoleBinding+"] from remote cluster")
+		return ctrl.Result{}, err
 	}
 
 	return ctrl.Result{}, nil

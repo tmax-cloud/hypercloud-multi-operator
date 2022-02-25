@@ -117,11 +117,10 @@ func (r *ClusterManagerReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 
 	//get ClusterManager
 	clusterManager := &clusterv1alpha1.ClusterManager{}
-	if err := r.Get(context.TODO(), req.NamespacedName, clusterManager); err != nil {
-		if errors.IsNotFound(err) {
-			log.Info("ClusterManager resource not found. Ignoring since object must be deleted")
-			return ctrl.Result{}, nil
-		}
+	if err := r.Get(context.TODO(), req.NamespacedName, clusterManager); errors.IsNotFound(err) {
+		log.Info("ClusterManager resource not found. Ignoring since object must be deleted")
+		return ctrl.Result{}, nil
+	} else if err != nil {
 		log.Error(err, "Failed to get ClusterManager")
 		return ctrl.Result{}, err
 	}
@@ -207,171 +206,21 @@ func (r *ClusterManagerReconciler) reconcileDeleteForRegisteredClusterManager(ct
 		Namespace: clusterManager.Namespace,
 	}
 	kubeconfigSecret := &corev1.Secret{}
-	if err := r.Get(context.TODO(), key, kubeconfigSecret); err != nil {
-		if errors.IsNotFound(err) {
-			log.Info("Kubeconfig is already deleted")
-		} else {
-			log.Error(err, "Failed to get kubeconfig secret")
-			return ctrl.Result{}, err
-		}
-	} else {
-		log.Info("Start to delete kubeconfig secret")
+	if err := r.Get(context.TODO(), key, kubeconfigSecret); err != nil && !errors.IsNotFound(err) {
+		log.Error(err, "Failed to get kubeconfig Secret")
+		return ctrl.Result{}, err
+	} else if err == nil {
 		if err := r.Delete(context.TODO(), kubeconfigSecret); err != nil {
-			log.Error(err, "Failed to delete kubeconfigSecret")
+			log.Error(err, "Failed to delete kubeconfig Secret")
 			return ctrl.Result{}, err
 		}
+
+		log.Info("Delete kubeconfig Secret successfully")
+		return ctrl.Result{RequeueAfter: requeueAfter10Sec}, nil
 	}
 
-	key = types.NamespacedName{
-		Name:      clusterManager.Name + "-certificate",
-		Namespace: clusterManager.Namespace,
-	}
-	traefikCertificate := &certmanagerv1.Certificate{}
-	if err := r.Get(context.TODO(), key, traefikCertificate); err != nil {
-		if errors.IsNotFound(err) {
-			log.Info("Certificate is already deleted")
-		} else {
-			log.Error(err, "Failed to get Certificate")
-			return ctrl.Result{}, err
-		}
-	} else {
-		if err := r.Delete(context.TODO(), traefikCertificate); err != nil {
-			log.Error(err, "Failed to delete Certificate")
-			return ctrl.Result{}, err
-		}
-	}
-
-	key = types.NamespacedName{
-		Name:      clusterManager.Name + "-service-cert",
-		Namespace: clusterManager.Namespace,
-	}
-	traefikCertSecret := &corev1.Secret{}
-	if err := r.Get(context.TODO(), key, traefikCertSecret); err != nil {
-		if errors.IsNotFound(err) {
-			log.Info("Cert-Secret is already deleted")
-		} else {
-			log.Error(err, "Failed to get Cert-Secret")
-			return ctrl.Result{}, err
-		}
-	} else {
-		if err := r.Delete(context.TODO(), traefikCertSecret); err != nil {
-			log.Error(err, "Failed to delete Cert-Secret")
-			return ctrl.Result{}, err
-		}
-	}
-
-	key = types.NamespacedName{
-		Name:      clusterManager.Name + "-ingress",
-		Namespace: clusterManager.Namespace,
-	}
-	traefikIngress := &networkingv1.Ingress{}
-	if err := r.Get(context.TODO(), key, traefikIngress); err != nil {
-		if errors.IsNotFound(err) {
-			log.Info("Ingress is already deleted")
-		} else {
-			log.Error(err, "Failed to get Certificate")
-			return ctrl.Result{}, err
-		}
-	} else {
-		if err := r.Delete(context.TODO(), traefikIngress); err != nil {
-			log.Error(err, "Failed to delete Ingress")
-			return ctrl.Result{}, err
-		}
-	}
-
-	key = types.NamespacedName{
-		Name:      clusterManager.Name + "-service",
-		Namespace: clusterManager.Namespace,
-	}
-	traefikService := &corev1.Service{}
-	if err := r.Get(context.TODO(), key, traefikService); err != nil {
-		if errors.IsNotFound(err) {
-			log.Info("Service is already deleted")
-		} else {
-			log.Error(err, "Failed to get Service")
-			return ctrl.Result{}, err
-		}
-	} else {
-		if err := r.Delete(context.TODO(), traefikService); err != nil {
-			log.Error(err, "Failed to delete Service")
-			return ctrl.Result{}, err
-		}
-	}
-
-	key = types.NamespacedName{
-		Name:      clusterManager.Name + "-service",
-		Namespace: clusterManager.Namespace,
-	}
-	traefikEndpoint := &corev1.Endpoints{}
-	if err := r.Get(context.TODO(), key, traefikEndpoint); err != nil {
-		if errors.IsNotFound(err) {
-			log.Info("Endpoint is already deleted")
-		} else {
-			log.Error(err, "Failed to get Endpoint")
-			return ctrl.Result{}, err
-		}
-	} else {
-		if err := r.Delete(context.TODO(), traefikEndpoint); err != nil {
-			log.Error(err, "Failed to delete Endpoint")
-			return ctrl.Result{}, err
-		}
-	}
-
-	key = types.NamespacedName{
-		Name:      clusterManager.Name + "-prefix",
-		Namespace: clusterManager.Namespace,
-	}
-	traefikMiddleware := &traefikv2.Middleware{}
-	if err := r.Get(context.TODO(), key, traefikMiddleware); err != nil {
-		if errors.IsNotFound(err) {
-			log.Info("Middleware is already deleted")
-		} else {
-			log.Error(err, "Failed to get Middleware")
-			return ctrl.Result{}, err
-		}
-	} else {
-		if err := r.Delete(context.TODO(), traefikMiddleware); err != nil {
-			log.Error(err, "Failed to delete Middleware")
-			return ctrl.Result{}, err
-		}
-	}
-
-	key = types.NamespacedName{
-		Name:      clusterManager.Name + "-prometheus-service",
-		Namespace: clusterManager.Namespace,
-	}
-	prometheusService := &corev1.Service{}
-	if err := r.Get(context.TODO(), key, prometheusService); err != nil {
-		if errors.IsNotFound(err) {
-			log.Info("Service for prometheus is already deleted")
-		} else {
-			log.Error(err, "Failed to get Service for prometheus")
-			return ctrl.Result{}, err
-		}
-	} else {
-		if err := r.Delete(context.TODO(), prometheusService); err != nil {
-			log.Error(err, "Failed to delete Service for prometheus")
-			return ctrl.Result{}, err
-		}
-	}
-
-	key = types.NamespacedName{
-		Name:      clusterManager.Name + "-prometheus-service",
-		Namespace: clusterManager.Namespace,
-	}
-	prometheusEndpoint := &corev1.Endpoints{}
-	if err := r.Get(context.TODO(), key, prometheusEndpoint); err != nil {
-		if errors.IsNotFound(err) {
-			log.Info("Endpoint for prometheus is already deleted")
-		} else {
-			log.Error(err, "Failed to get Endpoint for prometheus")
-			return ctrl.Result{}, err
-		}
-	} else {
-		if err := r.Delete(context.TODO(), prometheusEndpoint); err != nil {
-			log.Error(err, "Failed to delete Endpoint for prometheus")
-			return ctrl.Result{}, err
-		}
+	if err := r.DeleteTraefikResources(clusterManager); err != nil {
+		return ctrl.Result{}, err
 	}
 
 	controllerutil.RemoveFinalizer(clusterManager, clusterv1alpha1.ClusterManagerFinalizer)
@@ -418,203 +267,41 @@ func (r *ClusterManagerReconciler) reconcileDelete(ctx context.Context, clusterM
 		Namespace: clusterManager.Namespace,
 	}
 	kubeconfigSecret := &corev1.Secret{}
-	if err := r.Get(context.TODO(), key, kubeconfigSecret); err != nil {
-		if errors.IsNotFound(err) {
-			log.Info("Kubeconfig Secret is already deleted. Waiting cluster to be deleted...")
-		} else {
-			log.Error(err, "Failed to get kubeconfig secret")
-			return ctrl.Result{}, err
-		}
+	if err := r.Get(context.TODO(), key, kubeconfigSecret); err != nil && !errors.IsNotFound(err) {
+		log.Error(err, "Failed to get kubeconfig secret")
+		return ctrl.Result{}, err
+	}
+
+	if err := r.DeleteTraefikResources(clusterManager); err != nil {
+		return ctrl.Result{}, err
+	}
+
+	remoteClientset, err := util.GetRemoteK8sClient(kubeconfigSecret)
+	if err != nil {
+		log.Error(err, "Failed to get remoteK8sClient")
+		return ctrl.Result{}, err
+	}
+
+	// secret은 존재하는데.. 실제 instance가 없어서 에러 발생
+	_, err = remoteClientset.
+		CoreV1().
+		Namespaces().
+		Get(context.TODO(), util.IngressNginxNamespace, metav1.GetOptions{})
+	if errors.IsNotFound(err) {
+		log.Info("Ingress-nginx namespace is already deleted")
+	} else if err != nil {
+		log.Info(err.Error())
+		log.Info("Failed to get Ingress-nginx loadbalancer service... may be instance was deleted before secret was deleted...")
+		// log.Info("###################### Never executed... ############################")
+		// error 처리 필요
 	} else {
-		key = types.NamespacedName{
-			Name:      clusterManager.Name + "-certificate",
-			Namespace: clusterManager.Namespace,
-		}
-		traefikCertificate := &certmanagerv1.Certificate{}
-		if err := r.Get(context.TODO(), key, traefikCertificate); err != nil {
-			if errors.IsNotFound(err) {
-				log.Info("Certificate is already deleted")
-			} else {
-				log.Error(err, "Failed to get Certificate")
-				return ctrl.Result{}, err
-			}
-		} else {
-			if err := r.Delete(context.TODO(), traefikCertificate); err != nil {
-				log.Error(err, "Failed to delete Certificate")
-				return ctrl.Result{}, err
-			}
-		}
-
-		key = types.NamespacedName{
-			Name:      clusterManager.Name + "-service-cert",
-			Namespace: clusterManager.Namespace,
-		}
-		traefikCertSecret := &corev1.Secret{}
-		if err := r.Get(context.TODO(), key, traefikCertSecret); err != nil {
-			if errors.IsNotFound(err) {
-				log.Info("Cert-Secret is already deleted")
-			} else {
-				log.Error(err, "Failed to get Cert-Secret")
-				return ctrl.Result{}, err
-			}
-		} else {
-			if err := r.Delete(context.TODO(), traefikCertSecret); err != nil {
-				log.Error(err, "Failed to delete Cert-Secret")
-				return ctrl.Result{}, err
-			}
-		}
-
-		key = types.NamespacedName{
-			Name:      clusterManager.Name + "-ingress",
-			Namespace: clusterManager.Namespace,
-		}
-		traefikIngress := &networkingv1.Ingress{}
-		if err := r.Get(context.TODO(), key, traefikIngress); err != nil {
-			if errors.IsNotFound(err) {
-				log.Info("Ingress is already deleted")
-			} else {
-				log.Error(err, "Failed to get Certificate")
-				return ctrl.Result{}, err
-			}
-		} else {
-			if err := r.Delete(context.TODO(), traefikIngress); err != nil {
-				log.Error(err, "Failed to delete Ingress")
-				return ctrl.Result{}, err
-			}
-		}
-
-		key = types.NamespacedName{
-			Name:      clusterManager.Name + "-service",
-			Namespace: clusterManager.Namespace,
-		}
-		traefikService := &corev1.Service{}
-		if err := r.Get(context.TODO(), key, traefikService); err != nil {
-			if errors.IsNotFound(err) {
-				log.Info("Service is already deleted")
-			} else {
-				log.Error(err, "Failed to get Service")
-				return ctrl.Result{}, err
-			}
-		} else {
-			if err := r.Delete(context.TODO(), traefikService); err != nil {
-				log.Error(err, "Failed to delete Service")
-				return ctrl.Result{}, err
-			}
-		}
-
-		key = types.NamespacedName{
-			Name:      clusterManager.Name + "-service",
-			Namespace: clusterManager.Namespace,
-		}
-		traefikEndpoint := &corev1.Endpoints{}
-		if err := r.Get(context.TODO(), key, traefikEndpoint); err != nil {
-			if errors.IsNotFound(err) {
-				log.Info("Endpoint is already deleted")
-			} else {
-				log.Error(err, "Failed to get Endpoint")
-				return ctrl.Result{}, err
-			}
-		} else {
-			if err := r.Delete(context.TODO(), traefikEndpoint); err != nil {
-				log.Error(err, "Failed to delete Endpoint")
-				return ctrl.Result{}, err
-			}
-		}
-
-		key = types.NamespacedName{
-			Name:      clusterManager.Name + "-prefix",
-			Namespace: clusterManager.Namespace,
-		}
-		traefikMiddleware := &traefikv2.Middleware{}
-		if err := r.Get(context.TODO(), key, traefikMiddleware); err != nil {
-			if errors.IsNotFound(err) {
-				log.Info("Middleware is already deleted")
-			} else {
-				log.Error(err, "Failed to get Middleware")
-				return ctrl.Result{}, err
-			}
-		} else {
-			if err := r.Delete(context.TODO(), traefikMiddleware); err != nil {
-				log.Error(err, "Failed to delete Service")
-				return ctrl.Result{}, err
-			}
-		}
-
-		key = types.NamespacedName{
-			Name:      clusterManager.Name + "-prometheus-service",
-			Namespace: clusterManager.Namespace,
-		}
-		prometheusService := &corev1.Service{}
-		if err := r.Get(context.TODO(), key, prometheusService); err != nil {
-			if errors.IsNotFound(err) {
-				log.Info("Service for prometheus is already deleted")
-			} else {
-				log.Error(err, "Failed to get Service for prometheus")
-				return ctrl.Result{}, err
-			}
-		} else {
-			if err := r.Delete(context.TODO(), prometheusService); err != nil {
-				log.Error(err, "Failed to delete Service for prometheus")
-				return ctrl.Result{}, err
-			}
-		}
-
-		key = types.NamespacedName{
-			Name:      clusterManager.Name + "-prometheus-service",
-			Namespace: clusterManager.Namespace,
-		}
-		prometheusEndpoint := &corev1.Endpoints{}
-		if err := r.Get(context.TODO(), key, prometheusEndpoint); err != nil {
-			if errors.IsNotFound(err) {
-				log.Info("Endpoint for prometheus is already deleted")
-			} else {
-				log.Error(err, "Failed to get Endpoint for prometheus")
-				return ctrl.Result{}, err
-			}
-		} else {
-			if err := r.Delete(context.TODO(), prometheusEndpoint); err != nil {
-				log.Error(err, "Failed to delete Endpoint for prometheus")
-				return ctrl.Result{}, err
-			}
-		}
-
-		remoteClientset, err := util.GetRemoteK8sClient(kubeconfigSecret)
-		if err != nil {
-			log.Error(err, "Failed to get remoteK8sClient")
-			return ctrl.Result{}, err
-		}
-
-		// secret은 존재하는데.. 실제 instance가 없어서 에러 발생
-		_, err = remoteClientset.
+		err := remoteClientset.
 			CoreV1().
 			Namespaces().
-			Get(
-				context.TODO(),
-				util.IngressNginxNamespace,
-				metav1.GetOptions{},
-			)
+			Delete(context.TODO(), util.IngressNginxNamespace, metav1.DeleteOptions{})
 		if err != nil {
-			if errors.IsNotFound(err) {
-				log.Info("Ingress-nginx namespace is already deleted")
-			} else {
-				log.Info(err.Error())
-				log.Info("Failed to get Ingress-nginx loadbalancer service... may be instance was deleted before secret was deleted...")
-				// log.Info("###################### Never executed... ############################")
-				// error 처리 필요
-			}
-		} else {
-			err := remoteClientset.
-				CoreV1().
-				Namespaces().
-				Delete(
-					context.TODO(),
-					util.IngressNginxNamespace,
-					metav1.DeleteOptions{},
-				)
-			if err != nil {
-				log.Error(err, "Failed to delete Ingress-nginx namespace")
-				return ctrl.Result{}, err
-			}
+			log.Error(err, "Failed to delete Ingress-nginx namespace")
+			return ctrl.Result{}, err
 		}
 	}
 
@@ -624,13 +311,11 @@ func (r *ClusterManagerReconciler) reconcileDelete(ctx context.Context, clusterM
 		Namespace: clusterManager.Namespace,
 	}
 	serviceInstance := &servicecatalogv1beta1.ServiceInstance{}
-	if err := r.Get(context.TODO(), key, serviceInstance); err != nil {
-		if errors.IsNotFound(err) {
-			log.Info("ServiceInstance is already deleted. Waiting cluster to be deleted")
-		} else {
-			log.Error(err, "Failed to get serviceInstance")
-			return ctrl.Result{}, err
-		}
+	if err := r.Get(context.TODO(), key, serviceInstance); errors.IsNotFound(err) {
+		log.Info("ServiceInstance is already deleted. Waiting cluster to be deleted")
+	} else if err != nil {
+		log.Error(err, "Failed to get serviceInstance")
+		return ctrl.Result{}, err
 	} else {
 		if err := r.Delete(context.TODO(), serviceInstance); err != nil {
 			log.Error(err, "Failed to delete serviceInstance")
@@ -640,19 +325,16 @@ func (r *ClusterManagerReconciler) reconcileDelete(ctx context.Context, clusterM
 
 	//delete handling
 	key = clusterManager.GetNamespacedName()
-	cluster := &capiv1.Cluster{}
-	if err := r.Get(context.TODO(), key, cluster); err != nil {
-		if errors.IsNotFound(err) {
-			if err := util.Delete(clusterManager.Namespace, clusterManager.Name); err != nil {
-				log.Error(err, "Failed to delete cluster info from cluster_member table")
-				return ctrl.Result{}, err
-			}
-			controllerutil.RemoveFinalizer(clusterManager, clusterv1alpha1.ClusterManagerFinalizer)
-			return ctrl.Result{}, nil
-		} else {
-			log.Error(err, "Failed to get cluster")
+	if err := r.Get(context.TODO(), key, &capiv1.Cluster{}); errors.IsNotFound(err) {
+		if err := util.Delete(clusterManager.Namespace, clusterManager.Name); err != nil {
+			log.Error(err, "Failed to delete cluster info from cluster_member table")
 			return ctrl.Result{}, err
 		}
+		controllerutil.RemoveFinalizer(clusterManager, clusterv1alpha1.ClusterManagerFinalizer)
+		return ctrl.Result{}, nil
+	} else if err != nil {
+		log.Error(err, "Failed to get cluster")
+		return ctrl.Result{}, err
 	}
 
 	log.Info("Cluster is deleteing. Requeue after 1min")
@@ -839,147 +521,6 @@ func (r *ClusterManagerReconciler) SetupWithManager(mgr ctrl.Manager) error {
 			},
 		)
 	}
-	// controller.Watch(
-	// 	&source.Kind{Type: &certmanagerv1.Certificate{}},
-	// 	handler.EnqueueRequestsFromMapFunc(r.requeueClusterManagersForSubresources),
-	// 	predicate.Funcs{
-	// 		UpdateFunc: func(e event.UpdateEvent) bool {
-	// 			return false
-	// 		},
-	// 		CreateFunc: func(e event.CreateEvent) bool {
-	// 			return false
-	// 		},
-	// 		DeleteFunc: func(e event.DeleteEvent) bool {
-	// 			certificate := e.Object.(*certmanagerv1.Certificate)
-	// 			_, ok := certificate.Labels[clusterv1alpha1.LabelKeyClmName]
-	// 			if ok {
-	// 				return true
-	// 			}
-	// 			return false
-	// 		},
-	// 		GenericFunc: func(e event.GenericEvent) bool {
-	// 			return false
-	// 		},
-	// 	},
-	// )
 
-	// controller.Watch(
-	// 	&source.Kind{Type: &networkingv1.Ingress{}},
-	// 	handler.EnqueueRequestsFromMapFunc(r.requeueClusterManagersForSubresources),
-	// 	predicate.Funcs{
-	// 		UpdateFunc: func(e event.UpdateEvent) bool {
-	// 			return false
-	// 		},
-	// 		CreateFunc: func(e event.CreateEvent) bool {
-	// 			return false
-	// 		},
-	// 		DeleteFunc: func(e event.DeleteEvent) bool {
-	// 			ingress := e.Object.(*networkingv1.Ingress)
-	// 			_, ok := ingress.Labels[clusterv1alpha1.LabelKeyClmName]
-	// 			if ok {
-	// 				return true
-	// 			}
-	// 			return false
-	// 		},
-	// 		GenericFunc: func(e event.GenericEvent) bool {
-	// 			return false
-	// 		},
-	// 	},
-	// )
-
-	// controller.Watch(
-	// 	&source.Kind{Type: &v1.Service{}},
-	// 	handler.EnqueueRequestsFromMapFunc(r.requeueClusterManagersForSubresources),
-	// 	predicate.Funcs{
-	// 		UpdateFunc: func(e event.UpdateEvent) bool {
-	// 			return false
-	// 		},
-	// 		CreateFunc: func(e event.CreateEvent) bool {
-	// 			return false
-	// 		},
-	// 		DeleteFunc: func(e event.DeleteEvent) bool {
-	// 			service := e.Object.(*v1.Service)
-	// 			_, ok := service.Labels[clusterv1alpha1.LabelKeyClmName]
-	// 			if ok {
-	// 				return true
-	// 			}
-	// 			return false
-	// 		},
-	// 		GenericFunc: func(e event.GenericEvent) bool {
-	// 			return false
-	// 		},
-	// 	},
-	// )
-
-	// controller.Watch(
-	// 	&source.Kind{Type: &v1.Endpoints{}},
-	// 	handler.EnqueueRequestsFromMapFunc(r.requeueClusterManagersForSubresources),
-	// 	predicate.Funcs{
-	// 		UpdateFunc: func(e event.UpdateEvent) bool {
-	// 			return false
-	// 		},
-	// 		CreateFunc: func(e event.CreateEvent) bool {
-	// 			return false
-	// 		},
-	// 		DeleteFunc: func(e event.DeleteEvent) bool {
-	// 			endpoint := e.Object.(*v1.Endpoints)
-	// 			_, ok := endpoint.Labels[clusterv1alpha1.LabelKeyClmName]
-	// 			if ok {
-	// 				return true
-	// 			}
-	// 			return false
-	// 		},
-	// 		GenericFunc: func(e event.GenericEvent) bool {
-	// 			return false
-	// 		},
-	// 	},
-	// )
-
-	// controller.Watch(
-	// 	&source.Kind{Type: &traefikv2.Middleware{}},
-	// 	handler.EnqueueRequestsFromMapFunc(r.requeueClusterManagersForSubresources),
-	// 	predicate.Funcs{
-	// 		UpdateFunc: func(e event.UpdateEvent) bool {
-	// 			return false
-	// 		},
-	// 		CreateFunc: func(e event.CreateEvent) bool {
-	// 			return false
-	// 		},
-	// 		DeleteFunc: func(e event.DeleteEvent) bool {
-	// 			ingress := e.Object.(*traefikv2.Middleware)
-	// 			_, ok := ingress.Labels[clusterv1alpha1.LabelKeyClmName]
-	// 			if ok {
-	// 				return true
-	// 			}
-	// 			return false
-	// 		},
-	// 		GenericFunc: func(e event.GenericEvent) bool {
-	// 			return false
-	// 		},
-	// 	},
-	// )
-
-	return controller.Watch(
-		&source.Kind{Type: &corev1.Secret{}},
-		handler.EnqueueRequestsFromMapFunc(r.requeueClusterManagersForSubresources),
-		predicate.Funcs{
-			UpdateFunc: func(e event.UpdateEvent) bool {
-				return false
-			},
-			CreateFunc: func(e event.CreateEvent) bool {
-				return false
-			},
-			DeleteFunc: func(e event.DeleteEvent) bool {
-				secret := e.Object.(*corev1.Secret)
-				val, ok := secret.Labels[util.LabelKeyClmSecretType]
-				if ok && val == util.ClmSecretTypeArgo {
-					return true
-				}
-				return false
-			},
-			GenericFunc: func(e event.GenericEvent) bool {
-				return false
-			},
-		},
-	)
+	return nil
 }

@@ -19,7 +19,6 @@ import (
 	"strings"
 
 	clusterv1alpha1 "github.com/tmax-cloud/hypercloud-multi-operator/apis/cluster/v1alpha1"
-	"github.com/tmax-cloud/hypercloud-multi-operator/controllers/util"
 
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
@@ -42,12 +41,10 @@ func (r *ClusterManagerReconciler) requeueClusterManagersForCluster(o client.Obj
 		Namespace: c.Namespace,
 	}
 	clm := &clusterv1alpha1.ClusterManager{}
-	if err := r.Get(context.TODO(), key, clm); err != nil {
-		if errors.IsNotFound(err) {
-			log.Info("ClusterManager resource not found. Ignoring since object must be deleted")
-			return nil
-		}
-
+	if err := r.Get(context.TODO(), key, clm); errors.IsNotFound(err) {
+		log.Info("ClusterManager resource not found. Ignoring since object must be deleted")
+		return nil
+	} else if err != nil {
 		log.Error(err, "Failed to get ClusterManager")
 		return nil
 	}
@@ -75,24 +72,15 @@ func (r *ClusterManagerReconciler) requeueClusterManagersForKubeadmControlPlane(
 		return nil
 	}
 
-	//get ClusterManager
-	// CpName := cp.Name
-	// pivot := strings.Index(cp.Name, "-control-plane")
-	// if pivot != -1 {
-	// 	CpName = cp.Name[0:pivot]
-	// }
 	key := types.NamespacedName{
-		//Name:      CpName,
 		Name:      strings.Split(cp.Name, "-control-plane")[0],
 		Namespace: cp.Namespace,
 	}
 	clm := &clusterv1alpha1.ClusterManager{}
-	if err := r.Get(context.TODO(), key, clm); err != nil {
-		if errors.IsNotFound(err) {
-			log.Info("ClusterManager resource not found. Ignoring since object must be deleted")
-			return nil
-		}
-
+	if err := r.Get(context.TODO(), key, clm); errors.IsNotFound(err) {
+		log.Info("ClusterManager resource not found. Ignoring since object must be deleted")
+		return nil
+	} else if err != nil {
 		log.Error(err, "Failed to get ClusterManager")
 		return nil
 	}
@@ -122,17 +110,14 @@ func (r *ClusterManagerReconciler) requeueClusterManagersForMachineDeployment(o 
 
 	//get ClusterManager
 	key := types.NamespacedName{
-		//Name:      md.Name[0 : len(md.Name)-len("-md-0")],
 		Name:      strings.Split(md.Name, "-md-0")[0],
 		Namespace: md.Namespace,
 	}
 	clm := &clusterv1alpha1.ClusterManager{}
-	if err := r.Get(context.TODO(), key, clm); err != nil {
-		if errors.IsNotFound(err) {
-			log.Info("ClusterManager is deleted deleted")
-			// return nil
-		}
-
+	if err := r.Get(context.TODO(), key, clm); errors.IsNotFound(err) {
+		log.Info("ClusterManager is deleted")
+		return nil
+	} else if err != nil {
 		log.Error(err, "Failed to get ClusterManager")
 		return nil
 	}
@@ -150,81 +135,8 @@ func (r *ClusterManagerReconciler) requeueClusterManagersForMachineDeployment(o 
 	return nil
 }
 
-// func (r *ClusterManagerReconciler) requeueClusterManagersForCertificate(o client.Object) []ctrl.Request {
-// 	certificate := o.DeepCopyObject().(*certmanagerv1.Certificate)
-// 	log := r.Log.WithValues("objectMapper", "SecretToClusterManagers", "namespace", certificate.Namespace, certificate.Kind, certificate.Name)
-
-// 	// Don't handle deleted certificate
-// 	if !certificate.ObjectMeta.DeletionTimestamp.IsZero() {
-// 		log.V(4).Info("machinedeployment has a deletion timestamp, skipping mapping.")
-// 		return nil
-// 	}
-
-// 	//get ClusterManager
-// 	key := types.NamespacedName{
-// 		Name:      certificate.Labels[clusterv1alpha1.LabelKeyClmName],
-// 		Namespace: certificate.Namespace,
-// 	}
-// 	clm := &clusterv1alpha1.ClusterManager{}
-// 	if err := r.Get(context.TODO(), key, clm); err != nil {
-// 		if errors.IsNotFound(err) {
-// 			log.Info("ClusterManager is deleted deleted")
-// 			// return nil
-// 		}
-
-// 		log.Error(err, "Failed to get ClusterManager")
-// 		return nil
-// 	}
-
-// 	clm.Status.TraefikReady = false
-// 	err := r.Status().Update(context.TODO(), clm)
-// 	if err != nil {
-// 		log.Error(err, "Failed to update ClusterManager status")
-// 		return nil //??
-// 	}
-
-// 	return nil
-// }
-
-// func (r *ClusterManagerReconciler) requeueClusterManagersForIngress(o client.Object) []ctrl.Request {
-// 	ingress := o.DeepCopyObject().(*networkingv1.Ingress)
-// 	log := r.Log.WithValues("objectMapper", "IngressToClusterManagers", "namespace", ingress.Namespace, ingress.Kind, ingress.Name)
-
-// 	log.Info(o.DeepCopyObject().GetObjectKind().GroupVersionKind().Kind)
-// 	// Don't handle deleted certificate
-// 	if !ingress.ObjectMeta.DeletionTimestamp.IsZero() {
-// 		log.V(4).Info("machinedeployment has a deletion timestamp, skipping mapping.")
-// 		return nil
-// 	}
-
-// 	//get ClusterManager
-// 	key := types.NamespacedName{
-// 		Name:      ingress.Labels[clusterv1alpha1.LabelKeyClmName],
-// 		Namespace: ingress.Namespace,
-// 	}
-// 	clm := &clusterv1alpha1.ClusterManager{}
-// 	if err := r.Get(context.TODO(), key, clm); err != nil {
-// 		if errors.IsNotFound(err) {
-// 			log.Info("ClusterManager is deleted deleted")
-// 			// return nil
-// 		}
-
-// 		log.Error(err, "Failed to get ClusterManager")
-// 		return nil
-// 	}
-
-// 	clm.Status.TraefikReady = false
-// 	err := r.Status().Update(context.TODO(), clm)
-// 	if err != nil {
-// 		log.Error(err, "Failed to update ClusterManager status")
-// 		return nil //??
-// 	}
-
-// 	return nil
-// }
-
 func (r *ClusterManagerReconciler) requeueClusterManagersForSubresources(o client.Object) []ctrl.Request {
-	log := r.Log.WithValues("objectMapper", "SecretToClusterManagers", "namespace", o.GetNamespace(), "name", o.GetName())
+	log := r.Log.WithValues("objectMapper", "SubresourcesToClusterManagers", "namespace", o.GetNamespace(), "name", o.GetName())
 
 	//get ClusterManager
 	key := types.NamespacedName{
@@ -232,22 +144,21 @@ func (r *ClusterManagerReconciler) requeueClusterManagersForSubresources(o clien
 		Namespace: o.GetNamespace(),
 	}
 	clm := &clusterv1alpha1.ClusterManager{}
-	if err := r.Get(context.TODO(), key, clm); err != nil {
-		if errors.IsNotFound(err) {
-			log.Info("ClusterManager is deleted deleted")
-			// return nil
-		}
-
+	if err := r.Get(context.TODO(), key, clm); errors.IsNotFound(err) {
+		log.Info("ClusterManager is deleted")
+		return nil
+	} else if err != nil {
 		log.Error(err, "Failed to get ClusterManager")
 		return nil
 	}
 
+	if !clm.GetDeletionTimestamp().IsZero() {
+		return nil
+	}
+
 	isPrometheus := strings.Contains(o.GetName(), "prometheus")
-	_, isArgo := o.GetLabels()[util.LabelKeyArgoSecretType]
 	if isPrometheus {
 		clm.Status.PrometheusReady = false
-	} else if isArgo {
-		clm.Status.ArgoReady = false
 	} else {
 		clm.Status.TraefikReady = false
 	}
@@ -260,39 +171,3 @@ func (r *ClusterManagerReconciler) requeueClusterManagersForSubresources(o clien
 
 	return nil
 }
-
-// func (r *ClusterManagerReconciler) requeueClusterManagersForSecret(o client.Object) []ctrl.Request {
-// 	secret := o.DeepCopyObject().(*corev1.Secret)
-// 	log := r.Log.WithValues("objectMapper", "SecretToClusterManagers", "namespace", secret.Namespace, secret.Kind, secret.Name)
-
-// 	// Don't handle deleted secret
-// 	if !secret.ObjectMeta.DeletionTimestamp.IsZero() {
-// 		log.V(4).Info("machinedeployment has a deletion timestamp, skipping mapping.")
-// 		return nil
-// 	}
-
-// 	//get ClusterManager
-// 	key := types.NamespacedName{
-// 		Name:      secret.Labels[clusterv1alpha1.LabelKeyClmName],
-// 		Namespace: secret.Labels[clusterv1alpha1.LabelKeyClmNamespace],
-// 	}
-// 	clm := &clusterv1alpha1.ClusterManager{}
-// 	if err := r.Get(context.TODO(), key, clm); err != nil {
-// 		if errors.IsNotFound(err) {
-// 			log.Info("ClusterManager is deleted deleted")
-// 			// return nil
-// 		}
-
-// 		log.Error(err, "Failed to get ClusterManager")
-// 		return nil
-// 	}
-
-// 	clm.Status.ArgoReady = false
-// 	err := r.Status().Update(context.TODO(), clm)
-// 	if err != nil {
-// 		log.Error(err, "Failed to update ClusterManager status")
-// 		return nil //??
-// 	}
-
-// 	return nil
-// }

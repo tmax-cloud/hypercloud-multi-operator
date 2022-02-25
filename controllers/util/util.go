@@ -48,39 +48,42 @@ func LowestNonZeroResult(i, j ctrl.Result) ctrl.Result {
 // }
 
 func GetRemoteK8sClient(secret *corev1.Secret) (*kubernetes.Clientset, error) {
-	var remoteClientset *kubernetes.Clientset
-	if value, ok := secret.Data["value"]; ok {
-		remoteClientConfig, err := clientcmd.NewClientConfigFromBytes(value)
-		if err != nil {
-			return nil, err
-		}
-		remoteRestConfig, err := remoteClientConfig.ClientConfig()
-		if err != nil {
-			return nil, err
-		}
-		remoteClientset, err = kubernetes.NewForConfig(remoteRestConfig)
-		if err != nil {
-			return nil, err
-		}
-	} else {
+	value, ok := secret.Data["value"]
+	if !ok {
 		err := errors.NewBadRequest("secret does not have a value")
 		return nil, err
 	}
-	return remoteClientset, nil
-}
 
-func GetRemoteK8sClientByKubeConfig(kubeConfig []byte) (*kubernetes.Clientset, error) {
-	var remoteClientset *kubernetes.Clientset
-
-	remoteClientConfig, err := clientcmd.NewClientConfigFromBytes(kubeConfig)
+	remoteClientConfig, err := clientcmd.NewClientConfigFromBytes(value)
 	if err != nil {
 		return nil, err
 	}
+
 	remoteRestConfig, err := remoteClientConfig.ClientConfig()
 	if err != nil {
 		return nil, err
 	}
-	remoteClientset, err = kubernetes.NewForConfig(remoteRestConfig)
+
+	remoteClientset, err := kubernetes.NewForConfig(remoteRestConfig)
+	if err != nil {
+		return nil, err
+	}
+
+	return remoteClientset, nil
+}
+
+func GetRemoteK8sClientByKubeConfig(kubeConfig []byte) (*kubernetes.Clientset, error) {
+	remoteClientConfig, err := clientcmd.NewClientConfigFromBytes(kubeConfig)
+	if err != nil {
+		return nil, err
+	}
+
+	remoteRestConfig, err := remoteClientConfig.ClientConfig()
+	if err != nil {
+		return nil, err
+	}
+
+	remoteClientset, err := kubernetes.NewForConfig(remoteRestConfig)
 	if err != nil {
 		return nil, err
 	}
@@ -89,13 +92,11 @@ func GetRemoteK8sClientByKubeConfig(kubeConfig []byte) (*kubernetes.Clientset, e
 }
 
 func GetK8sClient() (*kubernetes.Clientset, error) {
-	// var Clientset *kubernetes.Clientset
-	var err error
-
 	config, err := restclient.InClusterConfig()
 	if err != nil {
 		panic(err.Error())
 	}
+
 	// creates the clientset
 	config.Burst = 100
 	config.QPS = 100
@@ -103,6 +104,7 @@ func GetK8sClient() (*kubernetes.Clientset, error) {
 	if err != nil {
 		panic(err.Error())
 	}
+
 	return Clientset, nil
 }
 
@@ -121,6 +123,7 @@ func CreateSuffixString() string {
 func MergeJson(dest []byte, source []byte) []byte {
 	dest = append(dest[0:len(dest)-1], 44)
 	dest = append(dest, source[1:]...)
+
 	return dest
 }
 
@@ -129,9 +132,11 @@ func URIToSecretName(uriType, uri string) (string, error) {
 	if err != nil {
 		return "", err
 	}
+
 	h := fnv.New32a()
 	_, _ = h.Write([]byte(uri))
 	host := strings.ToLower(strings.Split(parsedURI.Host, ":")[0])
+
 	return fmt.Sprintf("%s-%s-%v", uriType, host, h.Sum32()), nil
 }
 
@@ -151,5 +156,6 @@ func GetProviderName(provider string) (string, error) {
 
 func IsIpAddress(endPoint string) bool {
 	reg, _ := regexp.Compile("[0-9]{1,3}\\.[0-9]{1,3}\\.[0-9]{1,3}\\.[0-9]{1,3}")
+
 	return reg.MatchString(endPoint)
 }

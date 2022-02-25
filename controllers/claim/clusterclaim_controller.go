@@ -33,12 +33,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 )
 
-// const (
-// 	CLAIM_API_GROUP         = "claim.tmax.io"
-// 	CLAIM_API_Kind          = "clusterclaims"
-// 	CLAIM_API_GROUP_VERSION = "claim.tmax.io/v1alpha1"
-// )
-
 var AutoAdmit bool
 
 // ClusterClaimReconciler reconciles a ClusterClaim object
@@ -61,21 +55,15 @@ func (r *ClusterClaimReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	_ = context.Background()
 	log := r.Log.WithValues("ClusterClaim", req.NamespacedName)
 
+	// get ClusterClaim
 	clusterClaim := &claimv1alpha1.ClusterClaim{}
-
-	if err := r.Get(context.TODO(), req.NamespacedName, clusterClaim); err != nil {
-		if errors.IsNotFound(err) {
-			log.Info("ClusterClaim resource not found. Ignoring since object must be deleted")
-			return ctrl.Result{}, nil
-		}
+	if err := r.Get(context.TODO(), req.NamespacedName, clusterClaim); errors.IsNotFound(err) {
+		log.Info("ClusterClaim resource not found. Ignoring since object must be deleted")
+		return ctrl.Result{}, nil
+	} else if err != nil {
 		log.Error(err, "Failed to get ClusterClaim")
 		return ctrl.Result{}, err
 	}
-	// else if clusterClaim.Status.Phase == "" {
-	// 	if err := r.CreateClaimRole(clusterClaim); err != nil {
-	// 		return ctrl.Result{}, err
-	// 	}
-	// }
 
 	if AutoAdmit == false {
 		if clusterClaim.Status.Phase == "" {
@@ -106,19 +94,19 @@ func (r *ClusterClaimReconciler) requeueClusterClaimsForClusterManager(o client.
 		Name:      clm.Labels[clusterv1alpha1.LabelKeyClcName],
 		Namespace: clm.Namespace,
 	}
-	if err := r.Get(context.TODO(), key, cc); err != nil {
-		if errors.IsNotFound(err) {
-			log.Info("ClusterClaim resource not found. Ignoring since object must be deleted")
-			return nil
-		}
+	if err := r.Get(context.TODO(), key, cc); errors.IsNotFound(err) {
+		log.Info("ClusterClaim resource not found. Ignoring since object must be deleted")
+		return nil
+	} else if err != nil {
 		log.Error(err, "Failed to get ClusterClaim")
 		return nil
 	}
+
 	if cc.Status.Phase != "Approved" {
 		log.Info("ClusterClaims for ClusterManager [" + cc.Spec.ClusterName + "] is already delete... Do not update cc status to delete ")
-		//err := r.Create()
 		return nil
 	}
+
 	cc.Status.Phase = "ClusterDeleted"
 	cc.Status.Reason = "cluster is deleted"
 	err := r.Status().Update(context.TODO(), cc)
@@ -166,8 +154,8 @@ func (r *ClusterClaimReconciler) SetupWithManager(mgr ctrl.Manager) error {
 			},
 			DeleteFunc: func(e event.DeleteEvent) bool {
 				clm := e.Object.(*clusterv1alpha1.ClusterManager)
-				if val, ok := clm.Labels[clusterv1alpha1.LabelKeyClmClusterType]; ok &&
-					val == clusterv1alpha1.ClusterTypeCreated {
+				val, ok := clm.Labels[clusterv1alpha1.LabelKeyClmClusterType]
+				if ok && val == clusterv1alpha1.ClusterTypeCreated {
 					return true
 				}
 				return false
