@@ -1,6 +1,4 @@
 /*
-
-
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
@@ -17,64 +15,67 @@ limitations under the License.
 package util
 
 const (
-	KubeNamespace                      = "kube-system"
-	WatchAnnotationJoinValue           = "join"
-	WatchAnnotationJoinSuccess         = "complete"
-	WatchAnnotationUnJoinValue         = "unjoin"
-	KubeconfigSuffix                   = "-kubeconfig"
-	ClusterNamespace                   = "default"
-	MonitoringNamespace                = "monitoring"
-	HYPERCLOUD_SYSTEM_NAMESPACE        = "hypercloud5-system"
-	MultiApiServerNamespace            = "hypercloud4-multi-system"
-	MultiApiServerServiceName          = "hypercloud4-multi-api-server-service"
-	SecretFinalizer                    = "secret/finalizers"
-	ClusterManagerFinalizer            = "clusterManager.cluster.tmax.io"
-	SecretFinalizerForClusterManager   = "secretforclustermanager/finalizers"
-	MultiApiServerServiceSelectorKey   = "hypercloud4"
-	MultiApiServerServiceSelectorValue = "multi-api-server"
-	ClusterTypeCreated                 = "created"
-	ClusterTypeRegistered              = "registered"
-	IngressNginxNamespace              = "ingress-nginx"
-	IngressNginxName                   = "ingress-nginx-controller"
-	ClusterApiKind                     = "clustermanagers"
-	ClusterApiGroupVersion             = "cluster.tmax.io/v1alpha1"
-	AgentIngressName                   = "hypercloud-ingress"
-	SuffixDigit                        = 5
-	HypercloudIngressClass             = "tmax-cloud"
-	HypercloudMultiIngressClass        = "multicluster"
-	HypercloudMultiIngressSubdomain    = "multicluster"
-	ApiGatewayNamespace                = "api-gateway-system"
+	KubeNamespace         = "kube-system"
+	ApiGatewayNamespace   = "api-gateway-system"
+	IngressNginxNamespace = "ingress-nginx"
+	ArgoNamespace         = "argocd"
+)
 
+const (
+	// defunct
+	// MultiApiServerServiceSelectorKey   = "hypercloud4"
+	// MultiApiServerServiceSelectorValue = "multi-api-server"
+	IngressNginxName = "ingress-nginx-controller"
+)
+
+const (
+	KubeconfigSuffix = "-kubeconfig"
+	// HypercloudIngressClass          = "tmax-cloud"
+	// HypercloudMultiIngressClass     = "multicluster"
+	// HypercloudMultiIngressSubdomain = "multicluster"
+)
+
+const (
 	ProviderAws     = "AWS"
-	ProviderVsphere = "VSPHERE"
-	ProviderUnknown = "Unknown"
+	ProviderAwsLogo = "AWS"
 
-	ProviderAwsLogo     = "AWS"
+	ProviderVsphere     = "VSPHERE"
 	ProviderVsphereLogo = "vSphere"
 
+	ProviderUnknown = "Unknown"
+)
+
+const (
+	ClmSecretTypeKubeconfig = "kubeconfig"
+	ClmSecretTypeArgo       = "argocd"
+)
+
+const (
 	ArgoApiGroup           = "argocd.argoproj.io"
-	ArgoNamespace          = "argocd"
 	ArgoServiceAccount     = "argocd-manager"
 	ArgoClusterRole        = "argocd-manager-role"
 	ArgoClusterRoleBinding = "argocd-manager-role-binding"
 	ArgoSecretTypeCluster  = "cluster"
+	ArgoSecretTypeGit      = "repo"
+)
 
-	AnnotationKeyOwner                  = "owner"
-	AnnotationKeyCreator                = "creator"
-	AnnotationKeyArgoClusterSecret      = "argocd.argoproj.io/cluster.secret"
-	AnnotationKeyArgoManagedBy          = "managed-by"
+const (
+	AnnotationKeyOwner   = "owner"
+	AnnotationKeyCreator = "creator"
+
+	AnnotationKeyArgoClusterSecret = "argocd.argoproj.io/cluster.secret"
+	AnnotationKeyArgoManagedBy     = "managed-by"
+
 	AnnotationKeyTraefikServerTransport = "traefik.ingress.kubernetes.io/service.serverstransport"
 	AnnotationKeyTraefikEntrypoints     = "traefik.ingress.kubernetes.io/router.entrypoints"
 	AnnotationKeyTraefikMiddlewares     = "traefik.ingress.kubernetes.io/router.middlewares"
 	AnnotationKeyTraefikServerScheme    = "traefik.ingress.kubernetes.io/service.serversscheme"
-	AnnotationKeyClmApiserverEndpoint   = "clustermanager.tmax.io/apiserver.endpoint"
-	AnnotationKeyClmGatewayEndpoint     = "clustermanager.tmax.io/gateway.endpoint"
-	AnnotationKeyClmSuffix              = "clustermanager.tmax.io/suffix"
-	AnnotationKeyClmDns                 = "clustermanager.tmax.io/dns"
+)
 
+const (
 	LabelKeyHypercloudIngress = "ingress.tmaxcloud.org/name"
-	LabelKeyClmRef            = "clustermanager.tmax.io/clm.ref"
-	LabelKeyClmParent         = "parent"
-	LabelKeyClmClusterType    = "type"
-	LabelKeyArgoSecretType    = "argocd.argoproj.io/secret-type"
+
+	LabelKeyClmSecretType = "cluster.tmax.io/clm-secret-type"
+
+	LabelKeyArgoSecretType = "argocd.argoproj.io/secret-type"
 )

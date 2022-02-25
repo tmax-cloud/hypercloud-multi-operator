@@ -1,6 +1,4 @@
 /*
-
-
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
@@ -18,13 +16,7 @@ package controllers
 
 import (
 	"context"
-	"encoding/json"
-	"fmt"
-	"regexp"
-	"strings"
 	"time"
-
-	// "k8s.io/apimachinery/pkg/util/intstr"
 
 	"github.com/go-logr/logr"
 	certmanagerv1 "github.com/jetstack/cert-manager/pkg/apis/certmanager/v1"
@@ -32,10 +24,10 @@ import (
 	clusterv1alpha1 "github.com/tmax-cloud/hypercloud-multi-operator/apis/cluster/v1alpha1"
 	util "github.com/tmax-cloud/hypercloud-multi-operator/controllers/util"
 	traefikv2 "github.com/traefik/traefik/v2/pkg/provider/kubernetes/crd/traefik/v1alpha1"
-	corev1 "k8s.io/api/core/v1"
-	networkingv1 "k8s.io/api/networking/v1"
 
-	appsv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
+	networkingv1 "k8s.io/api/networking/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -53,22 +45,13 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
-	"sigs.k8s.io/yaml"
 )
 
 const (
-	// CAPI_SYSTEM_NAMESPACE       = "capi-system"
-	// CLAIM_API_GROUP             = "claim.tmax.io"
-	// CLUSTER_API_GROUP           = "cluster.tmax.io"
-	// CLAIM_API_Kind              = "clusterclaims"
-	// CLAIM_API_GROUP_VERSION     = "claim.tmax.io/v1alpha1"
-	// HYPERCLOUD_SYSTEM_NAMESPACE = ""
-	requeueAfter10Sec  = 10 * time.Second
-	requeueAfter20Sec  = 20 * time.Second
-	requeueAfter30Sec  = 30 * time.Second
-	requeueAfter60Sec  = 60 * time.Second
-	requeueAfter120Sec = 120 * time.Second
-	requeueAfter10min  = 600 * time.Second
+	requeueAfter10Sec = 10 * time.Second
+	requeueAfter20Sec = 20 * time.Second
+	requeueAfter30Sec = 30 * time.Second
+	requeueAfter1Min  = 1 * time.Minute
 )
 
 type ClusterParameter struct {
@@ -134,11 +117,10 @@ func (r *ClusterManagerReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 
 	//get ClusterManager
 	clusterManager := &clusterv1alpha1.ClusterManager{}
-	if err := r.Get(context.TODO(), req.NamespacedName, clusterManager); err != nil {
-		if errors.IsNotFound(err) {
-			log.Info("ClusterManager resource not found. Ignoring since object must be deleted.")
-			return ctrl.Result{}, nil
-		}
+	if err := r.Get(context.TODO(), req.NamespacedName, clusterManager); errors.IsNotFound(err) {
+		log.Info("ClusterManager resource not found. Ignoring since object must be deleted")
+		return ctrl.Result{}, nil
+	} else if err != nil {
 		log.Error(err, "Failed to get ClusterManager")
 		return ctrl.Result{}, err
 	}
@@ -161,28 +143,27 @@ func (r *ClusterManagerReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	}()
 
 	// Add finalizer first if not exist to avoid the race condition between init and delete
-	if !controllerutil.ContainsFinalizer(clusterManager, util.ClusterManagerFinalizer) {
-		controllerutil.AddFinalizer(clusterManager, util.ClusterManagerFinalizer)
+	if !controllerutil.ContainsFinalizer(clusterManager, clusterv1alpha1.ClusterManagerFinalizer) {
+		controllerutil.AddFinalizer(clusterManager, clusterv1alpha1.ClusterManagerFinalizer)
 		return ctrl.Result{}, nil
 	}
 
 	// Handle normal reconciliation loop.
-	if clusterManager.Labels[util.LabelKeyClmClusterType] == util.ClusterTypeRegistered {
+	if clusterManager.Labels[clusterv1alpha1.LabelKeyClmClusterType] == clusterv1alpha1.ClusterTypeRegistered {
 		// Handle deletion reconciliation loop.
 		if !clusterManager.ObjectMeta.DeletionTimestamp.IsZero() {
 			clusterManager.Status.Ready = false
 			return r.reconcileDeleteForRegisteredClusterManager(context.TODO(), clusterManager)
 		}
 		return r.reconcileForRegisteredClusterManager(context.TODO(), clusterManager)
+	} else {
+		// Handle deletion reconciliation loop.
+		if !clusterManager.ObjectMeta.DeletionTimestamp.IsZero() {
+			clusterManager.Status.Ready = false
+			return r.reconcileDelete(context.TODO(), clusterManager)
+		}
+		return r.reconcile(context.TODO(), clusterManager)
 	}
-
-	// Handle deletion reconciliation loop.
-	if !clusterManager.ObjectMeta.DeletionTimestamp.IsZero() {
-		clusterManager.Status.Ready = false
-		return r.reconcileDelete(context.TODO(), clusterManager)
-	}
-
-	return r.reconcile(context.TODO(), clusterManager)
 }
 
 // reconcile handles cluster reconciliation.
@@ -190,6 +171,7 @@ func (r *ClusterManagerReconciler) reconcileForRegisteredClusterManager(ctx cont
 	phases := []func(context.Context, *clusterv1alpha1.ClusterManager) (ctrl.Result, error){
 		r.UpdateClusterManagerStatus,
 		r.CreateTraefikResources,
+		r.CreateArgocdClusterSecret,
 		r.UpdatePrometheusService,
 		// r.DeployAndUpdateAgentEndpoint,
 	}
@@ -210,680 +192,38 @@ func (r *ClusterManagerReconciler) reconcileForRegisteredClusterManager(ctx cont
 	return res, kerrors.NewAggregate(errs)
 }
 
-func (r *ClusterManagerReconciler) UpdateClusterManagerStatus(ctx context.Context, clusterManager *clusterv1alpha1.ClusterManager) (ctrl.Result, error) {
-	log := r.Log.WithValues("clustermanager", types.NamespacedName{Name: clusterManager.Name, Namespace: clusterManager.Namespace})
-	log.Info("Start to UpdateClusterManagerStatus")
-
-	kubeconfigSecret := &corev1.Secret{}
-	kubeconfigSecretKey := types.NamespacedName{
-		Name:      clusterManager.Name + util.KubeconfigSuffix,
-		Namespace: clusterManager.Namespace,
-	}
-	if err := r.Get(context.TODO(), kubeconfigSecretKey, kubeconfigSecret); err != nil {
-		if errors.IsNotFound(err) {
-			log.Info("Cannot found kubeconfig secret. Wait to create kubeconfig secret.")
-			return ctrl.Result{RequeueAfter: requeueAfter10Sec}, nil
-		} else {
-			log.Error(err, "Failed to get kubeconfig secret")
-			return ctrl.Result{}, err
-		}
-	}
-
-	remoteClientset, err := util.GetRemoteK8sClient(kubeconfigSecret)
-	if err != nil {
-		log.Error(err, "Failed to get remoteK8sClient")
-		return ctrl.Result{}, err
-	}
-
-	var kubeadmConfig *corev1.ConfigMap
-	if kubeadmConfig, err =
-		remoteClientset.
-			CoreV1().
-			ConfigMaps(util.KubeNamespace).
-			Get(
-				context.TODO(),
-				"kubeadm-config",
-				metav1.GetOptions{},
-			); err != nil {
-		log.Error(err, "Failed to get kubeadm-config configmap from remote cluster")
-		return ctrl.Result{}, err
-	}
-
-	jsonData, _ := yaml.YAMLToJSON([]byte(kubeadmConfig.Data["ClusterConfiguration"]))
-	data := make(map[string]interface{})
-	if err := json.Unmarshal(jsonData, &data); err != nil {
-		return ctrl.Result{}, err
-	}
-	clusterManager.Spec.Version = fmt.Sprintf("%v", data["kubernetesVersion"])
-
-	var nodeList *corev1.NodeList
-	if nodeList, err =
-		remoteClientset.
-			CoreV1().
-			Nodes().
-			List(
-				context.TODO(),
-				metav1.ListOptions{},
-			); err != nil {
-		log.Error(err, "Failed to list remote K8s nodeList")
-		return ctrl.Result{}, err
-	}
-
-	// var machineList *capiv1.machineList
-	// if machineList, err =
-	// todo - shkim
-	// node list가 아닌 machine list를 불러서 ready체크를 해야 확실하지 않을까?
-	clusterManager.Spec.MasterNum = 0
-	clusterManager.Status.MasterRun = 0
-	clusterManager.Spec.WorkerNum = 0
-	clusterManager.Status.WorkerRun = 0
-	clusterManager.Spec.Provider = util.ProviderUnknown
-	clusterManager.Status.Provider = util.ProviderUnknown
-	for _, node := range nodeList.Items {
-		if _, ok := node.Labels["node-role.kubernetes.io/master"]; ok {
-			clusterManager.Spec.MasterNum++
-			if node.Status.Conditions[len(node.Status.Conditions)-1].Type == "Ready" {
-				clusterManager.Status.MasterRun++
-			}
-		} else {
-			clusterManager.Spec.WorkerNum++
-			if node.Status.Conditions[len(node.Status.Conditions)-1].Type == "Ready" {
-				clusterManager.Status.WorkerRun++
-			}
-		}
-
-		if clusterManager.Spec.Provider == util.ProviderUnknown && node.Spec.ProviderID != "" {
-			providerID, err := util.GetProviderName(
-				strings.Split(node.Spec.ProviderID, "://")[0],
-			)
-			if err != nil {
-				log.Error(err, "Cannot found given provider name.")
-			}
-			clusterManager.Status.Provider = providerID
-			clusterManager.Spec.Provider = providerID
-		}
-	}
-
-	if clusterManager.Spec.Provider == util.ProviderUnknown {
-		reg, _ := regexp.Compile("cloud-provider: [a-zA-Z-_ ]+")
-		matchString := reg.FindString(kubeadmConfig.Data["ClusterConfiguration"])
-		if matchString != "" {
-			cloudProvider, err := util.GetProviderName(
-				matchString[len("cloud-provider: "):],
-			)
-			if err != nil {
-				log.Error(err, "Cannot found given provider name.")
-			}
-			clusterManager.Status.Provider = cloudProvider
-			clusterManager.Spec.Provider = cloudProvider
-		}
-	}
-
-	// health check
-	var resp []byte
-	if resp, err =
-		remoteClientset.
-			RESTClient().
-			Get().
-			AbsPath("/readyz").
-			DoRaw(
-				context.TODO(),
-			); err != nil {
-		log.Error(err, "Failed to get remote cluster status")
-		return ctrl.Result{}, err
-	}
-	if string(resp) == "ok" {
-		clusterManager.Status.ControlPlaneReady = true
-		//clusterManager.Status.AgentReady = true
-		clusterManager.Status.Ready = true
-	} else {
-		// err := errors.NewBadRequest("Failed to healthcheck")
-		// log.Error(err, "Failed to healthcheck")
-		// 잠시 오류난걸 수도 있으니까.. 근데 무한장 wait할 수는 없어서 requeue 횟수를 지정할 수 있으면 좋겠네
-		log.Info("Remote cluster is not ready... wait...")
-		return ctrl.Result{RequeueAfter: requeueAfter30Sec}, nil
-	}
-
-	generatedSuffix := util.CreateSuffixString()
-	clusterManager.Annotations[util.AnnotationKeyClmSuffix] = generatedSuffix
-	return ctrl.Result{}, nil
-}
-
-func (r *ClusterManagerReconciler) SetEndpoint(ctx context.Context, clusterManager *clusterv1alpha1.ClusterManager) (ctrl.Result, error) {
-	log := r.Log.WithValues("clustermanager", types.NamespacedName{Name: clusterManager.Name, Namespace: clusterManager.Namespace})
-	log.Info("Start setting endpoint configuration to clusterManager")
-
-	if clusterManager.Annotations[util.AnnotationKeyClmApiserverEndpoint] != "" {
-		log.Info("Endpoint already configured.")
-		return ctrl.Result{}, nil
-	}
-
-	cluster := &capiv1.Cluster{}
-	clusterKey := types.NamespacedName{
-		Name:      clusterManager.Name,
-		Namespace: clusterManager.Namespace,
-	}
-	if err := r.Get(context.TODO(), clusterKey, cluster); err != nil {
-		if errors.IsNotFound(err) {
-			log.Info("Fail to get cluster. Requeue after 20sec.")
-			return ctrl.Result{RequeueAfter: requeueAfter20Sec}, err
-		} else {
-			log.Error(err, "Failed to get cluster information")
-			return ctrl.Result{}, err
-		}
-	}
-
-	if cluster.Spec.ControlPlaneEndpoint.Host == "" {
-		log.Info("ControlPlain endpoint is not ready yet. requeue after 20sec.")
-		return ctrl.Result{RequeueAfter: requeueAfter20Sec}, nil
-	}
-	clusterManager.Annotations[util.AnnotationKeyClmApiserverEndpoint] = cluster.Spec.ControlPlaneEndpoint.Host
-
-	return ctrl.Result{}, nil
-}
-func (r *ClusterManagerReconciler) CreateTraefikResources(ctx context.Context, clusterManager *clusterv1alpha1.ClusterManager) (ctrl.Result, error) {
-	log := r.Log.WithValues("clustermanager", types.NamespacedName{Name: clusterManager.Name, Namespace: clusterManager.Namespace})
-
-	if clusterManager.Annotations[util.AnnotationKeyClmApiserverEndpoint] == "" {
-		log.Info("Wait for recognize remote apiserver endpoint")
-		return ctrl.Result{RequeueAfter: requeueAfter20Sec}, nil
-	}
-
-	traefikCertificate := &certmanagerv1.Certificate{}
-	certificateKey := types.NamespacedName{
-		//Name:      clusterManager.Name + "-certificate-" + clusterManager.Annotations[util.AnnotationKeyClmSuffix],
-		Name:      clusterManager.Name + "-certificate",
-		Namespace: clusterManager.Namespace,
-	}
-	if err := r.Get(context.TODO(), certificateKey, traefikCertificate); err != nil {
-		if errors.IsNotFound(err) {
-			log.Info("Start creating Certificate")
-			traefikCertificate = util.CreateCertificate(clusterManager)
-			if err := r.Create(context.TODO(), traefikCertificate); err != nil {
-				log.Error(err, "Failed to create Certificate")
-				return ctrl.Result{}, err
-			}
-			ctrl.SetControllerReference(clusterManager, traefikCertificate, r.Scheme)
-		} else {
-			log.Error(err, "Failed to get Certificate information")
-			return ctrl.Result{}, err
-		}
-	} else {
-		log.Info("Certificate is already existed")
-	}
-
-	traefikIngress := &networkingv1.Ingress{}
-	ingressKey := types.NamespacedName{
-		//Name:      clusterManager.Name + "-ingress-" + clusterManager.Annotations[util.AnnotationKeyClmSuffix],
-		Name:      clusterManager.Name + "-ingress",
-		Namespace: clusterManager.Namespace,
-	}
-	if err := r.Get(context.TODO(), ingressKey, traefikIngress); err != nil {
-		if errors.IsNotFound(err) {
-			log.Info("Start creating Ingress")
-			traefikIngress = util.CreateIngress(clusterManager)
-			if err := r.Create(context.TODO(), traefikIngress); err != nil {
-				log.Error(err, "Failed to create Ingress")
-				return ctrl.Result{}, err
-			}
-			ctrl.SetControllerReference(clusterManager, traefikIngress, r.Scheme)
-		} else {
-			log.Error(err, "Failed to get Ingress information")
-			return ctrl.Result{}, err
-		}
-	} else {
-		log.Info("Ingress is already existed")
-	}
-
-	traefikService := &corev1.Service{}
-	serviceKey := types.NamespacedName{
-		//Name:      clusterManager.Name + "-service-" + clusterManager.Annotations[util.AnnotationKeyClmSuffix],
-		Name:      clusterManager.Name + "-service",
-		Namespace: clusterManager.Namespace,
-	}
-	if err := r.Get(context.TODO(), serviceKey, traefikService); err != nil {
-		if errors.IsNotFound(err) {
-			log.Info("Start creating Service")
-			traefikService = util.CreateService(clusterManager)
-			if err := r.Create(context.TODO(), traefikService); err != nil {
-				log.Error(err, "Failed to create Service")
-				return ctrl.Result{}, err
-			}
-			ctrl.SetControllerReference(clusterManager, traefikService, r.Scheme)
-		} else {
-			log.Error(err, "Failed to get Service information")
-			return ctrl.Result{}, err
-		}
-	} else {
-		log.Info("Service is already existed")
-	}
-
-	if util.IsIpAddress(clusterManager.Annotations[util.AnnotationKeyClmApiserverEndpoint]) {
-		traefikEndpoint := &corev1.Endpoints{}
-		endpointKey := types.NamespacedName{
-			// Name: clusterManager.Name + "-service" + clusterManager.Annotations[util.AnnotationKeyClmSuffix],
-			Name:      clusterManager.Name + "-service",
-			Namespace: clusterManager.Namespace,
-		}
-		if err := r.Get(context.TODO(), endpointKey, traefikEndpoint); err != nil {
-			if errors.IsNotFound(err) {
-				log.Info("Start creating endpoint")
-				traefikEndpoint = util.CreateEndpoint(clusterManager)
-				if err := r.Create(context.TODO(), traefikEndpoint); err != nil {
-					log.Error(err, "Failed to create Endpoint")
-					return ctrl.Result{}, err
-				}
-				ctrl.SetControllerReference(clusterManager, traefikEndpoint, r.Scheme)
-			} else {
-				log.Error(err, "Failed to get Endpoint information")
-				return ctrl.Result{}, err
-			}
-		} else {
-			log.Info("Endpoint is already existed")
-		}
-	}
-
-	traefikMiddleware := &traefikv2.Middleware{}
-	middlewareKey := types.NamespacedName{
-		//Name:      clusterManager.Name + "-prefix-" + clusterManager.Annotations[util.AnnotationKeyClmSuffix],
-		Name:      clusterManager.Name + "-prefix",
-		Namespace: clusterManager.Namespace,
-	}
-	if err := r.Get(context.TODO(), middlewareKey, traefikMiddleware); err != nil {
-		if errors.IsNotFound(err) {
-			log.Info("Start creating Middleware")
-			traefikMiddleware = util.CreateMiddleware(clusterManager)
-			if err := r.Create(context.TODO(), traefikMiddleware); err != nil {
-				log.Error(err, "Failed to create Middleware")
-				return ctrl.Result{}, err
-			}
-			ctrl.SetControllerReference(clusterManager, traefikMiddleware, r.Scheme)
-		} else {
-			log.Error(err, "Failed to get Middleware information")
-			return ctrl.Result{}, err
-		}
-	} else {
-		log.Info("Middleware is already existed")
-	}
-
-	return ctrl.Result{}, nil
-}
-
-func (r *ClusterManagerReconciler) DeployAndUpdateAgentEndpoint(ctx context.Context, clusterManager *clusterv1alpha1.ClusterManager) (ctrl.Result, error) {
-	log := r.Log.WithValues("clustermanager", types.NamespacedName{Name: clusterManager.Name, Namespace: clusterManager.Namespace})
-	// secret controller에서 clustermanager.status.controleplaneendpoint를 채워줄 때 까지 기다림
-	if !clusterManager.Status.ControlPlaneReady {
-		// requeue (wait cluster controller)
-		return ctrl.Result{RequeueAfter: requeueAfter60Sec}, nil
-	} else /*if !clusterManager.Status.AgentReady*/ {
-		kubeconfigSecret := &corev1.Secret{}
-		kubeconfigSecretKey := types.NamespacedName{
-			Name:      clusterManager.Name + util.KubeconfigSuffix,
-			Namespace: clusterManager.Namespace,
-		}
-		if err := r.Get(context.TODO(), kubeconfigSecretKey, kubeconfigSecret); err != nil {
-			if errors.IsNotFound(err) {
-				log.Info("Cannot found kubeconfig secret. Wait to create kubeconfig secret.")
-				return ctrl.Result{RequeueAfter: requeueAfter10Sec}, nil
-			} else {
-				log.Error(err, "Failed to get kubeconfig secret")
-				return ctrl.Result{}, err
-			}
-		}
-
-		remoteClientset, err := util.GetRemoteK8sClient(kubeconfigSecret)
-		if err != nil {
-			log.Error(err, "Failed to get remoteK8sClient")
-			return ctrl.Result{}, err
-		}
-
-		// ingress controller 존재하는지 먼저 확인하고 없으면 배포부터해.. 그전에 join되었는지도 먼저 확인해야하나...
-		if _, err =
-			remoteClientset.
-				CoreV1().
-				Namespaces().
-				Get(
-					context.TODO(),
-					util.IngressNginxNamespace,
-					metav1.GetOptions{},
-				); err != nil {
-			if errors.IsNotFound(err) {
-				log.Info("Cannot found ingress namespace... ingress-nginx is creating... requeue after 30sec")
-				return ctrl.Result{RequeueAfter: requeueAfter60Sec}, nil
-			} else {
-				log.Error(err, "Failed to get ingress-nginx namespace from remote cluster")
-				return ctrl.Result{}, err
-			}
-		} else {
-			var ingressController *appsv1.Deployment
-			if ingressController, err =
-				remoteClientset.
-					AppsV1().
-					Deployments(util.IngressNginxNamespace).
-					Get(
-						context.TODO(),
-						util.IngressNginxName,
-						metav1.GetOptions{},
-					); err != nil {
-				if errors.IsNotFound(err) {
-					log.Info("Cannot found ingress controller... ingress-nginx is creating... requeue after 30sec")
-					return ctrl.Result{RequeueAfter: requeueAfter60Sec}, nil
-				} else {
-					log.Error(err, "Failed to get ingress controller from remote cluster")
-					return ctrl.Result{}, err
-				}
-			} else {
-				// 하나라도 ready라면..
-				if ingressController.Status.ReadyReplicas == 0 {
-					log.Info("Ingress controller is not ready...  requeue after 60sec")
-					return ctrl.Result{RequeueAfter: requeueAfter60Sec}, nil
-				}
-			}
-		}
-	}
-
-	clusterManager.Status.Ready = true
-	return ctrl.Result{}, nil
-}
-
-func (r *ClusterManagerReconciler) UpdatePrometheusService(ctx context.Context, clusterManager *clusterv1alpha1.ClusterManager) (reconcile.Result, error) {
-	targetClm := types.NamespacedName{
-		Name:      clusterManager.GetName(),
-		Namespace: clusterManager.GetNamespace(),
-	}
-	log := r.Log.WithValues("clustermanager", targetClm)
-	log.Info("Start to reconcile UpdatePrometheusService... ")
-
-	kubeconfigSecret := &corev1.Secret{}
-	kubeconfigSecretKey := types.NamespacedName{
-		Name:      clusterManager.Name + util.KubeconfigSuffix,
-		Namespace: clusterManager.Namespace,
-	}
-	if err := r.Get(context.TODO(), kubeconfigSecretKey, kubeconfigSecret); err != nil {
-		if errors.IsNotFound(err) {
-			log.Info("Cannot found kubeconfig secret. Wait to create kubeconfig secret.")
-			return ctrl.Result{RequeueAfter: requeueAfter10Sec}, nil
-		} else {
-			log.Error(err, "Failed to get kubeconfig secret")
-			return ctrl.Result{}, err
-		}
-	}
-
-	remoteClientset, err := util.GetRemoteK8sClient(kubeconfigSecret)
-	if err != nil {
-		log.Error(err, "Failed to get remoteK8sClient")
-		return ctrl.Result{}, err
-	}
-
-	if gatewayService, err :=
-		remoteClientset.
-			CoreV1().
-			Services(util.ApiGatewayNamespace).
-			Get(
-				context.TODO(),
-				"gateway",
-				metav1.GetOptions{},
-			); err != nil {
-		if errors.IsNotFound(err) {
-			log.Error(err, "Cannot found gateway Service. Wait for installing api-gateway. Requeue after 10 mins")
-			return ctrl.Result{RequeueAfter: requeueAfter10min}, err
-		}
-
-		log.Error(err, "Failed to get gateway Service")
-		return ctrl.Result{}, err
-	} else {
-		if gatewayService.Status.LoadBalancer.Ingress[0].Hostname == "" &&
-			gatewayService.Status.LoadBalancer.Ingress[0].IP == "" {
-			err := fmt.Errorf("gateway service doesn't have hostname or ip address")
-			log.Error(err, "Service for api-gateway is not Ready")
-			return ctrl.Result{RequeueAfter: requeueAfter10min}, err
-		}
-
-		clusterManager.Annotations[util.AnnotationKeyClmGatewayEndpoint] =
-			gatewayService.Status.LoadBalancer.Ingress[0].Hostname + gatewayService.Status.LoadBalancer.Ingress[0].IP
-	}
-
-	prometheusService := &corev1.Service{}
-	serviceKey := types.NamespacedName{
-		Name:      clusterManager.GetName() + "-prometheus-service",
-		Namespace: clusterManager.GetNamespace(),
-	}
-	if err := r.Get(context.TODO(), serviceKey, prometheusService); err != nil {
-		if errors.IsNotFound(err) {
-			log.Info("Service for prometheus is not found. start to create")
-			prometheusService = util.CreatePrometheusService(clusterManager)
-			if err := r.Create(context.TODO(), prometheusService); err != nil {
-				log.Error(err, "Failed to create Service for prometheus")
-				return ctrl.Result{}, err
-			}
-			ctrl.SetControllerReference(clusterManager, prometheusService, r.Scheme)
-		} else {
-			log.Error(err, "Failed to get Service for prometheus")
-			return ctrl.Result{}, err
-		}
-	} else {
-		log.Info("Service for prometheus is already existed")
-	}
-
-	if util.IsIpAddress(clusterManager.Annotations[util.AnnotationKeyClmApiserverEndpoint]) {
-		prometheusEndpoint := &corev1.Endpoints{}
-		endpointKey := types.NamespacedName{
-			Name:      clusterManager.GetName() + "-prometheus-service",
-			Namespace: clusterManager.GetNamespace(),
-		}
-		if err := r.Get(context.TODO(), endpointKey, prometheusEndpoint); err != nil {
-			if errors.IsNotFound(err) {
-				log.Info("Endpoint for prometheus is not found. start to create")
-				prometheusEndpoint = util.CreatePrometheusEndpoint(clusterManager)
-				if err := r.Create(context.TODO(), prometheusEndpoint); err != nil {
-					log.Error(err, "Failed to create Endpoint for prometheus")
-					return ctrl.Result{}, err
-				}
-				ctrl.SetControllerReference(clusterManager, prometheusEndpoint, r.Scheme)
-			} else {
-				log.Error(err, "Failed to get Endpoint for prometheus")
-				return ctrl.Result{}, err
-			}
-		} else {
-			log.Info("Endpoint for prometheus is already existed")
-		}
-	}
-
-	//clusterManager.Status.
-	return ctrl.Result{}, nil
-}
-
 func (r *ClusterManagerReconciler) reconcileDeleteForRegisteredClusterManager(ctx context.Context, clusterManager *clusterv1alpha1.ClusterManager) (reconcile.Result, error) {
-	log := r.Log.WithValues("clustermanager", types.NamespacedName{Name: clusterManager.Name, Namespace: clusterManager.Namespace})
-	log.Info("Start to reconcileDeleteForRegisteredClusterManager reconcile for [" + clusterManager.Name + "]")
+	log := r.Log.WithValues("clustermanager", clusterManager.GetNamespacedName())
+	log.Info("Start to reconcile delete for registered ClusterManager")
 
-	kubeconfigSecret := &corev1.Secret{}
-	kubeconfigSecretKey := types.NamespacedName{
+	if err := util.Delete(clusterManager.Namespace, clusterManager.Name); err != nil {
+		log.Error(err, "Failed to delete cluster info from cluster_member table")
+		return ctrl.Result{}, err
+	}
+
+	key := types.NamespacedName{
 		Name:      clusterManager.Name + util.KubeconfigSuffix,
 		Namespace: clusterManager.Namespace,
 	}
-	if err := r.Get(context.TODO(), kubeconfigSecretKey, kubeconfigSecret); err != nil {
-		if errors.IsNotFound(err) {
-			log.Info("Kubeconfig is successfully deleted.. Delete clustermanager finalizer")
-			if err := util.Delete(clusterManager.Namespace, clusterManager.Name); err != nil {
-				log.Error(err, "Failed to delete cluster info from cluster_member table")
-				return ctrl.Result{}, err
-			}
-		} else {
-			log.Error(err, "Failed to get kubeconfig secret")
-			return ctrl.Result{}, err
-		}
-	} else {
-		log.Info("Start to delete kubeconfig secret")
+	kubeconfigSecret := &corev1.Secret{}
+	if err := r.Get(context.TODO(), key, kubeconfigSecret); err != nil && !errors.IsNotFound(err) {
+		log.Error(err, "Failed to get kubeconfig Secret")
+		return ctrl.Result{}, err
+	} else if err == nil {
 		if err := r.Delete(context.TODO(), kubeconfigSecret); err != nil {
-			log.Error(err, "Failed to delete kubeconfigSecret")
+			log.Error(err, "Failed to delete kubeconfig Secret")
 			return ctrl.Result{}, err
 		}
+
+		log.Info("Delete kubeconfig Secret successfully")
+		return ctrl.Result{RequeueAfter: requeueAfter10Sec}, nil
 	}
 
-	traefikCertificate := &certmanagerv1.Certificate{}
-	certificateKey := types.NamespacedName{
-		//Name:      clusterManager.Name + "-certificate-" + clusterManager.Annotations[util.AnnotationKeyClmSuffix],
-		Name:      clusterManager.Name + "-certificate",
-		Namespace: clusterManager.Namespace,
-	}
-	if err := r.Get(context.TODO(), certificateKey, traefikCertificate); err != nil {
-		if errors.IsNotFound(err) {
-			log.Info("Certificate is already deleted.")
-			//if err := util.Delete(clusterManager.Namespace, clusterManager.)
-		} else {
-			log.Error(err, "Failed to get Certificate information")
-			return ctrl.Result{}, err
-		}
-	} else {
-		if err := r.Delete(context.TODO(), traefikCertificate); err != nil {
-			log.Error(err, "Failed to delete Certificate")
-			return ctrl.Result{}, err
-		}
+	if err := r.DeleteTraefikResources(clusterManager); err != nil {
+		return ctrl.Result{}, err
 	}
 
-	traefikCertSecret := &corev1.Secret{}
-	certSecretKey := types.NamespacedName{
-		//Name:      clusterManager.Name + "-certificate-" + clusterManager.Annotations[util.AnnotationKeyClmSuffix],
-		Name:      clusterManager.Name + "-service-cert",
-		Namespace: clusterManager.Namespace,
-	}
-	if err := r.Get(context.TODO(), certSecretKey, traefikCertSecret); err != nil {
-		if errors.IsNotFound(err) {
-			log.Info("Cert-Secret is already deleted.")
-			//if err := util.Delete(clusterManager.Namespace, clusterManager.)
-		} else {
-			log.Error(err, "Failed to get Cert-Secret information")
-			return ctrl.Result{}, err
-		}
-	} else {
-		if err := r.Delete(context.TODO(), traefikCertSecret); err != nil {
-			log.Error(err, "Failed to delete Cert-Secret")
-			return ctrl.Result{}, err
-		}
-	}
-
-	traefikIngress := &networkingv1.Ingress{}
-	ingressKey := types.NamespacedName{
-		//Name:      clusterManager.Name + "-certificate-" + clusterManager.Annotations[util.AnnotationKeyClmSuffix],
-		Name:      clusterManager.Name + "-ingress",
-		Namespace: clusterManager.Namespace,
-	}
-	if err := r.Get(context.TODO(), ingressKey, traefikIngress); err != nil {
-		if errors.IsNotFound(err) {
-			log.Info("Ingress is already deleted.")
-			//if err := util.Delete(clusterManager.Namespace, clusterManager.)
-		} else {
-			log.Error(err, "Failed to get Certificate information")
-			return ctrl.Result{}, err
-		}
-	} else {
-		if err := r.Delete(context.TODO(), traefikIngress); err != nil {
-			log.Error(err, "Failed to delete Ingress")
-			return ctrl.Result{}, err
-		}
-	}
-
-	traefikService := &corev1.Service{}
-	serviceKey := types.NamespacedName{
-		//Name:      clusterManager.Name + "-service-" + clusterManager.Annotations[util.AnnotationKeyClmSuffix],
-		Name:      clusterManager.Name + "-service",
-		Namespace: clusterManager.Namespace,
-	}
-	if err := r.Get(context.TODO(), serviceKey, traefikService); err != nil {
-		if errors.IsNotFound(err) {
-			log.Info("Service is already deleted.")
-			//if err := util.Delete(clusterManager.Namespace, clusterManager.)
-		} else {
-			log.Error(err, "Failed to get Service information")
-			return ctrl.Result{}, err
-		}
-	} else {
-		if err := r.Delete(context.TODO(), traefikService); err != nil {
-			log.Error(err, "Failed to delete Service")
-			return ctrl.Result{}, err
-		}
-	}
-
-	traefikEndpoint := &corev1.Endpoints{}
-	endpointKey := types.NamespacedName{
-		//Name:      clusterManager.Name + "-service-" + clusterManager.Annotations[util.AnnotationKeyClmSuffix],
-		Name:      clusterManager.Name + "-service",
-		Namespace: clusterManager.Namespace,
-	}
-	if err := r.Get(context.TODO(), endpointKey, traefikEndpoint); err != nil {
-		if errors.IsNotFound(err) {
-			log.Info("Endpoint is already deleted.")
-		} else {
-			log.Error(err, "Failed to get Endpoint information")
-			return ctrl.Result{}, err
-		}
-	} else {
-		if err := r.Delete(context.TODO(), traefikEndpoint); err != nil {
-			log.Error(err, "Failed to delete Endpoint")
-			return ctrl.Result{}, err
-		}
-	}
-
-	traefikMiddleware := &traefikv2.Middleware{}
-	middlewareKey := types.NamespacedName{
-		//Name:      clusterManager.Name + "-prefix-" + clusterManager.Annotations[util.AnnotationKeyClmSuffix],
-		Name:      clusterManager.Name + "-prefix",
-		Namespace: clusterManager.Namespace,
-	}
-	if err := r.Get(context.TODO(), middlewareKey, traefikMiddleware); err != nil {
-		if errors.IsNotFound(err) {
-			log.Info("Middleware is already deleted.")
-		} else {
-			log.Error(err, "Failed to get Middleware information")
-			return ctrl.Result{}, err
-		}
-	} else {
-		if err := r.Delete(context.TODO(), traefikMiddleware); err != nil {
-			log.Error(err, "Failed to delete Middleware")
-			return ctrl.Result{}, err
-		}
-	}
-
-	prometheusService := &corev1.Service{}
-	prometheusServiceKey := types.NamespacedName{
-		Name:      clusterManager.GetName() + "-prometheus-service",
-		Namespace: clusterManager.GetNamespace(),
-	}
-	if err := r.Get(context.TODO(), prometheusServiceKey, prometheusService); err != nil {
-		if errors.IsNotFound(err) {
-			log.Info("Service for prometheus is already deleted.")
-		} else {
-			log.Error(err, "Failed to get Service for prometheus information")
-			return ctrl.Result{}, err
-		}
-	} else {
-		if err := r.Delete(context.TODO(), prometheusService); err != nil {
-			log.Error(err, "Failed to delete Service for prometheus")
-			return ctrl.Result{}, err
-		}
-	}
-
-	prometheusEndpoint := &corev1.Endpoints{}
-	prometheusEndpointKey := types.NamespacedName{
-		Name:      clusterManager.GetName() + "-prometheus-service",
-		Namespace: clusterManager.GetNamespace(),
-	}
-	if err := r.Get(context.TODO(), prometheusEndpointKey, prometheusEndpoint); err != nil {
-		if errors.IsNotFound(err) {
-			log.Info("Endpoint for prometheus is already deleted.")
-		} else {
-			log.Error(err, "Failed to get Endpoint for prometheus information")
-			return ctrl.Result{}, err
-		}
-	} else {
-		if err := r.Delete(context.TODO(), prometheusEndpoint); err != nil {
-			log.Error(err, "Failed to delete Endpoint for prometheus")
-			return ctrl.Result{}, err
-		}
-	}
-
-	controllerutil.RemoveFinalizer(clusterManager, util.ClusterManagerFinalizer)
+	controllerutil.RemoveFinalizer(clusterManager, clusterv1alpha1.ClusterManagerFinalizer)
 	return ctrl.Result{}, nil
 }
 
@@ -896,6 +236,8 @@ func (r *ClusterManagerReconciler) reconcile(ctx context.Context, clusterManager
 		r.DeployAndUpdateAgentEndpoint,
 		r.kubeadmControlPlaneUpdate,
 		r.machineDeploymentUpdate,
+		r.CreateArgocdClusterSecret,
+		r.UpdatePrometheusService,
 	}
 
 	res := ctrl.Result{}
@@ -909,209 +251,71 @@ func (r *ClusterManagerReconciler) reconcile(ctx context.Context, clusterManager
 		if len(errs) > 0 {
 			continue
 		}
+
 		res = util.LowestNonZeroResult(res, phaseResult)
 	}
+
 	return res, kerrors.NewAggregate(errs)
 }
 
 func (r *ClusterManagerReconciler) reconcileDelete(ctx context.Context, clusterManager *clusterv1alpha1.ClusterManager) (reconcile.Result, error) {
-	log := r.Log.WithValues("clustermanager", types.NamespacedName{Name: clusterManager.Name, Namespace: clusterManager.Namespace})
+	log := r.Log.WithValues("clustermanager", clusterManager.GetNamespacedName())
+	log.Info("Start reconcile phase for delete")
 
-	kubeconfigSecret := &corev1.Secret{}
-	kubeconfigSecretKey := types.NamespacedName{
+	key := types.NamespacedName{
 		Name:      clusterManager.Name + util.KubeconfigSuffix,
 		Namespace: clusterManager.Namespace,
 	}
-	if err := r.Get(context.TODO(), kubeconfigSecretKey, kubeconfigSecret); err != nil {
-		if errors.IsNotFound(err) {
-			log.Info("Kubeconfig Secret is already deleted. Waiting cluster to be deleted...")
-		} else {
-			log.Error(err, "Failed to get kubeconfig secret")
-			return ctrl.Result{}, err
-		}
+	kubeconfigSecret := &corev1.Secret{}
+	if err := r.Get(context.TODO(), key, kubeconfigSecret); err != nil && !errors.IsNotFound(err) {
+		log.Error(err, "Failed to get kubeconfig secret")
+		return ctrl.Result{}, err
+	}
+
+	if err := r.DeleteTraefikResources(clusterManager); err != nil {
+		return ctrl.Result{}, err
+	}
+
+	remoteClientset, err := util.GetRemoteK8sClient(kubeconfigSecret)
+	if err != nil {
+		log.Error(err, "Failed to get remoteK8sClient")
+		return ctrl.Result{}, err
+	}
+
+	// secret은 존재하는데.. 실제 instance가 없어서 에러 발생
+	_, err = remoteClientset.
+		CoreV1().
+		Namespaces().
+		Get(context.TODO(), util.IngressNginxNamespace, metav1.GetOptions{})
+	if errors.IsNotFound(err) {
+		log.Info("Ingress-nginx namespace is already deleted")
+	} else if err != nil {
+		log.Info(err.Error())
+		log.Info("Failed to get Ingress-nginx loadbalancer service... may be instance was deleted before secret was deleted...")
+		// log.Info("###################### Never executed... ############################")
+		// error 처리 필요
 	} else {
-		traefikCertificate := &certmanagerv1.Certificate{}
-		certificateKey := types.NamespacedName{
-			//Name:      clusterManager.Name + "-certificate-" + clusterManager.Annotations[util.AnnotationKeyClmSuffix],
-			Name:      clusterManager.Name + "-certificate",
-			Namespace: clusterManager.Namespace,
-		}
-		if err := r.Get(context.TODO(), certificateKey, traefikCertificate); err != nil {
-			if errors.IsNotFound(err) {
-				log.Info("Certificate is already deleted.")
-				//if err := util.Delete(clusterManager.Namespace, clusterManager.)
-			} else {
-				log.Error(err, "Failed to get Certificate information")
-				return ctrl.Result{}, err
-			}
-		} else {
-			if err := r.Delete(context.TODO(), traefikCertificate); err != nil {
-				log.Error(err, "Failed to delete Certificate")
-				return ctrl.Result{}, err
-			}
-		}
-
-		traefikCertSecret := &corev1.Secret{}
-		certSecretKey := types.NamespacedName{
-			//Name:      clusterManager.Name + "-certificate-" + clusterManager.Annotations[util.AnnotationKeyClmSuffix],
-			Name:      clusterManager.Name + "-service-cert",
-			Namespace: clusterManager.Namespace,
-		}
-		if err := r.Get(context.TODO(), certSecretKey, traefikCertSecret); err != nil {
-			if errors.IsNotFound(err) {
-				log.Info("Cert-Secret is already deleted.")
-				//if err := util.Delete(clusterManager.Namespace, clusterManager.)
-			} else {
-				log.Error(err, "Failed to get Cert-Secret information")
-				return ctrl.Result{}, err
-			}
-		} else {
-			if err := r.Delete(context.TODO(), traefikCertSecret); err != nil {
-				log.Error(err, "Failed to delete Cert-Secret")
-				return ctrl.Result{}, err
-			}
-		}
-
-		traefikIngress := &networkingv1.Ingress{}
-		ingressKey := types.NamespacedName{
-			//Name:      clusterManager.Name + "-certificate-" + clusterManager.Annotations[util.AnnotationKeyClmSuffix],
-			Name:      clusterManager.Name + "-ingress",
-			Namespace: clusterManager.Namespace,
-		}
-		if err := r.Get(context.TODO(), ingressKey, traefikIngress); err != nil {
-			if errors.IsNotFound(err) {
-				log.Info("Ingress is already deleted.")
-				//if err := util.Delete(clusterManager.Namespace, clusterManager.)
-			} else {
-				log.Error(err, "Failed to get Certificate information")
-				return ctrl.Result{}, err
-			}
-		} else {
-			if err := r.Delete(context.TODO(), traefikIngress); err != nil {
-				log.Error(err, "Failed to delete Ingress")
-				return ctrl.Result{}, err
-			}
-		}
-
-		traefikService := &corev1.Service{}
-		serviceKey := types.NamespacedName{
-			//Name:      clusterManager.Name + "-service-" + clusterManager.Annotations[util.AnnotationKeyClmSuffix],
-			Name:      clusterManager.Name + "-service",
-			Namespace: clusterManager.Namespace,
-		}
-		if err := r.Get(context.TODO(), serviceKey, traefikService); err != nil {
-			if errors.IsNotFound(err) {
-				log.Info("Service is already deleted.")
-				//if err := util.Delete(clusterManager.Namespace, clusterManager.)
-			} else {
-				log.Error(err, "Failed to get Service information")
-				return ctrl.Result{}, err
-			}
-		} else {
-			if err := r.Delete(context.TODO(), traefikService); err != nil {
-				log.Error(err, "Failed to delete Service")
-				return ctrl.Result{}, err
-			}
-		}
-
-		traefikEndpoint := &corev1.Endpoints{}
-		endpointKey := types.NamespacedName{
-			//Name:      clusterManager.Name + "-service-" + clusterManager.Annotations[util.AnnotationKeyClmSuffix],
-			Name:      clusterManager.Name + "-service",
-			Namespace: clusterManager.Namespace,
-		}
-		if err := r.Get(context.TODO(), endpointKey, traefikEndpoint); err != nil {
-			if errors.IsNotFound(err) {
-				log.Info("Endpoint is already deleted.")
-			} else {
-				log.Error(err, "Failed to get Endpoint information")
-				return ctrl.Result{}, err
-			}
-		} else {
-			if err := r.Delete(context.TODO(), traefikEndpoint); err != nil {
-				log.Error(err, "Failed to delete Endpoint")
-				return ctrl.Result{}, err
-			}
-		}
-
-		traefikMiddleware := &traefikv2.Middleware{}
-		middlewareKey := types.NamespacedName{
-			//Name:      clusterManager.Name + "-prefix-" + clusterManager.Annotations[util.AnnotationKeyClmSuffix],
-			Name:      clusterManager.Name + "-prefix",
-			Namespace: clusterManager.Namespace,
-		}
-		if err := r.Get(context.TODO(), middlewareKey, traefikMiddleware); err != nil {
-			if errors.IsNotFound(err) {
-				log.Info("Middleware is already deleted.")
-			} else {
-				log.Error(err, "Failed to get Middleware information")
-				return ctrl.Result{}, err
-			}
-		} else {
-			if err := r.Delete(context.TODO(), traefikMiddleware); err != nil {
-				log.Error(err, "Failed to delete Service")
-				return ctrl.Result{}, err
-			}
-		}
-
-		// todo - shkim
-		// traefik endpoint 삭제 추가 필요?
-
-		remoteClientset, err := util.GetRemoteK8sClient(kubeconfigSecret)
+		err := remoteClientset.
+			CoreV1().
+			Namespaces().
+			Delete(context.TODO(), util.IngressNginxNamespace, metav1.DeleteOptions{})
 		if err != nil {
-			log.Error(err, "Failed to get remoteK8sClient")
+			log.Error(err, "Failed to delete Ingress-nginx namespace")
 			return ctrl.Result{}, err
-		}
-
-		// secret은 존재하는데.. 실제 instance가 없어서 에러 발생
-		if _, err =
-			remoteClientset.
-				CoreV1().
-				Namespaces().
-				Get(
-					context.TODO(),
-					util.IngressNginxNamespace,
-					metav1.GetOptions{},
-				); err != nil {
-			if errors.IsNotFound(err) {
-				log.Info("Ingress-nginx namespace is already deleted.")
-			} else {
-				log.Info(err.Error())
-				log.Info("Failed to get Ingress-nginx loadbalancer service... may be instance was deleted before secret was deleted...")
-				// log.Info("###################### Never executed... ############################")
-				// error 처리 필요
-			}
-		} else {
-			if err :=
-				remoteClientset.
-					CoreV1().
-					Namespaces().
-					Delete(
-						context.TODO(),
-						util.IngressNginxNamespace,
-						metav1.DeleteOptions{},
-					); err != nil {
-				log.Error(err, "Failed to delete Ingress-nginx namespace")
-				return ctrl.Result{}, err
-			}
 		}
 	}
 
-	// aaa
 	// delete serviceinstance
-	serviceInstance := &servicecatalogv1beta1.ServiceInstance{}
-	serviceInstanceKey := types.NamespacedName{
-		Name:      clusterManager.Name + "-" + clusterManager.Annotations[util.AnnotationKeyClmSuffix],
+	key = types.NamespacedName{
+		Name:      clusterManager.Name + "-" + clusterManager.Annotations[clusterv1alpha1.AnnotationKeyClmSuffix],
 		Namespace: clusterManager.Namespace,
 	}
-
-	if err := r.Get(context.TODO(), serviceInstanceKey, serviceInstance); err != nil {
-		if errors.IsNotFound(err) {
-			log.Info("ServiceInstance is already deleted. Waiting cluster to be deleted")
-		} else {
-			log.Error(err, "Failed to get serviceInstance")
-			return ctrl.Result{}, err
-		}
+	serviceInstance := &servicecatalogv1beta1.ServiceInstance{}
+	if err := r.Get(context.TODO(), key, serviceInstance); errors.IsNotFound(err) {
+		log.Info("ServiceInstance is already deleted. Waiting cluster to be deleted")
+	} else if err != nil {
+		log.Error(err, "Failed to get serviceInstance")
+		return ctrl.Result{}, err
 	} else {
 		if err := r.Delete(context.TODO(), serviceInstance); err != nil {
 			log.Error(err, "Failed to delete serviceInstance")
@@ -1120,32 +324,26 @@ func (r *ClusterManagerReconciler) reconcileDelete(ctx context.Context, clusterM
 	}
 
 	//delete handling
-	cluster := &capiv1.Cluster{}
-	clusterKey := types.NamespacedName{
-		Name:      clusterManager.Name,
-		Namespace: clusterManager.Namespace,
-	}
-
-	if err := r.Get(context.TODO(), clusterKey, cluster); err != nil {
-		if errors.IsNotFound(err) {
-			if err := util.Delete(clusterManager.Namespace, clusterManager.Name); err != nil {
-				log.Error(err, "Failed to delete cluster info from cluster_member table")
-				return ctrl.Result{}, err
-			}
-			controllerutil.RemoveFinalizer(clusterManager, util.ClusterManagerFinalizer)
-			return ctrl.Result{}, nil
-		} else {
-			log.Error(err, "Failed to get cluster")
+	key = clusterManager.GetNamespacedName()
+	if err := r.Get(context.TODO(), key, &capiv1.Cluster{}); errors.IsNotFound(err) {
+		if err := util.Delete(clusterManager.Namespace, clusterManager.Name); err != nil {
+			log.Error(err, "Failed to delete cluster info from cluster_member table")
 			return ctrl.Result{}, err
 		}
+		controllerutil.RemoveFinalizer(clusterManager, clusterv1alpha1.ClusterManagerFinalizer)
+		return ctrl.Result{}, nil
+	} else if err != nil {
+		log.Error(err, "Failed to get cluster")
+		return ctrl.Result{}, err
 	}
-	log.Info("Cluster is deleteing... requeue request")
-	return ctrl.Result{RequeueAfter: requeueAfter60Sec}, nil
+
+	log.Info("Cluster is deleteing. Requeue after 1min")
+	return ctrl.Result{RequeueAfter: requeueAfter1Min}, nil
 }
 
 func (r *ClusterManagerReconciler) reconcilePhase(_ context.Context, clusterManager *clusterv1alpha1.ClusterManager) {
 	if clusterManager.Status.Phase == "" {
-		if clusterManager.Labels[util.LabelKeyClmClusterType] == util.ClusterTypeRegistered {
+		if clusterManager.Labels[clusterv1alpha1.LabelKeyClmClusterType] == clusterv1alpha1.ClusterTypeRegistered {
 			clusterManager.Status.SetTypedPhase(clusterv1alpha1.ClusterManagerPhaseRegistering)
 		} else {
 			clusterManager.Status.SetTypedPhase(clusterv1alpha1.ClusterManagerPhaseProvisioning)
@@ -1153,7 +351,7 @@ func (r *ClusterManagerReconciler) reconcilePhase(_ context.Context, clusterMana
 	}
 
 	if clusterManager.Status.Ready {
-		if clusterManager.Labels[util.LabelKeyClmClusterType] == util.ClusterTypeRegistered {
+		if clusterManager.Labels[clusterv1alpha1.LabelKeyClmClusterType] == clusterv1alpha1.ClusterTypeRegistered {
 			clusterManager.Status.SetTypedPhase(clusterv1alpha1.ClusterManagerPhaseRegistered)
 		} else {
 			clusterManager.Status.SetTypedPhase(clusterv1alpha1.ClusterManagerPhaseProvisioned)
@@ -1165,301 +363,7 @@ func (r *ClusterManagerReconciler) reconcilePhase(_ context.Context, clusterMana
 	}
 }
 
-func (r *ClusterManagerReconciler) CreateServiceInstance(ctx context.Context, clusterManager *clusterv1alpha1.ClusterManager) (ctrl.Result, error) {
-	log := r.Log.WithValues("clustermanager", types.NamespacedName{Name: clusterManager.Name, Namespace: clusterManager.Namespace})
-
-	if clusterManager.Annotations[util.AnnotationKeyClmSuffix] != "" {
-		return ctrl.Result{}, nil
-	}
-
-	serviceInstance := &servicecatalogv1beta1.ServiceInstance{}
-	serviceInstanceKey := types.NamespacedName{
-		Name:      clusterManager.Name,
-		Namespace: clusterManager.Namespace,
-	}
-	if err := r.Get(context.TODO(), serviceInstanceKey, serviceInstance); err != nil {
-		if errors.IsNotFound(err) {
-			var clusterJson, providerJson []byte
-			if clusterJson, err = json.Marshal(
-				&ClusterParameter{
-					Namespace:         clusterManager.Namespace,
-					ClusterName:       clusterManager.Name,
-					Owner:             clusterManager.Annotations[util.AnnotationKeyOwner],
-					KubernetesVersion: clusterManager.Spec.Version,
-					MasterNum:         clusterManager.Spec.MasterNum,
-					WorkerNum:         clusterManager.Spec.WorkerNum,
-				},
-			); err != nil {
-				log.Error(err, "Failed to marshal cluster parameters")
-			}
-
-			switch strings.ToUpper(clusterManager.Spec.Provider) {
-			case util.ProviderAws:
-				if providerJson, err = json.Marshal(
-					&AwsParameter{
-						SshKey:     clusterManager.AwsSpec.SshKey,
-						Region:     clusterManager.AwsSpec.Region,
-						MasterType: clusterManager.AwsSpec.MasterType,
-						WorkerType: clusterManager.AwsSpec.WorkerType,
-					},
-				); err != nil {
-					log.Error(err, "Failed to marshal cluster parameters")
-					return ctrl.Result{}, err
-				}
-			case util.ProviderVsphere:
-				if providerJson, err = json.Marshal(
-					&VsphereParameter{
-						PodCidr:             clusterManager.VsphereSpec.PodCidr,
-						VcenterIp:           clusterManager.VsphereSpec.VcenterIp,
-						VcenterId:           clusterManager.VsphereSpec.VcenterId,
-						VcenterPassword:     clusterManager.VsphereSpec.VcenterPassword,
-						VcenterThumbprint:   clusterManager.VsphereSpec.VcenterThumbprint,
-						VcenterNetwork:      clusterManager.VsphereSpec.VcenterNetwork,
-						VcenterDataCenter:   clusterManager.VsphereSpec.VcenterDataCenter,
-						VcenterDataStore:    clusterManager.VsphereSpec.VcenterDataStore,
-						VcenterFolder:       clusterManager.VsphereSpec.VcenterFolder,
-						VcenterResourcePool: clusterManager.VsphereSpec.VcenterResourcePool,
-						VcenterKcpIp:        clusterManager.VsphereSpec.VcenterKcpIp,
-						VcenterCpuNum:       clusterManager.VsphereSpec.VcenterCpuNum,
-						VcenterMemSize:      clusterManager.VsphereSpec.VcenterMemSize,
-						VcenterDiskSize:     clusterManager.VsphereSpec.VcenterDiskSize,
-						VcenterTemplate:     clusterManager.VsphereSpec.VcenterTemplate,
-					},
-				); err != nil {
-					log.Error(err, "Failed to marshal cluster parameters")
-					return ctrl.Result{}, err
-				}
-			}
-			clusterJson = util.MergeJson(clusterJson, providerJson)
-
-			generatedSuffix := util.CreateSuffixString()
-			newServiceInstance := &servicecatalogv1beta1.ServiceInstance{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      clusterManager.Name + "-" + generatedSuffix,
-					Namespace: clusterManager.Namespace,
-					Annotations: map[string]string{
-						util.AnnotationKeyOwner:   clusterManager.Annotations[util.AnnotationKeyCreator],
-						util.AnnotationKeyCreator: clusterManager.Annotations[util.AnnotationKeyCreator],
-					},
-				},
-				Spec: servicecatalogv1beta1.ServiceInstanceSpec{
-					PlanReference: servicecatalogv1beta1.PlanReference{
-						ClusterServiceClassExternalName: "capi-" + strings.ToLower(clusterManager.Spec.Provider) + "-template",
-						ClusterServicePlanExternalName:  "capi-" + strings.ToLower(clusterManager.Spec.Provider) + "-template-plan-default",
-					},
-					Parameters: &runtime.RawExtension{
-						Raw: clusterJson,
-					},
-				},
-			}
-
-			ctrl.SetControllerReference(clusterManager, newServiceInstance, r.Scheme)
-			err = r.Create(context.TODO(), newServiceInstance)
-			if err != nil {
-				log.Error(err, "Failed to create "+clusterManager.Name+" serviceInstance")
-				return ctrl.Result{}, err
-			}
-			clusterManager.Annotations[util.AnnotationKeyClmSuffix] = generatedSuffix
-		} else {
-			log.Error(err, "Failed to get serviceInstance")
-			return ctrl.Result{}, err
-		}
-	}
-	return ctrl.Result{}, nil
-}
-
-func (r *ClusterManagerReconciler) kubeadmControlPlaneUpdate(ctx context.Context, clusterManager *clusterv1alpha1.ClusterManager) (ctrl.Result, error) {
-	log := r.Log.WithValues("clustermanager", types.NamespacedName{Name: clusterManager.Name, Namespace: clusterManager.Namespace})
-
-	kcp := &controlplanev1.KubeadmControlPlane{}
-	key := types.NamespacedName{
-		Name:      clusterManager.Name + "-control-plane",
-		Namespace: clusterManager.Namespace,
-	}
-
-	if err := r.Get(context.TODO(), key, kcp); err != nil {
-		if errors.IsNotFound(err) {
-			return ctrl.Result{}, nil
-		} else {
-			log.Error(err, "Failed to get clusterRole")
-			return ctrl.Result{}, err
-		}
-	}
-
-	//create helper for patch
-	helper, _ := patch.NewHelper(kcp, r.Client)
-	defer func() {
-		if err := helper.Patch(context.TODO(), kcp); err != nil {
-			r.Log.Error(err, "kubeadmcontrolplane patch error")
-		}
-	}()
-
-	if *kcp.Spec.Replicas != int32(clusterManager.Spec.MasterNum) {
-		*kcp.Spec.Replicas = int32(clusterManager.Spec.MasterNum)
-	}
-	if kcp.Spec.Version != clusterManager.Spec.Version {
-		kcp.Spec.Version = clusterManager.Spec.Version
-	}
-	return ctrl.Result{}, nil
-}
-
-func (r *ClusterManagerReconciler) machineDeploymentUpdate(ctx context.Context, clusterManager *clusterv1alpha1.ClusterManager) (ctrl.Result, error) {
-	log := r.Log.WithValues("clustermanager", types.NamespacedName{Name: clusterManager.Name, Namespace: clusterManager.Namespace})
-
-	md := &capiv1.MachineDeployment{}
-	key := types.NamespacedName{
-		Name:      clusterManager.Name + "-md-0",
-		Namespace: clusterManager.Namespace,
-	}
-
-	if err := r.Get(context.TODO(), key, md); err != nil {
-		if errors.IsNotFound(err) {
-			return ctrl.Result{}, nil
-		} else {
-			log.Error(err, "Failed to get clusterRole")
-			return ctrl.Result{}, err
-		}
-	}
-	//create helper for patch
-	helper, _ := patch.NewHelper(md, r.Client)
-	defer func() {
-		if err := helper.Patch(context.TODO(), md); err != nil {
-			r.Log.Error(err, "kubeadmcontrolplane patch error")
-		}
-	}()
-
-	if *md.Spec.Replicas != int32(clusterManager.Spec.WorkerNum) {
-		*md.Spec.Replicas = int32(clusterManager.Spec.WorkerNum)
-	}
-
-	if *md.Spec.Template.Spec.Version != clusterManager.Spec.Version {
-		*md.Spec.Template.Spec.Version = clusterManager.Spec.Version
-	}
-	return ctrl.Result{}, nil
-}
-
-func (r *ClusterManagerReconciler) requeueClusterManagersForCluster(o client.Object) []ctrl.Request {
-	c := o.DeepCopyObject().(*capiv1.Cluster)
-	log := r.Log.WithValues("objectMapper", "clusterToClusterManager", "namespace", c.Namespace, c.Kind, c.Name)
-	log.Info("Start to requeueClusterManagersForCluster mapping...")
-
-	//get ClusterManager
-	clm := &clusterv1alpha1.ClusterManager{}
-	key := types.NamespacedName{
-		Name:      c.Name,
-		Namespace: c.Namespace,
-	}
-
-	if err := r.Get(context.TODO(), key, clm); err != nil {
-		if errors.IsNotFound(err) {
-			log.Info("ClusterManager resource not found. Ignoring since object must be deleted.")
-			return nil
-		}
-
-		log.Error(err, "Failed to get ClusterManager")
-		return nil
-	}
-
-	//create helper for patch
-	helper, _ := patch.NewHelper(clm, r.Client)
-	defer func() {
-		if err := helper.Patch(context.TODO(), clm); err != nil {
-			log.Error(err, "ClusterManager patch error")
-		}
-	}()
-	// clm.Status.SetTypedPhase(clusterv1alpha1.ClusterManagerPhaseProvisioned)
-	clm.Status.ControlPlaneReady = c.Status.ControlPlaneInitialized
-
-	return nil
-}
-
-func (r *ClusterManagerReconciler) requeueClusterManagersForKubeadmControlPlane(o client.Object) []ctrl.Request {
-	cp := o.DeepCopyObject().(*controlplanev1.KubeadmControlPlane)
-	log := r.Log.WithValues("objectMapper", "kubeadmControlPlaneToClusterManagers", "namespace", cp.Namespace, cp.Kind, cp.Name)
-
-	// Don't handle deleted kubeadmcontrolplane
-	if !cp.ObjectMeta.DeletionTimestamp.IsZero() {
-		log.V(4).Info("kubeadmcontrolplane has a deletion timestamp, skipping mapping.")
-		return nil
-	}
-
-	//get ClusterManager
-	clm := &clusterv1alpha1.ClusterManager{}
-	CpName := cp.Name
-	pivot := strings.Index(cp.Name, "-control-plane")
-	if pivot != -1 {
-		CpName = cp.Name[0:pivot]
-	}
-	key := types.NamespacedName{
-		// Name:      strings.Split(cp.Name, "-control-plane")[0],
-		Name:      CpName,
-		Namespace: cp.Namespace,
-	}
-	if err := r.Get(context.TODO(), key, clm); err != nil {
-		if errors.IsNotFound(err) {
-			log.Info("ClusterManager resource not found. Ignoring since object must be deleted.")
-			return nil
-		}
-
-		log.Error(err, "Failed to get ClusterManager")
-		return nil
-	}
-
-	//create helper for patch
-	helper, _ := patch.NewHelper(clm, r.Client)
-	defer func() {
-		if err := helper.Patch(context.TODO(), clm); err != nil {
-			log.Error(err, "ClusterManager patch error")
-		}
-	}()
-
-	clm.Status.MasterRun = int(cp.Status.Replicas)
-
-	return nil
-}
-
-func (r *ClusterManagerReconciler) requeueClusterManagersForMachineDeployment(o client.Object) []ctrl.Request {
-	md := o.DeepCopyObject().(*capiv1.MachineDeployment)
-	log := r.Log.WithValues("objectMapper", "kubeadmControlPlaneToClusterManagers", "namespace", md.Namespace, "machinedeployment", md.Name)
-
-	// Don't handle deleted machinedeployment
-	if !md.ObjectMeta.DeletionTimestamp.IsZero() {
-		log.V(4).Info("machinedeployment has a deletion timestamp, skipping mapping.")
-		return nil
-	}
-
-	//get ClusterManager
-	clm := &clusterv1alpha1.ClusterManager{}
-	key := types.NamespacedName{
-		//Name:      md.Name[0 : len(md.Name)-len("-md-0")],
-		Name:      strings.Split(md.Name, "-md-0")[0],
-		Namespace: md.Namespace,
-	}
-	if err := r.Get(context.TODO(), key, clm); err != nil {
-		if errors.IsNotFound(err) {
-			log.Info("ClusterManager is deleted deleted.")
-			// return nil
-		}
-
-		log.Error(err, "Failed to get ClusterManager")
-		return nil
-	}
-
-	//create helper for patch
-	helper, _ := patch.NewHelper(clm, r.Client)
-	defer func() {
-		if err := helper.Patch(context.TODO(), clm); err != nil {
-			log.Error(err, "ClusterManager patch error")
-		}
-	}()
-
-	clm.Status.WorkerRun = int(md.Status.Replicas)
-
-	return nil
-}
-
 func (r *ClusterManagerReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	// controller, err := ctrl.NewControllerManagedBy(mgr).
 	controller, err := ctrl.NewControllerManagedBy(mgr).
 		For(&clusterv1alpha1.ClusterManager{}).
 		WithEventFilter(
@@ -1473,18 +377,25 @@ func (r *ClusterManagerReconciler) SetupWithManager(mgr ctrl.Manager) error {
 					oldclm := e.ObjectOld.(*clusterv1alpha1.ClusterManager)
 					newclm := e.ObjectNew.(*clusterv1alpha1.ClusterManager)
 
-					isFinalized := !controllerutil.ContainsFinalizer(oldclm, util.ClusterManagerFinalizer) && controllerutil.ContainsFinalizer(newclm, util.ClusterManagerFinalizer)
-					isDelete := oldclm.DeletionTimestamp.IsZero() && !newclm.DeletionTimestamp.IsZero()
-					isControlPlaneEndpointUpdate := oldclm.Status.ControlPlaneEndpoint == "" && newclm.Status.ControlPlaneEndpoint != ""
-					//isAgentEndpointUpdate := oldclm.Status.AgentEndpoint == "" && newclm.Status.AgentEndpoint != ""
-					if isDelete || isControlPlaneEndpointUpdate || isFinalized /*|| isAgentEndpointUpdate*/ {
+					isFinalized := !controllerutil.ContainsFinalizer(oldclm, clusterv1alpha1.ClusterManagerFinalizer) &&
+						controllerutil.ContainsFinalizer(newclm, clusterv1alpha1.ClusterManagerFinalizer)
+					isDelete := oldclm.DeletionTimestamp.IsZero() &&
+						!newclm.DeletionTimestamp.IsZero()
+					isControlPlaneEndpointUpdate := oldclm.Status.ControlPlaneEndpoint == "" &&
+						newclm.Status.ControlPlaneEndpoint != ""
+					isSubResourceNotReady := newclm.Status.ArgoReady == false ||
+						newclm.Status.TraefikReady == false ||
+						newclm.Status.PrometheusReady == false
+					if isDelete || isControlPlaneEndpointUpdate || isFinalized {
 						return true
 					} else {
-						if newclm.Labels[util.LabelKeyClmClusterType] == util.ClusterTypeCreated {
-
+						if newclm.Labels[clusterv1alpha1.LabelKeyClmClusterType] == clusterv1alpha1.ClusterTypeCreated {
 							return true
 						}
-						if newclm.Labels[util.LabelKeyClmClusterType] == util.ClusterTypeRegistered {
+						if newclm.Labels[clusterv1alpha1.LabelKeyClmClusterType] == clusterv1alpha1.ClusterTypeRegistered {
+							if isSubResourceNotReady {
+								return true
+							}
 							return false
 						}
 					}
@@ -1554,15 +465,7 @@ func (r *ClusterManagerReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		},
 	)
 
-	// controller.Watch(
-	// 	&source.Kind{Type: &certmanagerv1.Certificate{}},
-	// 	handler.EnqueueRequestsFromMapFunc(r.),
-	// 	predicate.Funcs{
-
-	// 	}
-	// )
-
-	return controller.Watch(
+	controller.Watch(
 		&source.Kind{Type: &capiv1.MachineDeployment{}},
 		handler.EnqueueRequestsFromMapFunc(r.requeueClusterManagersForMachineDeployment),
 		predicate.Funcs{
@@ -1586,15 +489,38 @@ func (r *ClusterManagerReconciler) SetupWithManager(mgr ctrl.Manager) error {
 			},
 		},
 	)
-}
 
-// func getKubeConfig(secret corev1.Secret) (*rest.Config, error) {
-// 	if value, ok := secret.Data["value"]; ok {
-// 		if clientConfig, err := clientcmd.NewClientConfigFromBytes(value); err == nil {
-// 			if restConfig, err := clientConfig.ClientConfig(); err == nil {
-// 				return restConfig, nil
-// 			}
-// 		}
-// 	}
-// 	return nil, errors.NewBadRequest("getClientConfig Error")
-// }
+	subResources := []client.Object{
+		&certmanagerv1.Certificate{},
+		&networkingv1.Ingress{},
+		&v1.Service{},
+		&v1.Endpoints{},
+		&traefikv2.Middleware{},
+	}
+	for _, resource := range subResources {
+		controller.Watch(
+			&source.Kind{Type: resource},
+			handler.EnqueueRequestsFromMapFunc(r.requeueClusterManagersForSubresources),
+			predicate.Funcs{
+				UpdateFunc: func(e event.UpdateEvent) bool {
+					return false
+				},
+				CreateFunc: func(e event.CreateEvent) bool {
+					return false
+				},
+				DeleteFunc: func(e event.DeleteEvent) bool {
+					_, ok := e.Object.GetLabels()[clusterv1alpha1.LabelKeyClmName]
+					if ok {
+						return true
+					}
+					return false
+				},
+				GenericFunc: func(e event.GenericEvent) bool {
+					return false
+				},
+			},
+		)
+	}
+
+	return nil
+}

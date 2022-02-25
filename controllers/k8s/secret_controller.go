@@ -1,6 +1,4 @@
 /*
-
-
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
@@ -18,24 +16,19 @@ package controllers
 
 import (
 	"context"
-	"encoding/json"
 	"strings"
-	"time"
 
 	"github.com/go-logr/logr"
 	clusterv1alpha1 "github.com/tmax-cloud/hypercloud-multi-operator/apis/cluster/v1alpha1"
-	rbacv1 "k8s.io/api/rbac/v1"
-	kerrors "k8s.io/apimachinery/pkg/util/errors"
-
-	argocdv1alpha1 "github.com/argoproj/argo-cd/v2/pkg/apis/application/v1alpha1"
 	"github.com/tmax-cloud/hypercloud-multi-operator/controllers/util"
+
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/rest"
-	"k8s.io/client-go/tools/clientcmd"
+	kerrors "k8s.io/apimachinery/pkg/util/errors"
+
 	"sigs.k8s.io/cluster-api/util/patch"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -54,29 +47,28 @@ type SecretReconciler struct {
 	Scheme *runtime.Scheme
 }
 
-const (
-	requeueAfter5Sec  = 5 * time.Second
-	requeueAfter10min = 600 * time.Second
-)
-
 // +kubebuilder:rbac:groups="",resources=secrets;namespaces;serviceaccounts,verbs=create;delete;get;list;patch;post;update;watch;
 
 func (r *SecretReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ ctrl.Result, reterr error) {
 	_ = context.Background()
-	log := r.Log.WithValues("Secret", req.NamespacedName)
-	log.Info("Start to reconcile kubeconfig secret")
+	secretName := req.Name
+	isArgoSecret := strings.Contains(secretName, "cluster-")
+	if !isArgoSecret && !strings.Contains(secretName, util.KubeconfigSuffix) {
+		secretName += util.KubeconfigSuffix
+	}
+	key := types.NamespacedName{
+		Name:      secretName,
+		Namespace: req.Namespace,
+	}
+	log := r.Log.WithValues("Secret", key)
+	log.Info("Start to reconcile secret")
+
 	//get secret
 	secret := &corev1.Secret{}
-	secretKey := types.NamespacedName{
-		Name:      strings.Split(req.NamespacedName.Name, util.KubeconfigSuffix)[0] + util.KubeconfigSuffix,
-		Namespace: req.NamespacedName.Namespace,
-	}
-	if err := r.Get(context.TODO(), secretKey, secret); err != nil {
-		if errors.IsNotFound(err) {
-			log.Info("Secret resource not found. Ignoring since object must be deleted.")
-			return ctrl.Result{}, nil
-		}
-
+	if err := r.Get(context.TODO(), key, secret); errors.IsNotFound(err) {
+		log.Info("Secret resource not found. Ignoring since object must be deleted")
+		return ctrl.Result{}, nil
+	} else if err != nil {
 		log.Error(err, "Failed to get secret")
 		return ctrl.Result{}, err
 	}
@@ -94,8 +86,8 @@ func (r *SecretReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ c
 	}()
 
 	// Add finalizer first if not exist to avoid the race condition between init and delete
-	if !controllerutil.ContainsFinalizer(secret, util.SecretFinalizer) {
-		controllerutil.AddFinalizer(secret, util.SecretFinalizer)
+	if !controllerutil.ContainsFinalizer(secret, clusterv1alpha1.ClusterManagerFinalizer) {
+		controllerutil.AddFinalizer(secret, clusterv1alpha1.ClusterManagerFinalizer)
 		return ctrl.Result{}, nil
 	}
 
@@ -131,369 +123,66 @@ func (r *SecretReconciler) reconcile(ctx context.Context, secret *corev1.Secret)
 	return res, kerrors.NewAggregate(errs)
 }
 
-func (r *SecretReconciler) DeployRolebinding(ctx context.Context, secret *corev1.Secret) (ctrl.Result, error) {
-	log := r.Log.WithValues("secret", types.NamespacedName{Name: secret.GetName(), Namespace: secret.GetNamespace()})
-	log.Info("Start to reconcile.. Deploy rolebinding to remote")
-
-	clm := &clusterv1alpha1.ClusterManager{}
-	clmKey := types.NamespacedName{
-		Name:      strings.Split(secret.GetName(), util.KubeconfigSuffix)[0],
-		Namespace: secret.GetNamespace(),
+func (r *SecretReconciler) reconcileDelete(ctx context.Context, secret *corev1.Secret) (reconcile.Result, error) {
+	key := types.NamespacedName{
+		Name:      secret.Name,
+		Namespace: secret.Namespace,
 	}
-	if err := r.Get(context.TODO(), clmKey, clm); err != nil {
+	log := r.Log.WithValues("secret", key)
+	log.Info("Start to reconcile delete")
+
+	key = types.NamespacedName{
+		Name:      secret.Labels[clusterv1alpha1.LabelKeyClmName],
+		Namespace: secret.Labels[clusterv1alpha1.LabelKeyClmNamespace],
+	}
+	clm := &clusterv1alpha1.ClusterManager{}
+	if err := r.Get(context.TODO(), key, clm); err != nil {
 		log.Error(err, "Failed to get ClusterManager")
 		return ctrl.Result{}, err
 	}
 
-	remoteClientset, err := util.GetRemoteK8sClient(secret)
-	if err != nil {
-		log.Error(err, "Failed to get remoteK8sClient")
-		return ctrl.Result{}, err
-	}
-
-	clusterAdminCRBName := "cluster-owner-crb-" + clm.Annotations[util.AnnotationKeyOwner]
-	clusterAdminCRB := &rbacv1.ClusterRoleBinding{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: clusterAdminCRBName,
-		},
-		RoleRef: rbacv1.RoleRef{
-			APIGroup: rbacv1.GroupName,
-			Kind:     "ClusterRole",
-			Name:     "cluster-admin",
-		},
-		Subjects: []rbacv1.Subject{
-			{
-				Kind:     rbacv1.UserKind,
-				APIGroup: rbacv1.GroupName,
-				Name:     clm.Annotations[util.AnnotationKeyOwner],
-			},
-		},
-	}
-
-	targetGroup := []string{
-		"",
-		"apps",
-		"autoscaling",
-		"batch",
-		"extensions",
-		"policy",
-		"networking.k8s.io",
-		"snapshot.storage.k8s.io",
-		"storage.k8s.io",
-		"apiextensions.k8s.io",
-		"metrics.k8s.io",
-	}
-
-	allRule := &rbacv1.PolicyRule{}
-	allRule.APIGroups = append(allRule.APIGroups, targetGroup...)
-	allRule.Resources = append(allRule.Resources, rbacv1.ResourceAll)
-	allRule.Verbs = append(allRule.Verbs, rbacv1.VerbAll)
-
-	if _, err :=
-		remoteClientset.
-			RbacV1().
-			ClusterRoleBindings().
-			Get(
-				context.TODO(),
-				clusterAdminCRBName,
-				metav1.GetOptions{},
-			); err != nil {
-		if errors.IsNotFound(err) {
-			log.Info("Cannot found cluster-admin crb from remote cluster. Start to create cluster-admin clusterrolebinding to remote")
-			if _, err :=
-				remoteClientset.
-					RbacV1().
-					ClusterRoleBindings().
-					Create(
-						context.TODO(),
-						clusterAdminCRB,
-						metav1.CreateOptions{},
-					); err != nil {
-				log.Error(err, "Cannot create clusterrolebinding for cluster-admin")
-				return ctrl.Result{}, err
-			}
-		} else {
-			log.Error(err, "Failed to get cluster-admin clusterrolebinding from remote cluster")
-			return ctrl.Result{}, err
-		}
-	}
-
-	crList := []*rbacv1.ClusterRole{
-		createClusterRole("developer", targetGroup, []string{rbacv1.VerbAll}),
-		createClusterRole("guest", targetGroup, []string{"get", "list", "watch"}),
-	}
-
-	for _, targetCr := range crList {
-		if _, err :=
-			remoteClientset.
-				RbacV1().
-				ClusterRoles().
-				Get(
-					context.TODO(),
-					targetCr.GetName(),
-					metav1.GetOptions{},
-				); err != nil {
-			if errors.IsNotFound(err) {
-				log.Info("Cannot found cr [" + targetCr.GetName() + "] from remote cluster. Start to create [" + targetCr.GetName() + "] clusterrole to remote")
-				if _, err :=
-					remoteClientset.
-						RbacV1().
-						ClusterRoles().
-						Create(
-							context.TODO(),
-							targetCr,
-							metav1.CreateOptions{},
-						); err != nil {
-					log.Error(err, "Cannot create clusterrole ["+targetCr.GetName()+"]")
-					return ctrl.Result{}, err
-				}
-			} else {
-				log.Error(err, "Failed to get clusterrole ["+targetCr.GetName()+"] from remote cluster")
-				return ctrl.Result{}, err
-			}
-		}
-	}
-
-	return ctrl.Result{}, nil
-}
-
-func (r *SecretReconciler) DeployArgocdResources(ctx context.Context, secret *corev1.Secret) (ctrl.Result, error) {
-	log := r.Log.WithValues("secret", types.NamespacedName{Name: secret.GetName(), Namespace: secret.GetNamespace()})
-	log.Info("Start to reconcile.. Deploy argocd resources to remote")
-
-	remoteClientset, err := util.GetRemoteK8sClient(secret)
-	if err != nil {
-		log.Error(err, "Failed to get remoteK8sClient")
-		return ctrl.Result{}, err
-	}
-
-	argocdManager := &corev1.ServiceAccount{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: util.ArgoServiceAccount,
-		},
-	}
-	if _, err :=
-		remoteClientset.
-			CoreV1().
-			ServiceAccounts(util.KubeNamespace).
-			Get(
-				context.TODO(),
-				util.ArgoServiceAccount,
-				metav1.GetOptions{},
-			); err != nil {
-		if errors.IsNotFound(err) {
-			log.Info("Cannot found ServiceAccount for argocd from remote cluster. Start to create.")
-			_, err :=
-				remoteClientset.
-					CoreV1().
-					ServiceAccounts(util.KubeNamespace).
-					Create(
-						context.TODO(),
-						argocdManager,
-						metav1.CreateOptions{},
-					)
-			if err != nil {
-				log.Error(err, "Cannot create ServiceAccount for ["+util.ArgoServiceAccount+"]")
-				return ctrl.Result{}, err
-			}
-		} else {
-			log.Error(err, "Failed to get ServiceAccount ["+util.ArgoServiceAccount+"] from remote cluster")
-			return ctrl.Result{}, err
-		}
-	}
-	log.Info("ServiceAccount for argocd is already crated")
-
-	argocdManagerRole := &rbacv1.ClusterRole{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: util.ArgoClusterRole,
-		},
-		Rules: []rbacv1.PolicyRule{
-			{
-				APIGroups: []string{rbacv1.APIGroupAll},
-				Resources: []string{rbacv1.ResourceAll},
-				Verbs:     []string{rbacv1.VerbAll},
-			},
-			{
-				NonResourceURLs: []string{rbacv1.NonResourceAll},
-				Verbs:           []string{rbacv1.VerbAll},
-			},
-		},
-	}
-	if _, err :=
-		remoteClientset.
-			RbacV1().
-			ClusterRoles().
-			Get(context.TODO(), util.ArgoClusterRole, metav1.GetOptions{}); err != nil {
-		if errors.IsNotFound(err) {
-			log.Info("Cannot found ClusterRole for argocd from remote cluster. Start to create.")
-			if _, err :=
-				remoteClientset.
-					RbacV1().
-					ClusterRoles().
-					Create(
-						context.TODO(),
-						argocdManagerRole,
-						metav1.CreateOptions{},
-					); err != nil {
-				log.Error(err, "Cannot create ClusterRole for ["+util.ArgoClusterRole+"]")
-				return ctrl.Result{}, err
-			}
-		} else {
-			log.Error(err, "Failed to get ClusterRole ["+util.ArgoClusterRole+"] from remote cluster")
-			return ctrl.Result{}, err
-		}
-	}
-	log.Info("ClusterRole for argocd is already crated")
-
-	argocdManagerRoleBinding := &rbacv1.ClusterRoleBinding{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: util.ArgoClusterRoleBinding,
-		},
-		RoleRef: rbacv1.RoleRef{
-			Kind:     "ClusterRole",
-			APIGroup: rbacv1.GroupName,
-			Name:     util.ArgoClusterRole,
-		},
-		Subjects: []rbacv1.Subject{
-			{
-				Kind:      rbacv1.ServiceAccountKind,
-				Name:      util.ArgoServiceAccount,
-				Namespace: util.ArgoNamespace,
-			},
-		},
-	}
-	if _, err :=
-		remoteClientset.
-			RbacV1().
-			ClusterRoleBindings().
-			Get(
-				context.TODO(),
-				util.ArgoClusterRoleBinding,
-				metav1.GetOptions{},
-			); err != nil {
-		if errors.IsNotFound(err) {
-			log.Info("Cannot found ClusterRoleBinding for argocd from remote cluster. Start to create.")
-			if _, err :=
-				remoteClientset.
-					RbacV1().
-					ClusterRoleBindings().
-					Create(
-						context.TODO(),
-						argocdManagerRoleBinding,
-						metav1.CreateOptions{},
-					); err != nil {
-				log.Error(err, "Cannot create ClusterRoleBinding for ["+util.ArgoClusterRoleBinding+"]")
-				return ctrl.Result{}, err
-			}
-		} else {
-			log.Error(err, "Failed to get ClusterRoleBinding ["+util.ArgoClusterRoleBinding+"] from remote cluster")
-			return ctrl.Result{}, err
-		}
-	}
-	log.Info("ClusterRoleBinding for argocd is already crated")
-
-	kubeConfig, err := clientcmd.Load(secret.Data["value"])
-	if err != nil {
-		log.Error(err, "Failed to get kubeconfig data from secret")
-		return ctrl.Result{}, err
-	}
-
-	configJson, err := json.Marshal(
-		&argocdv1alpha1.ClusterConfig{
-			TLSClientConfig: argocdv1alpha1.TLSClientConfig{
-				Insecure: false,
-				CertData: kubeConfig.AuthInfos[kubeConfig.Contexts[kubeConfig.CurrentContext].AuthInfo].ClientCertificateData,
-				KeyData:  kubeConfig.AuthInfos[kubeConfig.Contexts[kubeConfig.CurrentContext].AuthInfo].ClientKeyData,
-				CAData:   kubeConfig.Clusters[kubeConfig.Contexts[kubeConfig.CurrentContext].Cluster].CertificateAuthorityData,
-			},
-		},
-	)
-	if err != nil {
-		log.Error(err, "Failed to marshal cluster authorization parameters")
-	}
-
-	clusterName := strings.Split(secret.GetName(), util.KubeconfigSuffix)[0]
-	argocdClusterSecret := &corev1.Secret{}
-	secretKey := types.NamespacedName{
-		Name:      secret.Annotations[util.AnnotationKeyArgoClusterSecret],
-		Namespace: util.ArgoNamespace,
-	}
-	if err := r.Get(context.TODO(), secretKey, argocdClusterSecret); err != nil {
-		if errors.IsNotFound(err) {
-			log.Info("Cannot found Argocd Secret for remote cluster [" + clusterName + "]. Start to create.")
-			argocdClusterSecret = &corev1.Secret{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      secret.Annotations[util.AnnotationKeyArgoClusterSecret],
-					Namespace: util.ArgoNamespace,
-					Annotations: map[string]string{
-						util.AnnotationKeyOwner:         secret.Annotations[util.AnnotationKeyOwner],
-						util.AnnotationKeyCreator:       secret.Annotations[util.AnnotationKeyCreator],
-						util.AnnotationKeyArgoManagedBy: util.ArgoApiGroup,
-					},
-					Labels: map[string]string{
-						util.LabelKeyArgoSecretType: util.ArgoSecretTypeCluster,
-					},
-				},
-				StringData: map[string]string{
-					"config": string(configJson),
-					"name":   clusterName,
-					"server": kubeConfig.Clusters[kubeConfig.Contexts[kubeConfig.CurrentContext].Cluster].Server,
-				},
-			}
-			if err := r.Create(context.TODO(), argocdClusterSecret); err != nil {
-				log.Error(err, "Cannot create Argocd Secret for remote cluster ["+clusterName+"]")
-			}
-		} else {
-			log.Error(err, "Failed to get Argocd Secret for remote cluster ["+clusterName+"]")
-			return ctrl.Result{}, err
-		}
-	}
-	log.Info("Argocd Secret for remote cluster [" + clusterName + "] is already crated")
-
-	return ctrl.Result{}, nil
-}
-
-func (r *SecretReconciler) UpdateClusterManagerControlPlaneEndpoint(ctx context.Context, secret *corev1.Secret) (ctrl.Result, error) {
-	log := r.Log.WithValues("secret", types.NamespacedName{Name: secret.GetName(), Namespace: secret.GetNamespace()})
-	log.Info("Start to reconcile UpdateClusterManagerControleplaneEndpoint... ")
-
-	kubeConfig, err := clientcmd.Load(secret.Data["value"])
-	if err != nil {
-		log.Error(err, "Failed to get kubeconfig data from secret")
-		return ctrl.Result{}, err
-	}
-	clm := &clusterv1alpha1.ClusterManager{}
-	clmKey := types.NamespacedName{
-		Name:      strings.Split(secret.GetName(), util.KubeconfigSuffix)[0],
-		Namespace: secret.GetNamespace(),
-	}
-	if err := r.Get(context.TODO(), clmKey, clm); err != nil {
-		if errors.IsNotFound(err) {
-			log.Info("Cannot found clusterManager")
-			// return ctrl.Result{RequeueAfter: requeueAfter5Sec}, nil
-		} else {
-			log.Error(err, "Failed to get clusterManager + ["+clm.GetName()+"]")
-			return ctrl.Result{}, err
-		}
-	} else {
-		if !strings.EqualFold(clm.Status.ControlPlaneEndpoint, kubeConfig.Clusters[kubeConfig.Contexts[kubeConfig.CurrentContext].Cluster].Server) {
-			log.Info("Update clustermanager status.. add controleplane endpoint")
+	if clm.GetDeletionTimestamp().IsZero() {
+		if secret.Labels[util.LabelKeyClmSecretType] == util.ClmSecretTypeArgo {
 			helper, _ := patch.NewHelper(clm, r.Client)
 			defer func() {
 				if err := helper.Patch(context.TODO(), clm); err != nil {
-					log.Error(err, "ClusterManager patch error")
+					r.Log.Error(err, "ClusterManager patch error")
 				}
 			}()
-			clm.Status.ControlPlaneEndpoint = kubeConfig.Clusters[kubeConfig.Contexts[kubeConfig.CurrentContext].Cluster].Server
+
+			clm.Status.ArgoReady = false
+			controllerutil.RemoveFinalizer(secret, clusterv1alpha1.ClusterManagerFinalizer)
+		} else {
+			key = types.NamespacedName{
+				Name:      clm.Labels[clusterv1alpha1.LabelKeyClrName],
+				Namespace: secret.Labels[clusterv1alpha1.LabelKeyClmNamespace],
+			}
+			clr := &clusterv1alpha1.ClusterRegistration{}
+			if err := r.Get(context.TODO(), key, clr); err != nil {
+				log.Error(err, "Failed to get ClusterRegistration")
+				return ctrl.Result{}, err
+			}
+
+			helper, _ := patch.NewHelper(clr, r.Client)
+			defer func() {
+				if err := helper.Patch(context.TODO(), clr); err != nil {
+					r.Log.Error(err, "ClusterRegistration patch error")
+				}
+			}()
+
+			clr.Status.Phase = "Validated"
+			clr.Status.Reason = "kubeconfig secret is deleted"
+			controllerutil.RemoveFinalizer(secret, clusterv1alpha1.ClusterManagerFinalizer)
 		}
+
+		controllerutil.RemoveFinalizer(secret, clusterv1alpha1.ClusterManagerFinalizer)
+		return ctrl.Result{}, nil
 	}
 
-	return ctrl.Result{}, nil
-}
-
-func (r *SecretReconciler) reconcileDelete(ctx context.Context, secret *corev1.Secret) (reconcile.Result, error) {
-	log := r.Log.WithValues("secret", types.NamespacedName{Name: secret.GetName(), Namespace: secret.GetNamespace()})
-	log.Info("Start to reconcile reconcileDelete... ")
+	if secret.Labels[util.LabelKeyClmSecretType] == util.ClmSecretTypeArgo {
+		controllerutil.RemoveFinalizer(secret, clusterv1alpha1.ClusterManagerFinalizer)
+		return ctrl.Result{}, nil
+	}
 
 	remoteClientset, err := util.GetRemoteK8sClient(secret)
 	if err != nil {
@@ -505,35 +194,25 @@ func (r *SecretReconciler) reconcileDelete(ctx context.Context, secret *corev1.S
 		util.ArgoServiceAccount,
 	}
 	for _, targetSa := range saList {
-		if _, err :=
-			remoteClientset.
+		_, err := remoteClientset.
+			CoreV1().
+			ServiceAccounts(util.KubeNamespace).
+			Get(context.TODO(), targetSa, metav1.GetOptions{})
+		if errors.IsNotFound(err) {
+			log.Info("Cannot found ServiceAccount [" + targetSa + "] from remote cluster. Maybe already deleted")
+		} else if err != nil {
+			log.Error(err, "Failed to get ServiceAccount ["+targetSa+"] from remote cluster")
+			return ctrl.Result{}, err
+		} else {
+			err := remoteClientset.
 				CoreV1().
 				ServiceAccounts(util.KubeNamespace).
-				Get(
-					context.TODO(),
-					targetSa,
-					metav1.GetOptions{},
-				); err != nil {
-			if errors.IsNotFound(err) {
-				log.Info("Cannot found ServiceAccount [" + targetSa + "] from remote cluster. Maybe already deleted")
-			} else {
-				log.Error(err, "Failed to get ServiceAccount ["+targetSa+"] from remote cluster")
+				Delete(context.TODO(), targetSa, metav1.DeleteOptions{})
+			if err != nil {
+				log.Error(err, "Cannot delete ServiceAccount ["+targetSa+"] from remote cluster")
 				return ctrl.Result{}, err
 			}
-
-		} else {
-			if err :=
-				remoteClientset.
-					CoreV1().
-					ServiceAccounts(util.KubeNamespace).
-					Delete(
-						context.TODO(),
-						targetSa,
-						metav1.DeleteOptions{},
-					); err != nil {
-				log.Error(err, "Cannot delete ServiceAccount ["+targetSa+"]")
-				return ctrl.Result{}, err
-			}
+			log.Info("Delete ServiceAccount [" + targetSa + "] from remote cluster successfully")
 		}
 	}
 
@@ -543,34 +222,25 @@ func (r *SecretReconciler) reconcileDelete(ctx context.Context, secret *corev1.S
 		util.ArgoClusterRoleBinding,
 	}
 	for _, targetCrb := range crbList {
-		if _, err :=
-			remoteClientset.
+		_, err := remoteClientset.
+			RbacV1().
+			ClusterRoleBindings().
+			Get(context.TODO(), targetCrb, metav1.GetOptions{})
+		if errors.IsNotFound(err) {
+			log.Info("Cannot found ClusterRoleBinding [" + targetCrb + "] from remote cluster. Maybe already deleted")
+		} else if err != nil {
+			log.Error(err, "Failed to get clusterrolebinding ["+targetCrb+"] from remote cluster")
+			return ctrl.Result{}, err
+		} else {
+			err := remoteClientset.
 				RbacV1().
 				ClusterRoleBindings().
-				Get(
-					context.TODO(),
-					targetCrb,
-					metav1.GetOptions{},
-				); err != nil {
-			if errors.IsNotFound(err) {
-				log.Info("Cannot found ClusterRoleBinding [" + targetCrb + "] from remote cluster. Maybe already deleted")
-			} else {
-				log.Error(err, "Failed to get clusterrolebinding ["+targetCrb+"] from remote cluster")
+				Delete(context.TODO(), targetCrb, metav1.DeleteOptions{})
+			if err != nil {
+				log.Error(err, "Cannot delete ClusterRoleBinding ["+targetCrb+"] from remote cluster")
 				return ctrl.Result{}, err
 			}
-		} else {
-			if err :=
-				remoteClientset.
-					RbacV1().
-					ClusterRoleBindings().
-					Delete(
-						context.TODO(),
-						targetCrb,
-						metav1.DeleteOptions{},
-					); err != nil {
-				log.Error(err, "Cannot delete ClusterRoleBinding ["+targetCrb+"]")
-				return ctrl.Result{}, err
-			}
+			log.Info("Delete ClusterRoleBinding [" + targetCrb + "] from remote cluster successfully")
 		}
 	}
 
@@ -580,84 +250,52 @@ func (r *SecretReconciler) reconcileDelete(ctx context.Context, secret *corev1.S
 		util.ArgoClusterRole,
 	}
 	for _, targetCr := range crList {
-		if _, err :=
-			remoteClientset.
+		_, err := remoteClientset.
+			RbacV1().
+			ClusterRoles().
+			Get(context.TODO(), targetCr, metav1.GetOptions{})
+		if errors.IsNotFound(err) {
+			log.Info("Cannot found ClusterRole [" + targetCr + "] from remote cluster. Maybe already deleted")
+		} else if err != nil {
+			log.Error(err, "Failed to get ClusterRole ["+targetCr+"] from remote cluster")
+			return ctrl.Result{}, err
+		} else {
+			err := remoteClientset.
 				RbacV1().
 				ClusterRoles().
-				Get(
-					context.TODO(),
-					targetCr,
-					metav1.GetOptions{},
-				); err != nil {
-			if errors.IsNotFound(err) {
-				log.Info("Cannot found ClusterRole [" + targetCr + "] from remote cluster. Maybe already deleted")
-			} else {
-				log.Error(err, "Failed to get ClusterRole ["+targetCr+"] from remote cluster")
+				Delete(context.TODO(), targetCr, metav1.DeleteOptions{})
+			if err != nil {
+				log.Error(err, "Cannot delete ClusterRole ["+targetCr+"] from remote cluster")
 				return ctrl.Result{}, err
 			}
-		} else {
-			if err :=
-				remoteClientset.
-					RbacV1().
-					ClusterRoles().
-					Delete(
-						context.TODO(),
-						targetCr,
-						metav1.DeleteOptions{},
-					); err != nil {
-				log.Error(err, "Cannot delete ClusterRole ["+targetCr+"]")
-				return ctrl.Result{}, err
-			}
+			log.Info("Delete ClusterRole [" + targetCr + "] from remote cluster successfully")
 		}
 	}
 
-	argoClusterSecret := &corev1.Secret{}
-	secretKey := types.NamespacedName{
+	key = types.NamespacedName{
 		Name:      secret.Annotations[util.AnnotationKeyArgoClusterSecret],
 		Namespace: util.ArgoNamespace,
 	}
-	if err := r.Get(context.TODO(), secretKey, argoClusterSecret); err != nil {
-		if errors.IsNotFound(err) {
-			log.Info("Cannot found Secret [" + argoClusterSecret.GetName() + "] from remote cluster. Maybe already deleted")
-		} else {
-			log.Error(err, "Failed to get Secret ["+argoClusterSecret.GetName()+"] from remote cluster")
-			return ctrl.Result{}, err
-		}
+	argoClusterSecret := &corev1.Secret{}
+	if err := r.Get(context.TODO(), key, argoClusterSecret); errors.IsNotFound(err) {
+		log.Info("Cannot found Secret for argocd external cluster [" + argoClusterSecret.Name + "]. Maybe already deleted")
+	} else if err != nil {
+		log.Error(err, "Failed to get Secret for argocd external cluster ["+argoClusterSecret.Name+"]")
+		return ctrl.Result{}, err
 	} else {
 		if err := r.Delete(context.TODO(), argoClusterSecret); err != nil {
-			log.Error(err, "Cannot delete Secret ["+argoClusterSecret.GetName()+"]")
+			log.Error(err, "Cannot delete Secret for argocd external cluster ["+argoClusterSecret.Name+"]")
+			return ctrl.Result{}, err
 		}
+		log.Info("Delete Secret for argocd external cluster [" + argoClusterSecret.Name + "] successfully")
 	}
 	// 클러스터를 사용중이던 사용자의 crb도 지워야되나.. db에서 읽어서 지워야 하는데?
 
-	controllerutil.RemoveFinalizer(secret, util.SecretFinalizer)
-
+	controllerutil.RemoveFinalizer(secret, clusterv1alpha1.ClusterManagerFinalizer)
 	return ctrl.Result{}, nil
 }
 
-// func (r *SecretReconciler) requeueSecretForClusterManager(o handler.MapObject) []ctrl.Request {
-// 	clm := o.Object.(*clusterv1alpha1.ClusterManager)
-// 	log := r.Log.WithValues("objectMapper", "ClusterManagersToSecret", "namespace", clm.Namespace, "clustermanager", clm.Name)
-// 	log.Info("Start to requeueSecretForClusterManager mapping")
-
-// 	// Don't handle deleted machinedeployment
-// 	if !clm.ObjectMeta.GetDeletionTimestamp().IsZero() {
-// 		log.Info("clustermanager has a deletion timestamp, skipping mapping.")
-// 		return nil
-// 	}
-
-// 	reconcileRequests := []ctrl.Request{}
-// 	reconcileRequests = append(reconcileRequests, ctrl.Request{
-// 		NamespacedName: types.NamespacedName{
-// 			Namespace: clm.Namespace,
-// 			Name:      clm.Name + util.KubeconfigSuffix,
-// 		},
-// 	})
-// 	return reconcileRequests
-// }
-
 func (r *SecretReconciler) SetupWithManager(mgr ctrl.Manager) error {
-
 	controller, err := ctrl.NewControllerManagedBy(mgr).
 		For(&corev1.Secret{}).
 		WithEventFilter(
@@ -668,11 +306,10 @@ func (r *SecretReconciler) SetupWithManager(mgr ctrl.Manager) error {
 				UpdateFunc: func(e event.UpdateEvent) bool {
 					oldSecret := e.ObjectOld.(*corev1.Secret).DeepCopy()
 					newSecret := e.ObjectNew.(*corev1.Secret).DeepCopy()
-					isTarget := strings.Contains(oldSecret.GetName(), util.KubeconfigSuffix)
+					_, isTarget := oldSecret.Labels[util.LabelKeyClmSecretType]
 					isDelete := oldSecret.GetDeletionTimestamp().IsZero() && !newSecret.GetDeletionTimestamp().IsZero()
-					isFinalized := !controllerutil.ContainsFinalizer(oldSecret, util.SecretFinalizer) &&
-						controllerutil.ContainsFinalizer(newSecret, util.SecretFinalizer)
-
+					isFinalized := !controllerutil.ContainsFinalizer(oldSecret, clusterv1alpha1.ClusterManagerFinalizer) &&
+						controllerutil.ContainsFinalizer(newSecret, clusterv1alpha1.ClusterManagerFinalizer)
 					if isTarget && (isDelete || isFinalized) {
 						return true
 					}
@@ -708,7 +345,6 @@ func (r *SecretReconciler) SetupWithManager(mgr ctrl.Manager) error {
 				return false
 			},
 			DeleteFunc: func(e event.DeleteEvent) bool {
-
 				return false
 			},
 			GenericFunc: func(e event.GenericEvent) bool {
@@ -716,37 +352,4 @@ func (r *SecretReconciler) SetupWithManager(mgr ctrl.Manager) error {
 			},
 		},
 	)
-}
-
-func getKubeConfig(secret corev1.Secret) (*rest.Config, error) {
-	if value, ok := secret.Data["value"]; ok {
-		if clientConfig, err := clientcmd.NewClientConfigFromBytes(value); err == nil {
-			if restConfig, err := clientConfig.ClientConfig(); err == nil {
-				return restConfig, nil
-			}
-		}
-	}
-	return nil, errors.NewBadRequest("getClientConfig Error")
-}
-
-func createClusterRole(name string, targetGroup []string, verbList []string) *rbacv1.ClusterRole {
-	clusterRole := &rbacv1.ClusterRole{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: name,
-		},
-		Rules: []rbacv1.PolicyRule{
-			{
-				APIGroups: targetGroup,
-				Resources: []string{rbacv1.ResourceAll},
-				Verbs:     verbList,
-			},
-			{
-				APIGroups: []string{"apiregistration.k8s.io"},
-				Resources: []string{rbacv1.ResourceAll},
-				Verbs:     []string{"get", "list", "watch"},
-			},
-		},
-	}
-
-	return clusterRole
 }
