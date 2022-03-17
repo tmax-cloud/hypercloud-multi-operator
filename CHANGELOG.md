@@ -1,6 +1,23 @@
 # HyperCloud-Multi-Operator changelog!!
 All notable changes to this project will be documented in this file.
 
+<!-------------------- v5.0.26.6 start -------------------->
+
+## HyperCloud-Multi-Operator_5.0.26.6 (2022. 03. 17. (목) 17:00:04 KST)
+
+### Added
+
+### Changed
+  - [mod] argocd cluster role binding ns 에러 수정 by SISILIA
+
+### Fixed
+
+### CRD yaml
+
+### Etc
+
+<!--------------------- v5.0.26.6 end --------------------->
+
 <!-------------------- v5.0.26.5 start -------------------->
 
 ## HyperCloud-Multi-Operator_5.0.26.5 (2022. 02. 25. (금) 15:22:37 KST)
