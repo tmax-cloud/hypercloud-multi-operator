@@ -264,7 +264,7 @@ func (r *SecretReconciler) DeployArgocdResources(ctx context.Context, secret *co
 			{
 				Kind:      rbacv1.ServiceAccountKind,
 				Name:      util.ArgoServiceAccount,
-				Namespace: util.ArgoNamespace,
+				Namespace: util.KubeNamespace,
 			},
 		},
 	}
