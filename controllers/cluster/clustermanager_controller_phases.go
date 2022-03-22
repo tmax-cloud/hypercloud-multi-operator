@@ -83,8 +83,7 @@ func (r *ClusterManagerReconciler) UpdateClusterManagerStatus(ctx context.Contex
 	}
 	clusterManager.Spec.Version = fmt.Sprintf("%v", data["kubernetesVersion"])
 
-	var nodeList *corev1.NodeList
-	nodeList, err = remoteClientset.
+	nodeList, err := remoteClientset.
 		CoreV1().
 		Nodes().
 		List(context.TODO(), metav1.ListOptions{})
@@ -555,12 +554,12 @@ func (r *ClusterManagerReconciler) CreateArgocdClusterSecret(ctx context.Context
 	return ctrl.Result{}, nil
 }
 
-func (r *ClusterManagerReconciler) UpdatePrometheusService(ctx context.Context, clusterManager *clusterv1alpha1.ClusterManager) (reconcile.Result, error) {
-	if clusterManager.Status.PrometheusReady {
+func (r *ClusterManagerReconciler) UpdateGatewayService(ctx context.Context, clusterManager *clusterv1alpha1.ClusterManager) (reconcile.Result, error) {
+	if clusterManager.Status.MonitoringReady && clusterManager.Status.PrometheusReady {
 		return ctrl.Result{}, nil
 	}
 	log := r.Log.WithValues("clustermanager", clusterManager.GetNamespacedName())
-	log.Info("Start to reconcile phase for UpdatePrometheusService")
+	log.Info("Start to reconcile phase for UpdateGatewayService")
 
 	key := types.NamespacedName{
 		Name:      clusterManager.Name + util.KubeconfigSuffix,
@@ -603,19 +602,21 @@ func (r *ClusterManagerReconciler) UpdatePrometheusService(ctx context.Context, 
 		clusterManager.Annotations[clusterv1alpha1.AnnotationKeyClmGateway] = hostnameOrIp
 	}
 
-	if err := r.CreatePrometheusService(clusterManager); err != nil {
+	if err := r.CreateGatewayService(clusterManager); err != nil {
 		return ctrl.Result{}, err
 	}
 
 	if !util.IsIpAddress(clusterManager.Annotations[clusterv1alpha1.AnnotationKeyClmApiserver]) {
+		clusterManager.Status.MonitoringReady = true
 		clusterManager.Status.PrometheusReady = true
 		return ctrl.Result{}, nil
 	}
 
-	if err := r.CreatePrometheusEndpoint(clusterManager); err != nil {
+	if err := r.CreateGatewayEndpoint(clusterManager); err != nil {
 		return ctrl.Result{}, err
 	}
 
+	clusterManager.Status.MonitoringReady = true
 	clusterManager.Status.PrometheusReady = true
 	return ctrl.Result{}, nil
 }
@@ -645,11 +646,11 @@ func (r *ClusterManagerReconciler) DeleteTraefikResources(clusterManager *cluste
 		return err
 	}
 
-	if err := r.DeletePrometheusService(clusterManager); err != nil {
+	if err := r.DeleteGatewayService(clusterManager); err != nil {
 		return err
 	}
 
-	if err := r.DeletePrometheusEndpoint(clusterManager); err != nil {
+	if err := r.DeleteGatewayEndpoint(clusterManager); err != nil {
 		return err
 	}
 

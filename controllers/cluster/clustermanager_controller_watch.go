@@ -156,8 +156,9 @@ func (r *ClusterManagerReconciler) requeueClusterManagersForSubresources(o clien
 		return nil
 	}
 
-	isPrometheus := strings.Contains(o.GetName(), "prometheus")
-	if isPrometheus {
+	isGateway := strings.Contains(o.GetName(), "gateway")
+	if isGateway {
+		clm.Status.MonitoringReady = false
 		clm.Status.PrometheusReady = false
 	} else {
 		clm.Status.TraefikReady = false

@@ -148,6 +148,12 @@ func (r *ClusterManagerReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		return ctrl.Result{}, nil
 	}
 
+	// Label migration for old version
+	if _, ok := clusterManager.GetLabels()[clusterv1alpha1.LabelKeyClmClusterTypeDefunct]; ok {
+		clusterManager.Labels[clusterv1alpha1.LabelKeyClmClusterType] =
+			clusterManager.Labels[clusterv1alpha1.LabelKeyClmClusterTypeDefunct]
+	}
+
 	// Handle normal reconciliation loop.
 	if clusterManager.Labels[clusterv1alpha1.LabelKeyClmClusterType] == clusterv1alpha1.ClusterTypeRegistered {
 		// Handle deletion reconciliation loop.
@@ -172,7 +178,7 @@ func (r *ClusterManagerReconciler) reconcileForRegisteredClusterManager(ctx cont
 		r.UpdateClusterManagerStatus,
 		r.CreateTraefikResources,
 		r.CreateArgocdClusterSecret,
-		r.UpdatePrometheusService,
+		r.UpdateGatewayService,
 		// r.DeployAndUpdateAgentEndpoint,
 	}
 
@@ -237,7 +243,7 @@ func (r *ClusterManagerReconciler) reconcile(ctx context.Context, clusterManager
 		r.kubeadmControlPlaneUpdate,
 		r.machineDeploymentUpdate,
 		r.CreateArgocdClusterSecret,
-		r.UpdatePrometheusService,
+		r.UpdateGatewayService,
 	}
 
 	res := ctrl.Result{}
@@ -385,7 +391,7 @@ func (r *ClusterManagerReconciler) SetupWithManager(mgr ctrl.Manager) error {
 						newclm.Status.ControlPlaneEndpoint != ""
 					isSubResourceNotReady := newclm.Status.ArgoReady == false ||
 						newclm.Status.TraefikReady == false ||
-						newclm.Status.PrometheusReady == false
+						(newclm.Status.MonitoringReady == false || newclm.Status.PrometheusReady == false)
 					if isDelete || isControlPlaneEndpointUpdate || isFinalized {
 						return true
 					} else {

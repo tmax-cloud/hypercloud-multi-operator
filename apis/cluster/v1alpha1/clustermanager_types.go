@@ -112,9 +112,9 @@ type ClusterManagerStatus struct {
 	ControlPlaneEndpoint string                  `json:"controlPlaneEndpoint,omitempty"`
 	ArgoReady            bool                    `json:"argoReady,omitempty"`
 	TraefikReady         bool                    `json:"traefikReady,omitempty"`
-	PrometheusReady      bool                    `json:"prometheusReady,omitempty"`
-	//AgentEndpoint        string                  `json:"agentEndpoint,omitempty"`
-	//AgentReady           bool                    `json:"agentReady,omitempty"`
+	MonitoringReady      bool                    `json:"gatewayReady,omitempty"`
+	// will be deprecated
+	PrometheusReady bool `json:"prometheusReady,omitempty"`
 }
 
 type ClusterManagerPhase string
@@ -164,11 +164,12 @@ const (
 	AnnotationKeyClmSuffix    = "clustermanager.cluster.tmax.io/suffix"
 	AnnotationKeyClmDomain    = "clustermanager.cluster.tmax.io/domain"
 
-	LabelKeyClmName        = "clustermanager.cluster.tmax.io/clm-name"
-	LabelKeyClmNamespace   = "clustermanager.cluster.tmax.io/clm-namespace"
-	LabelKeyClcName        = "clustermanager.cluster.tmax.io/clc-name"
-	LabelKeyClrName        = "clustermanager.cluster.tmax.io/clr-name"
-	LabelKeyClmClusterType = "clustermanager.cluster.tmax.io/cluster-type"
+	LabelKeyClmName               = "clustermanager.cluster.tmax.io/clm-name"
+	LabelKeyClmNamespace          = "clustermanager.cluster.tmax.io/clm-namespace"
+	LabelKeyClcName               = "clustermanager.cluster.tmax.io/clc-name"
+	LabelKeyClrName               = "clustermanager.cluster.tmax.io/clr-name"
+	LabelKeyClmClusterType        = "clustermanager.cluster.tmax.io/cluster-type"
+	LabelKeyClmClusterTypeDefunct = "type"
 
 	// LabelKeyClmClusterTypeDefunct = "type"
 	// LabelKeyClcNameDefunct = "parent"
@@ -199,8 +200,6 @@ type ClusterManager struct {
 	Status      ClusterManagerStatus `json:"status,omitempty"`
 	AwsSpec     ProviderAwsSpec      `json:"awsSpec,omitempty"`
 	VsphereSpec ProviderVsphereSpec  `json:"vsphereSpec,omitempty"`
-	// AwsSpec     claimv1.AwsClaimSpec     `json:"awsSpec,omitempty"`
-	// VsphereSpec claimv1.VsphereClaimSpec `json:"vsphereSpec,omitempty"`
 }
 
 // +kubebuilder:object:root=true

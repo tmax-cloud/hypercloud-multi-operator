@@ -73,8 +73,7 @@ func (r *ClusterRegistrationReconciler) CheckValidation(ctx context.Context, Clu
 		Name:      ClusterRegistration.Spec.ClusterName,
 		Namespace: ClusterRegistration.Namespace,
 	}
-	clm := &clusterv1alpha1.ClusterManager{}
-	if err := r.Get(context.TODO(), key, clm); err != nil && !errors.IsNotFound(err) {
+	if err := r.Get(context.TODO(), key, &clusterv1alpha1.ClusterManager{}); err != nil && !errors.IsNotFound(err) {
 		log.Error(err, "Failed to get clusterManager")
 		return ctrl.Result{}, err
 	} else if err == nil {
@@ -110,12 +109,12 @@ func (r *ClusterRegistrationReconciler) CreateKubeconfigSecret(ctx context.Conte
 	}
 
 	kubeconfigSecretName := ClusterRegistration.Spec.ClusterName + util.KubeconfigSuffix
-	kubeconfigSecretKey := types.NamespacedName{
+	key := types.NamespacedName{
 		Name:      kubeconfigSecretName,
 		Namespace: ClusterRegistration.Namespace,
 	}
 	kubeconfigSecret := &corev1.Secret{}
-	if err := r.Get(context.TODO(), kubeconfigSecretKey, kubeconfigSecret); errors.IsNotFound(err) {
+	if err := r.Get(context.TODO(), key, kubeconfigSecret); errors.IsNotFound(err) {
 		kubeconfigSecret = &corev1.Secret{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      kubeconfigSecretName,
@@ -131,9 +130,6 @@ func (r *ClusterRegistrationReconciler) CreateKubeconfigSecret(ctx context.Conte
 					clusterv1alpha1.LabelKeyClmName:      ClusterRegistration.Spec.ClusterName,
 					clusterv1alpha1.LabelKeyClmNamespace: ClusterRegistration.Namespace,
 				},
-				// Finalizers: []string{
-				// 	clusterv1alpha1.ClusterManagerFinalizer,
-				// },
 			},
 			StringData: map[string]string{
 				"value": string(decodedKubeConfig),
@@ -192,13 +188,13 @@ func (r *ClusterRegistrationReconciler) CreateClusterManager(ctx context.Context
 			log.Error(err, "Failed to create ClusterManager for ["+ClusterRegistration.Spec.ClusterName+"]")
 			return ctrl.Result{}, err
 		}
-
-		if err := util.Insert(clm); err != nil {
-			log.Error(err, "Failed to insert cluster info into cluster_member table")
-			return ctrl.Result{}, err
-		}
 	} else if err != nil {
 		log.Error(err, "Failed to get ClusterManager")
+		return ctrl.Result{}, err
+	}
+
+	if err := util.Insert(clm); err != nil {
+		log.Error(err, "Failed to insert cluster info into cluster_member table")
 		return ctrl.Result{}, err
 	}
 

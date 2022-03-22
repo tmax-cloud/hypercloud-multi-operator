@@ -141,7 +141,7 @@ func (r *ClusterManagerReconciler) CreateIngress(clusterManager *clusterv1alpha1
 										PathType: &pathType,
 										Backend: networkingv1.IngressBackend{
 											Service: &networkingv1.IngressServiceBackend{
-												Name: clusterManager.Name + "-prometheus-service",
+												Name: clusterManager.Name + "-gateway-service",
 												Port: networkingv1.ServiceBackendPort{
 													Number: 443,
 												},
@@ -296,18 +296,18 @@ func (r *ClusterManagerReconciler) CreateEndpoint(clusterManager *clusterv1alpha
 	return err
 }
 
-func (r *ClusterManagerReconciler) CreatePrometheusService(clusterManager *clusterv1alpha1.ClusterManager) error {
+func (r *ClusterManagerReconciler) CreateGatewayService(clusterManager *clusterv1alpha1.ClusterManager) error {
 	log := r.Log.WithValues("clustermanager", clusterManager.GetNamespacedName())
 
 	key := types.NamespacedName{
-		Name:      clusterManager.Name + "-prometheus-service",
+		Name:      clusterManager.Name + "-gateway-service",
 		Namespace: clusterManager.Namespace,
 	}
 	err := r.Get(context.TODO(), key, &corev1.Service{})
 	if errors.IsNotFound(err) {
 		service := &corev1.Service{}
 		metadata := &metav1.ObjectMeta{
-			Name:      clusterManager.Name + "-prometheus-service",
+			Name:      clusterManager.Name + "-gateway-service",
 			Namespace: clusterManager.Namespace,
 			Annotations: map[string]string{
 				util.AnnotationKeyOwner:                  clusterManager.Annotations[util.AnnotationKeyCreator],
@@ -349,11 +349,11 @@ func (r *ClusterManagerReconciler) CreatePrometheusService(clusterManager *clust
 			}
 		}
 		if err := r.Create(context.TODO(), service); err != nil {
-			log.Error(err, "Failed to Create Service for prometheus")
+			log.Error(err, "Failed to Create Service for gateway")
 			return err
 		}
 
-		log.Info("Create Service for prometheus successfully")
+		log.Info("Create Service for gateway successfully")
 		ctrl.SetControllerReference(clusterManager, service, r.Scheme)
 		return nil
 	}
@@ -361,18 +361,18 @@ func (r *ClusterManagerReconciler) CreatePrometheusService(clusterManager *clust
 	return err
 }
 
-func (r *ClusterManagerReconciler) CreatePrometheusEndpoint(clusterManager *clusterv1alpha1.ClusterManager) error {
+func (r *ClusterManagerReconciler) CreateGatewayEndpoint(clusterManager *clusterv1alpha1.ClusterManager) error {
 	log := r.Log.WithValues("clustermanager", clusterManager.GetNamespacedName())
 
 	key := types.NamespacedName{
-		Name:      clusterManager.Name + "-prometheus-service",
+		Name:      clusterManager.Name + "-gateway-service",
 		Namespace: clusterManager.Namespace,
 	}
 	err := r.Get(context.TODO(), key, &corev1.Endpoints{})
 	if errors.IsNotFound(err) {
 		endpoint := &corev1.Endpoints{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      clusterManager.Name + "-prometheus-service",
+				Name:      clusterManager.Name + "-gateway-service",
 				Namespace: clusterManager.Namespace,
 				Annotations: map[string]string{
 					util.AnnotationKeyOwner:   clusterManager.Annotations[util.AnnotationKeyCreator],
@@ -399,11 +399,11 @@ func (r *ClusterManagerReconciler) CreatePrometheusEndpoint(clusterManager *clus
 			},
 		}
 		if err := r.Create(context.TODO(), endpoint); err != nil {
-			log.Error(err, "Failed to Create Endpoint for prometheus")
+			log.Error(err, "Failed to Create Endpoint for gateway")
 			return err
 		}
 
-		log.Info("Create Endpoint for prometheus successfully")
+		log.Info("Create Endpoint for gateway successfully")
 		ctrl.SetControllerReference(clusterManager, endpoint, r.Scheme)
 		return nil
 	}
@@ -615,11 +615,11 @@ func (r *ClusterManagerReconciler) DeleteMiddleware(clusterManager *clusterv1alp
 	return nil
 }
 
-func (r *ClusterManagerReconciler) DeletePrometheusService(clusterManager *clusterv1alpha1.ClusterManager) error {
+func (r *ClusterManagerReconciler) DeleteGatewayService(clusterManager *clusterv1alpha1.ClusterManager) error {
 	log := r.Log.WithValues("clustermanager", clusterManager.GetNamespacedName())
 
 	key := types.NamespacedName{
-		Name:      clusterManager.Name + "-prometheus-service",
+		Name:      clusterManager.Name + "-gateway-service",
 		Namespace: clusterManager.Namespace,
 	}
 	service := &corev1.Service{}
@@ -642,11 +642,11 @@ func (r *ClusterManagerReconciler) DeletePrometheusService(clusterManager *clust
 	return nil
 }
 
-func (r *ClusterManagerReconciler) DeletePrometheusEndpoint(clusterManager *clusterv1alpha1.ClusterManager) error {
+func (r *ClusterManagerReconciler) DeleteGatewayEndpoint(clusterManager *clusterv1alpha1.ClusterManager) error {
 	log := r.Log.WithValues("clustermanager", clusterManager.GetNamespacedName())
 
 	key := types.NamespacedName{
-		Name:      clusterManager.Name + "-prometheus-service",
+		Name:      clusterManager.Name + "-gateway-service",
 		Namespace: clusterManager.Namespace,
 	}
 	endpoint := &corev1.Endpoints{}

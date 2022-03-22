@@ -114,6 +114,8 @@ spec:
               type: string
             controlPlaneReady:
               type: boolean
+            gatewayReady:
+              type: boolean
             masterRun:
               type: integer
             nodeInfo:
@@ -174,6 +176,7 @@ spec:
             phase:
               type: string
             prometheusReady:
+              description: will be deprecated
               type: boolean
             provider:
               type: string
