@@ -200,32 +200,58 @@ func (r *ClusterManagerReconciler) CreateService(clusterManager *clusterv1alpha1
 	}
 	err := r.Get(context.TODO(), key, &corev1.Service{})
 	if errors.IsNotFound(err) {
-		metadata := metav1.ObjectMeta{
-			Name:      clusterManager.Name + "-service",
-			Namespace: clusterManager.Namespace,
-			Annotations: map[string]string{
-				util.AnnotationKeyOwner:                  clusterManager.Annotations[util.AnnotationKeyCreator],
-				util.AnnotationKeyCreator:                clusterManager.Annotations[util.AnnotationKeyCreator],
-				util.AnnotationKeyTraefikServerTransport: "insecure@file",
-			},
-			Labels: map[string]string{
-				clusterv1alpha1.LabelKeyClmName: clusterManager.Name,
-			},
-		}
-		spec := corev1.ServiceSpec{}
-		if util.IsIpAddress(clusterManager.Annotations[clusterv1alpha1.AnnotationKeyClmApiserver]) {
-			spec = corev1.ServiceSpec{
-				Ports: []corev1.ServicePort{
-					{
-						Name:       "https",
-						Port:       443,
-						Protocol:   corev1.ProtocolTCP,
-						TargetPort: intstr.FromInt(6443),
-					},
+		// metadata := metav1.ObjectMeta{
+		// 	Name:      clusterManager.Name + "-service",
+		// 	Namespace: clusterManager.Namespace,
+		// 	Annotations: map[string]string{
+		// 		util.AnnotationKeyOwner:                  clusterManager.Annotations[util.AnnotationKeyCreator],
+		// 		util.AnnotationKeyCreator:                clusterManager.Annotations[util.AnnotationKeyCreator],
+		// 		util.AnnotationKeyTraefikServerTransport: "insecure@file",
+		// 	},
+		// 	Labels: map[string]string{
+		// 		clusterv1alpha1.LabelKeyClmName: clusterManager.Name,
+		// 	},
+		// }
+		// spec := corev1.ServiceSpec{}
+		// if util.IsIpAddress(clusterManager.Annotations[clusterv1alpha1.AnnotationKeyClmApiserver]) {
+		// 	spec = corev1.ServiceSpec{
+		// 		Ports: []corev1.ServicePort{
+		// 			{
+		// 				Name:       "https",
+		// 				Port:       443,
+		// 				Protocol:   corev1.ProtocolTCP,
+		// 				TargetPort: intstr.FromInt(6443),
+		// 			},
+		// 		},
+		// 	}
+		// } else {
+		// 	spec = corev1.ServiceSpec{
+		// 		ExternalName: clusterManager.Annotations[clusterv1alpha1.AnnotationKeyClmApiserver],
+		// 		Ports: []corev1.ServicePort{
+		// 			{
+		// 				Name:       "https",
+		// 				Port:       6443,
+		// 				Protocol:   corev1.ProtocolTCP,
+		// 				TargetPort: intstr.FromInt(6443),
+		// 			},
+		// 		},
+		// 		Type: corev1.ServiceTypeExternalName,
+		// 	}
+		// }
+		service := &corev1.Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      clusterManager.Name + "-service",
+				Namespace: clusterManager.Namespace,
+				Annotations: map[string]string{
+					util.AnnotationKeyOwner:                  clusterManager.Annotations[util.AnnotationKeyCreator],
+					util.AnnotationKeyCreator:                clusterManager.Annotations[util.AnnotationKeyCreator],
+					util.AnnotationKeyTraefikServerTransport: "insecure@file",
 				},
-			}
-		} else {
-			spec = corev1.ServiceSpec{
+				Labels: map[string]string{
+					clusterv1alpha1.LabelKeyClmName: clusterManager.Name,
+				},
+			},
+			Spec: corev1.ServiceSpec{
 				ExternalName: clusterManager.Annotations[clusterv1alpha1.AnnotationKeyClmApiserver],
 				Ports: []corev1.ServicePort{
 					{
@@ -236,11 +262,9 @@ func (r *ClusterManagerReconciler) CreateService(clusterManager *clusterv1alpha1
 					},
 				},
 				Type: corev1.ServiceTypeExternalName,
-			}
-		}
-		service := &corev1.Service{
-			ObjectMeta: metadata,
-			Spec:       spec,
+			},
+			// ObjectMeta: metadata,
+			// Spec: spec,
 		}
 		if err := r.Create(context.TODO(), service); err != nil {
 			log.Error(err, "Failed to Create Service")
@@ -255,56 +279,57 @@ func (r *ClusterManagerReconciler) CreateService(clusterManager *clusterv1alpha1
 	return err
 }
 
-func (r *ClusterManagerReconciler) CreateEndpoint(clusterManager *clusterv1alpha1.ClusterManager) error {
-	log := r.Log.WithValues("clustermanager", clusterManager.GetNamespacedName())
+// defunct
+// func (r *ClusterManagerReconciler) CreateEndpoint(clusterManager *clusterv1alpha1.ClusterManager) error {
+// 	log := r.Log.WithValues("clustermanager", clusterManager.GetNamespacedName())
 
-	key := types.NamespacedName{
-		Name:      clusterManager.Name + "-service",
-		Namespace: clusterManager.Namespace,
-	}
-	err := r.Get(context.TODO(), key, &corev1.Endpoints{})
-	if errors.IsNotFound(err) {
-		endpoint := &corev1.Endpoints{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      clusterManager.Name + "-service",
-				Namespace: clusterManager.Namespace,
-				Annotations: map[string]string{
-					util.AnnotationKeyOwner:   clusterManager.Annotations[util.AnnotationKeyCreator],
-					util.AnnotationKeyCreator: clusterManager.Annotations[util.AnnotationKeyCreator],
-				},
-				Labels: map[string]string{
-					clusterv1alpha1.LabelKeyClmName: clusterManager.Name,
-				},
-			},
-			Subsets: []corev1.EndpointSubset{
-				{
-					Addresses: []corev1.EndpointAddress{
-						{
-							IP: clusterManager.Annotations[clusterv1alpha1.AnnotationKeyClmApiserver],
-						},
-					},
-					Ports: []corev1.EndpointPort{
-						{
-							Name:     "https",
-							Port:     6443,
-							Protocol: corev1.ProtocolTCP,
-						},
-					},
-				},
-			},
-		}
-		if err := r.Create(context.TODO(), endpoint); err != nil {
-			log.Error(err, "Failed to Create Endpoint")
-			return err
-		}
+// 	key := types.NamespacedName{
+// 		Name:      clusterManager.Name + "-service",
+// 		Namespace: clusterManager.Namespace,
+// 	}
+// 	err := r.Get(context.TODO(), key, &corev1.Endpoints{})
+// 	if errors.IsNotFound(err) {
+// 		endpoint := &corev1.Endpoints{
+// 			ObjectMeta: metav1.ObjectMeta{
+// 				Name:      clusterManager.Name + "-service",
+// 				Namespace: clusterManager.Namespace,
+// 				Annotations: map[string]string{
+// 					util.AnnotationKeyOwner:   clusterManager.Annotations[util.AnnotationKeyCreator],
+// 					util.AnnotationKeyCreator: clusterManager.Annotations[util.AnnotationKeyCreator],
+// 				},
+// 				Labels: map[string]string{
+// 					clusterv1alpha1.LabelKeyClmName: clusterManager.Name,
+// 				},
+// 			},
+// 			Subsets: []corev1.EndpointSubset{
+// 				{
+// 					Addresses: []corev1.EndpointAddress{
+// 						{
+// 							IP: clusterManager.Annotations[clusterv1alpha1.AnnotationKeyClmApiserver],
+// 						},
+// 					},
+// 					Ports: []corev1.EndpointPort{
+// 						{
+// 							Name:     "https",
+// 							Port:     6443,
+// 							Protocol: corev1.ProtocolTCP,
+// 						},
+// 					},
+// 				},
+// 			},
+// 		}
+// 		if err := r.Create(context.TODO(), endpoint); err != nil {
+// 			log.Error(err, "Failed to Create Endpoint")
+// 			return err
+// 		}
 
-		log.Info("Create Endpoint successfully")
-		ctrl.SetControllerReference(clusterManager, endpoint, r.Scheme)
-		return nil
-	}
+// 		log.Info("Create Endpoint successfully")
+// 		ctrl.SetControllerReference(clusterManager, endpoint, r.Scheme)
+// 		return nil
+// 	}
 
-	return err
-}
+// 	return err
+// }
 
 func (r *ClusterManagerReconciler) CreateGatewayService(clusterManager *clusterv1alpha1.ClusterManager) error {
 	log := r.Log.WithValues("clustermanager", clusterManager.GetNamespacedName())
@@ -315,32 +340,58 @@ func (r *ClusterManagerReconciler) CreateGatewayService(clusterManager *clusterv
 	}
 	err := r.Get(context.TODO(), key, &corev1.Service{})
 	if errors.IsNotFound(err) {
-		metadata := metav1.ObjectMeta{
-			Name:      clusterManager.Name + "-gateway-service",
-			Namespace: clusterManager.Namespace,
-			Annotations: map[string]string{
-				util.AnnotationKeyOwner:                  clusterManager.Annotations[util.AnnotationKeyCreator],
-				util.AnnotationKeyCreator:                clusterManager.Annotations[util.AnnotationKeyCreator],
-				util.AnnotationKeyTraefikServerScheme:    "https",
-				util.AnnotationKeyTraefikServerTransport: "insecure@file",
-			},
-			Labels: map[string]string{
-				clusterv1alpha1.LabelKeyClmName: clusterManager.Name,
-			},
-		}
-		spec := corev1.ServiceSpec{}
-		if util.IsIpAddress(clusterManager.Annotations[clusterv1alpha1.AnnotationKeyClmGateway]) {
-			spec = corev1.ServiceSpec{
-				Ports: []corev1.ServicePort{
-					{
-						Port:       443,
-						Protocol:   corev1.ProtocolTCP,
-						TargetPort: intstr.FromInt(443),
-					},
+		// metadata := metav1.ObjectMeta{
+		// 	Name:      clusterManager.Name + "-gateway-service",
+		// 	Namespace: clusterManager.Namespace,
+		// 	Annotations: map[string]string{
+		// 		util.AnnotationKeyOwner:                  clusterManager.Annotations[util.AnnotationKeyCreator],
+		// 		util.AnnotationKeyCreator:                clusterManager.Annotations[util.AnnotationKeyCreator],
+		// 		util.AnnotationKeyTraefikServerScheme:    "https",
+		// 		util.AnnotationKeyTraefikServerTransport: "insecure@file",
+		// 	},
+		// 	Labels: map[string]string{
+		// 		clusterv1alpha1.LabelKeyClmName: clusterManager.Name,
+		// 	},
+		// }
+		// spec := corev1.ServiceSpec{}
+		// if util.IsIpAddress(clusterManager.Annotations[clusterv1alpha1.AnnotationKeyClmGateway]) {
+		// 	spec = corev1.ServiceSpec{
+		// 		Ports: []corev1.ServicePort{
+		// 			{
+		// 				Port:       443,
+		// 				Protocol:   corev1.ProtocolTCP,
+		// 				TargetPort: intstr.FromInt(443),
+		// 			},
+		// 		},
+		// 	}
+		// } else {
+		// 	spec = corev1.ServiceSpec{
+		// 		ExternalName: clusterManager.Annotations[clusterv1alpha1.AnnotationKeyClmGateway],
+		// 		Ports: []corev1.ServicePort{
+		// 			{
+		// 				Port:       443,
+		// 				Protocol:   corev1.ProtocolTCP,
+		// 				TargetPort: intstr.FromInt(443),
+		// 			},
+		// 		},
+		// 		Type: corev1.ServiceTypeExternalName,
+		// 	}
+		// }
+		service := &corev1.Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      clusterManager.Name + "-gateway-service",
+				Namespace: clusterManager.Namespace,
+				Annotations: map[string]string{
+					util.AnnotationKeyOwner:                  clusterManager.Annotations[util.AnnotationKeyCreator],
+					util.AnnotationKeyCreator:                clusterManager.Annotations[util.AnnotationKeyCreator],
+					util.AnnotationKeyTraefikServerScheme:    "https",
+					util.AnnotationKeyTraefikServerTransport: "insecure@file",
 				},
-			}
-		} else {
-			spec = corev1.ServiceSpec{
+				Labels: map[string]string{
+					clusterv1alpha1.LabelKeyClmName: clusterManager.Name,
+				},
+			},
+			Spec: corev1.ServiceSpec{
 				ExternalName: clusterManager.Annotations[clusterv1alpha1.AnnotationKeyClmGateway],
 				Ports: []corev1.ServicePort{
 					{
@@ -350,11 +401,9 @@ func (r *ClusterManagerReconciler) CreateGatewayService(clusterManager *clusterv
 					},
 				},
 				Type: corev1.ServiceTypeExternalName,
-			}
-		}
-		service := &corev1.Service{
-			ObjectMeta: metadata,
-			Spec:       spec,
+			},
+			// ObjectMeta: metadata,
+			// Spec:       spec,
 		}
 		if err := r.Create(context.TODO(), service); err != nil {
 			log.Error(err, "Failed to Create Service for gateway")

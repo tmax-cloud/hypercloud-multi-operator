@@ -217,14 +217,15 @@ func (r *ClusterManagerReconciler) CreateTraefikResources(ctx context.Context, c
 		return ctrl.Result{}, err
 	}
 
-	if !util.IsIpAddress(clusterManager.Annotations[clusterv1alpha1.AnnotationKeyClmApiserver]) {
-		clusterManager.Status.TraefikReady = true
-		return ctrl.Result{}, nil
-	}
+	// ip address도 kube service의 externalName에 들어갈 수 있으므로 logic을 분리할 필요가 없다!
+	// if !util.IsIpAddress(clusterManager.Annotations[clusterv1alpha1.AnnotationKeyClmApiserver]) {
+	// 	clusterManager.Status.TraefikReady = true
+	// 	return ctrl.Result{}, nil
+	// }
 
-	if err := r.CreateEndpoint(clusterManager); err != nil {
-		return ctrl.Result{}, err
-	}
+	// if err := r.CreateEndpoint(clusterManager); err != nil {
+	// 	return ctrl.Result{}, err
+	// }
 
 	clusterManager.Status.TraefikReady = true
 	return ctrl.Result{}, nil
@@ -428,6 +429,7 @@ func (r *ClusterManagerReconciler) kubeadmControlPlaneUpdate(ctx context.Context
 		kcp.Spec.Version = clusterManager.Spec.Version
 	}
 
+	clusterManager.Status.Ready = true
 	return ctrl.Result{}, nil
 }
 
@@ -612,15 +614,15 @@ func (r *ClusterManagerReconciler) UpdateGatewayService(ctx context.Context, clu
 		return ctrl.Result{}, err
 	}
 
-	if !util.IsIpAddress(clusterManager.Annotations[clusterv1alpha1.AnnotationKeyClmGateway]) {
-		clusterManager.Status.MonitoringReady = true
-		clusterManager.Status.PrometheusReady = true
-		return ctrl.Result{}, nil
-	}
+	// if !util.IsIpAddress(clusterManager.Annotations[clusterv1alpha1.AnnotationKeyClmGateway]) {
+	// 	clusterManager.Status.MonitoringReady = true
+	// 	clusterManager.Status.PrometheusReady = true
+	// 	return ctrl.Result{}, nil
+	// }
 
-	if err := r.CreateGatewayEndpoint(clusterManager); err != nil {
-		return ctrl.Result{}, err
-	}
+	// if err := r.CreateGatewayEndpoint(clusterManager); err != nil {
+	// 	return ctrl.Result{}, err
+	// }
 
 	clusterManager.Status.MonitoringReady = true
 	clusterManager.Status.PrometheusReady = true

@@ -28,7 +28,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	kerrors "k8s.io/apimachinery/pkg/util/errors"
@@ -243,7 +242,7 @@ func (r *ClusterManagerReconciler) reconcile(ctx context.Context, clusterManager
 		r.CreateServiceInstance,
 		r.SetEndpoint,
 		r.CreateTraefikResources,
-		r.DeployAndUpdateAgentEndpoint,
+		//r.DeployAndUpdateAgentEndpoint,
 		r.kubeadmControlPlaneUpdate,
 		r.machineDeploymentUpdate,
 		r.CreateArgocdClusterSecret,
@@ -287,34 +286,34 @@ func (r *ClusterManagerReconciler) reconcileDelete(ctx context.Context, clusterM
 		return ctrl.Result{}, err
 	}
 
-	remoteClientset, err := util.GetRemoteK8sClient(kubeconfigSecret)
-	if err != nil {
-		log.Error(err, "Failed to get remoteK8sClient")
-		return ctrl.Result{}, err
-	}
+	// remoteClientset, err := util.GetRemoteK8sClient(kubeconfigSecret)
+	// if err != nil {
+	// 	log.Error(err, "Failed to get remoteK8sClient")
+	// 	return ctrl.Result{}, err
+	// }
 
 	// secret은 존재하는데.. 실제 instance가 없어서 에러 발생
-	_, err = remoteClientset.
-		CoreV1().
-		Namespaces().
-		Get(context.TODO(), util.IngressNginxNamespace, metav1.GetOptions{})
-	if errors.IsNotFound(err) {
-		log.Info("Ingress-nginx namespace is already deleted")
-	} else if err != nil {
-		log.Info(err.Error())
-		log.Info("Failed to get Ingress-nginx loadbalancer service... may be instance was deleted before secret was deleted...")
-		// log.Info("###################### Never executed... ############################")
-		// error 처리 필요
-	} else {
-		err := remoteClientset.
-			CoreV1().
-			Namespaces().
-			Delete(context.TODO(), util.IngressNginxNamespace, metav1.DeleteOptions{})
-		if err != nil {
-			log.Error(err, "Failed to delete Ingress-nginx namespace")
-			return ctrl.Result{}, err
-		}
-	}
+	// _, err = remoteClientset.
+	// 	CoreV1().
+	// 	Namespaces().
+	// 	Get(context.TODO(), util.IngressNginxNamespace, metav1.GetOptions{})
+	// if errors.IsNotFound(err) {
+	// 	log.Info("Ingress-nginx namespace is already deleted")
+	// } else if err != nil {
+	// 	log.Info(err.Error())
+	// 	log.Info("Failed to get Ingress-nginx loadbalancer service... may be instance was deleted before secret was deleted...")
+	// 	// log.Info("###################### Never executed... ############################")
+	// 	// error 처리 필요
+	// } else {
+	// 	err := remoteClientset.
+	// 		CoreV1().
+	// 		Namespaces().
+	// 		Delete(context.TODO(), util.IngressNginxNamespace, metav1.DeleteOptions{})
+	// 	if err != nil {
+	// 		log.Error(err, "Failed to delete Ingress-nginx namespace")
+	// 		return ctrl.Result{}, err
+	// 	}
+	// }
 
 	// delete serviceinstance
 	key = types.NamespacedName{
