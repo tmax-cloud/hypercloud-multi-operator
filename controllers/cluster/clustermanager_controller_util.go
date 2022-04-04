@@ -200,8 +200,7 @@ func (r *ClusterManagerReconciler) CreateService(clusterManager *clusterv1alpha1
 	}
 	err := r.Get(context.TODO(), key, &corev1.Service{})
 	if errors.IsNotFound(err) {
-		service := &corev1.Service{}
-		metadata := &metav1.ObjectMeta{
+		metadata := metav1.ObjectMeta{
 			Name:      clusterManager.Name + "-service",
 			Namespace: clusterManager.Namespace,
 			Annotations: map[string]string{
@@ -213,36 +212,35 @@ func (r *ClusterManagerReconciler) CreateService(clusterManager *clusterv1alpha1
 				clusterv1alpha1.LabelKeyClmName: clusterManager.Name,
 			},
 		}
+		spec := corev1.ServiceSpec{}
 		if util.IsIpAddress(clusterManager.Annotations[clusterv1alpha1.AnnotationKeyClmApiserver]) {
-			service = &corev1.Service{
-				ObjectMeta: *metadata,
-				Spec: corev1.ServiceSpec{
-					Ports: []corev1.ServicePort{
-						{
-							Name:       "https",
-							Port:       443,
-							Protocol:   corev1.ProtocolTCP,
-							TargetPort: intstr.FromInt(6443),
-						},
+			spec = corev1.ServiceSpec{
+				Ports: []corev1.ServicePort{
+					{
+						Name:       "https",
+						Port:       443,
+						Protocol:   corev1.ProtocolTCP,
+						TargetPort: intstr.FromInt(6443),
 					},
 				},
 			}
 		} else {
-			service = &corev1.Service{
-				ObjectMeta: *metadata,
-				Spec: corev1.ServiceSpec{
-					ExternalName: clusterManager.Annotations[clusterv1alpha1.AnnotationKeyClmApiserver],
-					Ports: []corev1.ServicePort{
-						{
-							Name:       "https",
-							Port:       6443,
-							Protocol:   corev1.ProtocolTCP,
-							TargetPort: intstr.FromInt(6443),
-						},
+			spec = corev1.ServiceSpec{
+				ExternalName: clusterManager.Annotations[clusterv1alpha1.AnnotationKeyClmApiserver],
+				Ports: []corev1.ServicePort{
+					{
+						Name:       "https",
+						Port:       6443,
+						Protocol:   corev1.ProtocolTCP,
+						TargetPort: intstr.FromInt(6443),
 					},
-					Type: corev1.ServiceTypeExternalName,
 				},
+				Type: corev1.ServiceTypeExternalName,
 			}
+		}
+		service := &corev1.Service{
+			ObjectMeta: metadata,
+			Spec:       spec,
 		}
 		if err := r.Create(context.TODO(), service); err != nil {
 			log.Error(err, "Failed to Create Service")
@@ -317,8 +315,7 @@ func (r *ClusterManagerReconciler) CreateGatewayService(clusterManager *clusterv
 	}
 	err := r.Get(context.TODO(), key, &corev1.Service{})
 	if errors.IsNotFound(err) {
-		service := &corev1.Service{}
-		metadata := &metav1.ObjectMeta{
+		metadata := metav1.ObjectMeta{
 			Name:      clusterManager.Name + "-gateway-service",
 			Namespace: clusterManager.Namespace,
 			Annotations: map[string]string{
@@ -331,34 +328,33 @@ func (r *ClusterManagerReconciler) CreateGatewayService(clusterManager *clusterv
 				clusterv1alpha1.LabelKeyClmName: clusterManager.Name,
 			},
 		}
+		spec := corev1.ServiceSpec{}
 		if util.IsIpAddress(clusterManager.Annotations[clusterv1alpha1.AnnotationKeyClmGateway]) {
-			service = &corev1.Service{
-				ObjectMeta: *metadata,
-				Spec: corev1.ServiceSpec{
-					Ports: []corev1.ServicePort{
-						{
-							Port:       443,
-							Protocol:   corev1.ProtocolTCP,
-							TargetPort: intstr.FromInt(443),
-						},
+			spec = corev1.ServiceSpec{
+				Ports: []corev1.ServicePort{
+					{
+						Port:       443,
+						Protocol:   corev1.ProtocolTCP,
+						TargetPort: intstr.FromInt(443),
 					},
 				},
 			}
 		} else {
-			service = &corev1.Service{
-				ObjectMeta: *metadata,
-				Spec: corev1.ServiceSpec{
-					ExternalName: clusterManager.Annotations[clusterv1alpha1.AnnotationKeyClmGateway],
-					Ports: []corev1.ServicePort{
-						{
-							Port:       443,
-							Protocol:   corev1.ProtocolTCP,
-							TargetPort: intstr.FromInt(443),
-						},
+			spec = corev1.ServiceSpec{
+				ExternalName: clusterManager.Annotations[clusterv1alpha1.AnnotationKeyClmGateway],
+				Ports: []corev1.ServicePort{
+					{
+						Port:       443,
+						Protocol:   corev1.ProtocolTCP,
+						TargetPort: intstr.FromInt(443),
 					},
-					Type: corev1.ServiceTypeExternalName,
 				},
+				Type: corev1.ServiceTypeExternalName,
 			}
+		}
+		service := &corev1.Service{
+			ObjectMeta: metadata,
+			Spec:       spec,
 		}
 		if err := r.Create(context.TODO(), service); err != nil {
 			log.Error(err, "Failed to Create Service for gateway")

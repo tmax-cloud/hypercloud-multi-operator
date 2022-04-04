@@ -155,7 +155,7 @@ func GetProviderName(provider string) (string, error) {
 }
 
 func IsIpAddress(endPoint string) bool {
-	reg, _ := regexp.Compile("[0-9]{1,3}\\.[0-9]{1,3}\\.[0-9]{1,3}\\.[0-9]{1,3}")
+	reg, _ := regexp.Compile(`[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}`)
 
 	return reg.MatchString(endPoint)
 }

@@ -21,7 +21,6 @@ import (
 	clusterv1alpha1 "github.com/tmax-cloud/hypercloud-multi-operator/apis/cluster/v1alpha1"
 	util "github.com/tmax-cloud/hypercloud-multi-operator/controllers/util"
 
-	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -144,48 +143,48 @@ func (r *ClusterRegistrationReconciler) requeueClusterRegistrationsForClusterMan
 	return nil
 }
 
-func (r *ClusterRegistrationReconciler) requeueClusterRegistrationsForSecret(o client.Object) []ctrl.Request {
-	secret := o.DeepCopyObject().(*corev1.Secret)
-	log := r.Log.WithValues("ClusterRegistration-ObjectMapper", "clusterManagerToClusterClusterRegistrations", "ClusterRegistration", secret.Name)
+// func (r *ClusterRegistrationReconciler) requeueClusterRegistrationsForSecret(o client.Object) []ctrl.Request {
+// 	secret := o.DeepCopyObject().(*corev1.Secret)
+// 	log := r.Log.WithValues("ClusterRegistration-ObjectMapper", "clusterManagerToClusterClusterRegistrations", "ClusterRegistration", secret.Name)
 
-	key := types.NamespacedName{
-		Name:      secret.Labels[clusterv1alpha1.LabelKeyClmName],
-		Namespace: secret.Namespace,
-	}
-	clm := &clusterv1alpha1.ClusterManager{}
-	if err := r.Get(context.TODO(), key, clm); err != nil {
-		log.Error(err, "Failed to get ClusterManager")
-		return nil
-	}
+// 	key := types.NamespacedName{
+// 		Name:      secret.Labels[clusterv1alpha1.LabelKeyClmName],
+// 		Namespace: secret.Namespace,
+// 	}
+// 	clm := &clusterv1alpha1.ClusterManager{}
+// 	if err := r.Get(context.TODO(), key, clm); err != nil {
+// 		log.Error(err, "Failed to get ClusterManager")
+// 		return nil
+// 	}
 
-	if !clm.GetDeletionTimestamp().IsZero() {
-		return nil
-	}
+// 	if !clm.GetDeletionTimestamp().IsZero() {
+// 		return nil
+// 	}
 
-	key = types.NamespacedName{
-		Name:      clm.Labels[clusterv1alpha1.LabelKeyClrName],
-		Namespace: secret.Namespace,
-	}
-	clr := &clusterv1alpha1.ClusterRegistration{}
-	if err := r.Get(context.TODO(), key, clr); err != nil {
-		log.Error(err, "Failed to get ClusterRegistration")
-		return nil
-	}
+// 	key = types.NamespacedName{
+// 		Name:      clm.Labels[clusterv1alpha1.LabelKeyClrName],
+// 		Namespace: secret.Namespace,
+// 	}
+// 	clr := &clusterv1alpha1.ClusterRegistration{}
+// 	if err := r.Get(context.TODO(), key, clr); err != nil {
+// 		log.Error(err, "Failed to get ClusterRegistration")
+// 		return nil
+// 	}
 
-	if clr.Status.Phase == "Deleted" {
-		return nil
-	}
+// 	if clr.Status.Phase == "Deleted" {
+// 		return nil
+// 	}
 
-	clr.Status.Phase = "Validated"
-	clr.Status.Reason = "kubeconfig secret is deleted"
-	err := r.Status().Update(context.TODO(), clr)
-	if err != nil {
-		log.Error(err, "Failed to update ClusterRegistration status")
-		return nil //??
-	}
+// 	clr.Status.Phase = "Validated"
+// 	clr.Status.Reason = "kubeconfig secret is deleted"
+// 	err := r.Status().Update(context.TODO(), clr)
+// 	if err != nil {
+// 		log.Error(err, "Failed to update ClusterRegistration status")
+// 		return nil //??
+// 	}
 
-	return nil
-}
+// 	return nil
+// }
 
 func (r *ClusterRegistrationReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	controller, err := ctrl.NewControllerManagedBy(mgr).
