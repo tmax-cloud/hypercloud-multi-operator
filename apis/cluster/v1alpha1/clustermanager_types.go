@@ -113,6 +113,7 @@ type ClusterManagerStatus struct {
 	ArgoReady            bool                    `json:"argoReady,omitempty"`
 	TraefikReady         bool                    `json:"traefikReady,omitempty"`
 	MonitoringReady      bool                    `json:"gatewayReady,omitempty"`
+	AuthClientReady      bool                    `json:"authClientReady,omitempty"`
 	// will be deprecated
 	PrometheusReady bool `json:"prometheusReady,omitempty"`
 }

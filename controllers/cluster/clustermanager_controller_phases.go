@@ -55,7 +55,7 @@ func (r *ClusterManagerReconciler) UpdateClusterManagerStatus(ctx context.Contex
 	kubeconfigSecret := &corev1.Secret{}
 	if err := r.Get(context.TODO(), key, kubeconfigSecret); errors.IsNotFound(err) {
 		log.Info("Wait for creating kubeconfig secret")
-		return ctrl.Result{RequeueAfter: requeueAfter10Sec}, nil
+		return ctrl.Result{RequeueAfter: requeueAfter10Second}, nil
 	} else if err != nil {
 		log.Error(err, "Failed to get kubeconfig secret")
 		return ctrl.Result{}, err
@@ -160,7 +160,7 @@ func (r *ClusterManagerReconciler) UpdateClusterManagerStatus(ctx context.Contex
 		// err := errors.NewBadRequest("Failed to healthcheck")
 		// log.Error(err, "Failed to healthcheck")
 		log.Info("Remote cluster is not ready... wait...")
-		return ctrl.Result{RequeueAfter: requeueAfter30Sec}, nil
+		return ctrl.Result{RequeueAfter: requeueAfter30Second}, nil
 	}
 
 	log.Info("Update status of ClusterManager successfully")
@@ -180,7 +180,7 @@ func (r *ClusterManagerReconciler) SetEndpoint(ctx context.Context, clusterManag
 	cluster := &capiv1.Cluster{}
 	if err := r.Get(context.TODO(), key, cluster); errors.IsNotFound(err) {
 		log.Info("Failed to get cluster. Requeue after 20sec")
-		return ctrl.Result{RequeueAfter: requeueAfter20Sec}, err
+		return ctrl.Result{RequeueAfter: requeueAfter20Second}, err
 	} else if err != nil {
 		log.Error(err, "Failed to get cluster")
 		return ctrl.Result{}, err
@@ -188,7 +188,7 @@ func (r *ClusterManagerReconciler) SetEndpoint(ctx context.Context, clusterManag
 
 	if cluster.Spec.ControlPlaneEndpoint.Host == "" {
 		log.Info("ControlPlain endpoint is not ready yet. requeue after 20sec")
-		return ctrl.Result{RequeueAfter: requeueAfter20Sec}, nil
+		return ctrl.Result{RequeueAfter: requeueAfter20Second}, nil
 	}
 	clusterManager.Annotations[clusterv1alpha1.AnnotationKeyClmApiserver] = cluster.Spec.ControlPlaneEndpoint.Host
 
@@ -236,7 +236,7 @@ func (r *ClusterManagerReconciler) DeployAndUpdateAgentEndpoint(ctx context.Cont
 
 	// secret controller에서 clustermanager.status.controleplaneendpoint를 채워줄 때 까지 기다림
 	if !clusterManager.Status.ControlPlaneReady {
-		return ctrl.Result{RequeueAfter: requeueAfter1Min}, nil
+		return ctrl.Result{RequeueAfter: requeueAfter1Minute}, nil
 	}
 
 	kubeconfigSecret := &corev1.Secret{}
@@ -246,7 +246,7 @@ func (r *ClusterManagerReconciler) DeployAndUpdateAgentEndpoint(ctx context.Cont
 	}
 	if err := r.Get(context.TODO(), key, kubeconfigSecret); errors.IsNotFound(err) {
 		log.Info("Wait for creating kubeconfig secret.")
-		return ctrl.Result{RequeueAfter: requeueAfter10Sec}, nil
+		return ctrl.Result{RequeueAfter: requeueAfter10Second}, nil
 	} else if err != nil {
 		log.Error(err, "Failed to get kubeconfig secret")
 		return ctrl.Result{}, err
@@ -265,7 +265,7 @@ func (r *ClusterManagerReconciler) DeployAndUpdateAgentEndpoint(ctx context.Cont
 		Get(context.TODO(), util.IngressNginxNamespace, metav1.GetOptions{})
 	if errors.IsNotFound(err) {
 		log.Info("Cannot found ingress namespace. Ingress-nginx is creating. Requeue after 30sec")
-		return ctrl.Result{RequeueAfter: requeueAfter1Min}, nil
+		return ctrl.Result{RequeueAfter: requeueAfter1Minute}, nil
 	} else if err != nil {
 		log.Error(err, "Failed to get ingress-nginx namespace from remote cluster")
 		return ctrl.Result{}, err
@@ -276,7 +276,7 @@ func (r *ClusterManagerReconciler) DeployAndUpdateAgentEndpoint(ctx context.Cont
 			Get(context.TODO(), util.IngressNginxName, metav1.GetOptions{})
 		if errors.IsNotFound(err) {
 			log.Info("Cannot found ingress controller. Ingress-nginx is creating. Requeue after 30sec")
-			return ctrl.Result{RequeueAfter: requeueAfter1Min}, nil
+			return ctrl.Result{RequeueAfter: requeueAfter1Minute}, nil
 		} else if err != nil {
 			log.Error(err, "Failed to get ingress controller from remote cluster")
 			return ctrl.Result{}, err
@@ -284,7 +284,7 @@ func (r *ClusterManagerReconciler) DeployAndUpdateAgentEndpoint(ctx context.Cont
 			// 하나라도 ready라면..
 			if ingressController.Status.ReadyReplicas == 0 {
 				log.Info("Ingress controller is not ready. Requeue after 60sec")
-				return ctrl.Result{RequeueAfter: requeueAfter1Min}, nil
+				return ctrl.Result{RequeueAfter: requeueAfter1Minute}, nil
 			}
 		}
 	}
@@ -480,7 +480,7 @@ func (r *ClusterManagerReconciler) CreateArgocdClusterSecret(ctx context.Context
 	kubeConfigSecret := &corev1.Secret{}
 	if err := r.Get(context.TODO(), key, kubeConfigSecret); errors.IsNotFound(err) {
 		log.Info("KubeConfig Secret not found. Wait for creating")
-		return ctrl.Result{RequeueAfter: requeueAfter10Sec}, err
+		return ctrl.Result{RequeueAfter: requeueAfter10Second}, err
 	} else if err != nil {
 		log.Error(err, "Failed to get kubeconfig Secret")
 		return ctrl.Result{}, err
@@ -568,7 +568,7 @@ func (r *ClusterManagerReconciler) UpdateGatewayService(ctx context.Context, clu
 	kubeconfigSecret := &corev1.Secret{}
 	if err := r.Get(context.TODO(), key, kubeconfigSecret); errors.IsNotFound(err) {
 		log.Info("Wait for creating kubeconfig secret")
-		return ctrl.Result{RequeueAfter: requeueAfter10Sec}, nil
+		return ctrl.Result{RequeueAfter: requeueAfter10Second}, nil
 	} else if err != nil {
 		log.Error(err, "Failed to get kubeconfig secret")
 		return ctrl.Result{}, err
@@ -586,27 +586,33 @@ func (r *ClusterManagerReconciler) UpdateGatewayService(ctx context.Context, clu
 		Get(context.TODO(), "gateway", metav1.GetOptions{})
 	if errors.IsNotFound(err) {
 		log.Error(err, "Cannot found Service for gateway. Wait for installing api-gateway. Requeue after 1 min")
-		return ctrl.Result{Requeue: true, RequeueAfter: requeueAfter1Min}, err
+		return ctrl.Result{Requeue: true, RequeueAfter: requeueAfter1Minute}, err
 	} else if err != nil {
 		log.Error(err, "Failed to get Service for gateway")
 		return ctrl.Result{}, err
-	} else {
-		ingress := gatewayService.Status.LoadBalancer.Ingress[0]
-		hostnameOrIp := ingress.Hostname + ingress.IP
-		if hostnameOrIp == "" {
-			err := fmt.Errorf("Service for gateway doesn't have both hostname and ip address")
-			log.Error(err, "Service for api-gateway is not Ready. Requeue after 1 min")
-			return ctrl.Result{Requeue: true, RequeueAfter: requeueAfter1Min}, err
-		}
-
-		clusterManager.Annotations[clusterv1alpha1.AnnotationKeyClmGateway] = hostnameOrIp
 	}
+
+	if gatewayService.Status.LoadBalancer.Ingress == nil {
+		err := fmt.Errorf("service for gateway's type is not LoadBalancer or not ready")
+		log.Error(err, "Service for api-gateway is not Ready. Requeue after 1 min")
+		return ctrl.Result{Requeue: true, RequeueAfter: requeueAfter1Minute}, err
+	}
+
+	ingress := gatewayService.Status.LoadBalancer.Ingress[0]
+	hostnameOrIp := ingress.Hostname + ingress.IP
+	if hostnameOrIp == "" {
+		err := fmt.Errorf("service for gateway doesn't have both hostname and ip address")
+		log.Error(err, "Service for api-gateway is not Ready. Requeue after 1 min")
+		return ctrl.Result{Requeue: true, RequeueAfter: requeueAfter1Minute}, err
+	}
+
+	clusterManager.Annotations[clusterv1alpha1.AnnotationKeyClmGateway] = hostnameOrIp
 
 	if err := r.CreateGatewayService(clusterManager); err != nil {
 		return ctrl.Result{}, err
 	}
 
-	if !util.IsIpAddress(clusterManager.Annotations[clusterv1alpha1.AnnotationKeyClmApiserver]) {
+	if !util.IsIpAddress(clusterManager.Annotations[clusterv1alpha1.AnnotationKeyClmGateway]) {
 		clusterManager.Status.MonitoringReady = true
 		clusterManager.Status.PrometheusReady = true
 		return ctrl.Result{}, nil
@@ -618,6 +624,92 @@ func (r *ClusterManagerReconciler) UpdateGatewayService(ctx context.Context, clu
 
 	clusterManager.Status.MonitoringReady = true
 	clusterManager.Status.PrometheusReady = true
+	return ctrl.Result{}, nil
+}
+
+func (r *ClusterManagerReconciler) CreateHyperauthClient(ctx context.Context, clusterManager *clusterv1alpha1.ClusterManager) (reconcile.Result, error) {
+	if clusterManager.Status.AuthClientReady {
+		return ctrl.Result{}, nil
+	}
+	log := r.Log.WithValues("clustermanager", clusterManager.GetNamespacedName())
+	key := types.NamespacedName{
+		Name:      "passwords",
+		Namespace: "hyperauth",
+	}
+	secret := &corev1.Secret{}
+	if err := r.Get(context.TODO(), key, secret); errors.IsNotFound(err) {
+		log.Info("Hyperauth password secret is not found")
+		return ctrl.Result{}, err
+	} else if err != nil {
+		log.Error(err, "Failed to get hyperauth password secret")
+		return ctrl.Result{}, err
+	}
+
+	adminToken, err := util.GetHyperauthAdminToken(*secret)
+	if err != nil {
+		log.Error(err, "Failed to get admin token of Hyperauth")
+		return ctrl.Result{RequeueAfter: requeueAfter10Second}, err
+	}
+
+	clients := []string{
+		"kibana",
+		"grafana",
+		"kiali",
+	}
+	for _, client := range clients {
+		clientName := clusterManager.Name + "-" + client
+		err := util.CreateClient(clientName, adminToken)
+		if err != nil {
+			log.Error(err, "Failed to create hyperauth client ["+clientName+"] for single cluster")
+			return ctrl.Result{RequeueAfter: requeueAfter10Second}, err
+		}
+	}
+
+	clients = []string{
+		"kibana",
+	}
+	for _, client := range clients {
+		clientName := clusterManager.Name + "-" + client
+		err := util.CreateProtocolMapper(clientName, adminToken)
+		if err != nil {
+			log.Error(err, "Failed to create hyperauth protocol mapper ["+clientName+"] for single cluster")
+			return ctrl.Result{RequeueAfter: requeueAfter10Second}, err
+		}
+	}
+
+	// token 재발급 필요한가? 혹은 refresh가 가능한가?
+	// adminToken, err = util.GetHyperauthAdminToken(*secret)
+	// if err != nil {
+	// 	log.Error(err, "Failed to get admin token of Hyperauth")
+	// 	return ctrl.Result{RequeueAfter: requeueAfter10Second}, err
+	// }
+
+	// clients = []string{
+	// 	"kibana",
+	// }
+	// for _, client := range clients {
+	// 	clientName := clusterManager.Name + "-" + client
+	// 	err := util.CreateRoleForSingleCluster(clientName, adminToken)
+	// 	if err != nil {
+	// 		log.Error(err, "Failed to create hyperauth role ["+clientName+"] for single cluster")
+	// 		return ctrl.Result{RequeueAfter: requeueAfter10Second}, err
+	// 	}
+	// }
+
+	// clients = []string{
+	// 	"kibana",
+	// }
+	// for _, client := range clients {
+	// 	clientName := clusterManager.Name + "-" + client
+	// 	err := util.UpdateUserForSingleCluster(clientName, adminToken)
+	// 	if err != nil {
+	// 		log.Error(err, "Failed to create hyperauth role ["+clientName+"] for single cluster")
+	// 		return ctrl.Result{RequeueAfter: requeueAfter10Second}, err
+	// 	}
+	// }
+
+	log.Info("Create clients for single cluster successfully")
+	clusterManager.Status.AuthClientReady = true
 	return ctrl.Result{}, nil
 }
 
@@ -654,5 +746,44 @@ func (r *ClusterManagerReconciler) DeleteTraefikResources(clusterManager *cluste
 		return err
 	}
 
+	return nil
+}
+
+func (r *ClusterManagerReconciler) DeleteClientForSingleCluster(clusterManager *clusterv1alpha1.ClusterManager) error {
+	log := r.Log.WithValues("clustermanager", clusterManager.GetNamespacedName())
+	key := types.NamespacedName{
+		Name:      "passwords",
+		Namespace: "hyperauth",
+	}
+	secret := &corev1.Secret{}
+	if err := r.Get(context.TODO(), key, secret); errors.IsNotFound(err) {
+		log.Info("Hyperauth password secret is not found")
+		return err
+	} else if err != nil {
+		log.Error(err, "Failed to get hyperauth password secret")
+		return err
+	}
+
+	adminToken, err := util.GetHyperauthAdminToken(*secret)
+	if err != nil {
+		log.Error(err, "Failed to get admin token of Hyperauth")
+		return err
+	}
+
+	clients := []string{
+		"kibana",
+		"grafana",
+		"kiali",
+	}
+	for _, client := range clients {
+		clientName := clusterManager.Name + "-" + client
+		err := util.DeleteClient(clientName, adminToken)
+		if err != nil {
+			log.Error(err, "Failed to delete hyperauth client ["+clientName+"] for single cluster")
+			return err
+		}
+	}
+
+	log.Info("Delete clients for single cluster successfully")
 	return nil
 }

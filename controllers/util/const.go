@@ -79,3 +79,20 @@ const (
 
 	LabelKeyArgoSecretType = "argocd.argoproj.io/secret-type"
 )
+
+const (
+	HYPERAUTH_SERVICE_NAME_GET_ADMIN_TOKEN = "/auth/realms/master/protocol/openid-connect/token"
+	HYPERAUTH_SERVICE_NAME_GET_CLIENT      = "/auth/admin/realms/tmax/clients"
+	HYPERAUTH_SERVICE_NAME_CREATE_CLIENT   = "/auth/admin/realms/tmax/clients"
+	HYPERAUTH_SERVICE_NAME_DELETE_CLIENT   = "/auth/admin/realms/tmax/clients/@@id@@"
+	HYPERAUTH_SERVICE_NAME_CREATE_MAPPER   = "/auth/admin/realms/tmax/clients/@@id@@/protocol-mappers/models"
+
+	// deprecated
+	// HYPERAUTH_SERVICE_NAME_CREATE_ROLES    = "/auth/admin/realms/tmax/clients/@@id@@/roles"
+	// HYPERAUTH_SERVICE_NAME_GET_ROLE        = "/auth/admin/realms/tmax/clients/@@id@@/roles/@@roleName@@"
+	// HYPERAUTH_SERVICE_NAME_UPDATE_USER     = "/auth/admin/realms/tmax/users/@@id@@"
+)
+
+const (
+	KIBANA_ROLE_NAME = "kibana-manager"
+)

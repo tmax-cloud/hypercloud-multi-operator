@@ -110,6 +110,8 @@ spec:
           properties:
             argoReady:
               type: boolean
+            authClientReady:
+              type: boolean
             controlPlaneEndpoint:
               type: string
             controlPlaneReady:

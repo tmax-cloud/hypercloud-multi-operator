@@ -26,7 +26,6 @@ import (
 	traefikv2 "github.com/traefik/traefik/v2/pkg/provider/kubernetes/crd/traefik/v1alpha1"
 
 	corev1 "k8s.io/api/core/v1"
-	v1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -48,10 +47,10 @@ import (
 )
 
 const (
-	requeueAfter10Sec = 10 * time.Second
-	requeueAfter20Sec = 20 * time.Second
-	requeueAfter30Sec = 30 * time.Second
-	requeueAfter1Min  = 1 * time.Minute
+	requeueAfter10Second = 10 * time.Second
+	requeueAfter20Second = 20 * time.Second
+	requeueAfter30Second = 30 * time.Second
+	requeueAfter1Minute  = 1 * time.Minute
 )
 
 type ClusterParameter struct {
@@ -179,6 +178,7 @@ func (r *ClusterManagerReconciler) reconcileForRegisteredClusterManager(ctx cont
 		r.CreateTraefikResources,
 		r.CreateArgocdClusterSecret,
 		r.UpdateGatewayService,
+		r.CreateHyperauthClient,
 		// r.DeployAndUpdateAgentEndpoint,
 	}
 
@@ -222,10 +222,14 @@ func (r *ClusterManagerReconciler) reconcileDeleteForRegisteredClusterManager(ct
 		}
 
 		log.Info("Delete kubeconfig Secret successfully")
-		return ctrl.Result{RequeueAfter: requeueAfter10Sec}, nil
+		return ctrl.Result{RequeueAfter: requeueAfter10Second}, nil
 	}
 
 	if err := r.DeleteTraefikResources(clusterManager); err != nil {
+		return ctrl.Result{}, err
+	}
+
+	if err := r.DeleteClientForSingleCluster(clusterManager); err != nil {
 		return ctrl.Result{}, err
 	}
 
@@ -244,6 +248,7 @@ func (r *ClusterManagerReconciler) reconcile(ctx context.Context, clusterManager
 		r.machineDeploymentUpdate,
 		r.CreateArgocdClusterSecret,
 		r.UpdateGatewayService,
+		r.CreateHyperauthClient,
 	}
 
 	res := ctrl.Result{}
@@ -344,7 +349,7 @@ func (r *ClusterManagerReconciler) reconcileDelete(ctx context.Context, clusterM
 	}
 
 	log.Info("Cluster is deleteing. Requeue after 1min")
-	return ctrl.Result{RequeueAfter: requeueAfter1Min}, nil
+	return ctrl.Result{RequeueAfter: requeueAfter1Minute}, nil
 }
 
 func (r *ClusterManagerReconciler) reconcilePhase(_ context.Context, clusterManager *clusterv1alpha1.ClusterManager) {
@@ -389,9 +394,9 @@ func (r *ClusterManagerReconciler) SetupWithManager(mgr ctrl.Manager) error {
 						!newclm.DeletionTimestamp.IsZero()
 					isControlPlaneEndpointUpdate := oldclm.Status.ControlPlaneEndpoint == "" &&
 						newclm.Status.ControlPlaneEndpoint != ""
-					isSubResourceNotReady := newclm.Status.ArgoReady == false ||
-						newclm.Status.TraefikReady == false ||
-						(newclm.Status.MonitoringReady == false || newclm.Status.PrometheusReady == false)
+					isSubResourceNotReady := !newclm.Status.ArgoReady ||
+						!newclm.Status.TraefikReady ||
+						(!newclm.Status.MonitoringReady || !newclm.Status.PrometheusReady)
 					if isDelete || isControlPlaneEndpointUpdate || isFinalized {
 						return true
 					} else {
@@ -399,10 +404,7 @@ func (r *ClusterManagerReconciler) SetupWithManager(mgr ctrl.Manager) error {
 							return true
 						}
 						if newclm.Labels[clusterv1alpha1.LabelKeyClmClusterType] == clusterv1alpha1.ClusterTypeRegistered {
-							if isSubResourceNotReady {
-								return true
-							}
-							return false
+							return isSubResourceNotReady
 						}
 					}
 					return false
@@ -429,10 +431,7 @@ func (r *ClusterManagerReconciler) SetupWithManager(mgr ctrl.Manager) error {
 				oldc := e.ObjectOld.(*capiv1.Cluster)
 				newc := e.ObjectNew.(*capiv1.Cluster)
 
-				if &newc.Status != nil && !oldc.Status.ControlPlaneInitialized && newc.Status.ControlPlaneInitialized {
-					return true
-				}
-				return false
+				return !oldc.Status.ControlPlaneInitialized && newc.Status.ControlPlaneInitialized
 			},
 			CreateFunc: func(e event.CreateEvent) bool {
 				return false
@@ -454,10 +453,7 @@ func (r *ClusterManagerReconciler) SetupWithManager(mgr ctrl.Manager) error {
 				oldKcp := e.ObjectOld.(*controlplanev1.KubeadmControlPlane)
 				newKcp := e.ObjectNew.(*controlplanev1.KubeadmControlPlane)
 
-				if oldKcp.Status.Replicas != newKcp.Status.Replicas {
-					return true
-				}
-				return false
+				return oldKcp.Status.Replicas != newKcp.Status.Replicas
 			},
 			CreateFunc: func(e event.CreateEvent) bool {
 				return true
@@ -479,10 +475,7 @@ func (r *ClusterManagerReconciler) SetupWithManager(mgr ctrl.Manager) error {
 				oldMd := e.ObjectOld.(*capiv1.MachineDeployment)
 				newMd := e.ObjectNew.(*capiv1.MachineDeployment)
 
-				if oldMd.Status.Replicas != newMd.Status.Replicas {
-					return true
-				}
-				return false
+				return oldMd.Status.Replicas != newMd.Status.Replicas
 			},
 			CreateFunc: func(e event.CreateEvent) bool {
 				return true
@@ -499,8 +492,8 @@ func (r *ClusterManagerReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	subResources := []client.Object{
 		&certmanagerv1.Certificate{},
 		&networkingv1.Ingress{},
-		&v1.Service{},
-		&v1.Endpoints{},
+		&corev1.Service{},
+		&corev1.Endpoints{},
 		&traefikv2.Middleware{},
 	}
 	for _, resource := range subResources {
@@ -516,10 +509,7 @@ func (r *ClusterManagerReconciler) SetupWithManager(mgr ctrl.Manager) error {
 				},
 				DeleteFunc: func(e event.DeleteEvent) bool {
 					_, ok := e.Object.GetLabels()[clusterv1alpha1.LabelKeyClmName]
-					if ok {
-						return true
-					}
-					return false
+					return ok
 				},
 				GenericFunc: func(e event.GenericEvent) bool {
 					return false
