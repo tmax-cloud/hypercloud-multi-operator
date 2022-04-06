@@ -288,6 +288,10 @@ func (r *ClusterManagerReconciler) reconcileDelete(ctx context.Context, clusterM
 		return ctrl.Result{}, err
 	}
 
+	if err := r.DeleteClientForSingleCluster(clusterManager); err != nil {
+		return ctrl.Result{}, err
+	}
+
 	// remoteClientset, err := util.GetRemoteK8sClient(kubeconfigSecret)
 	// if err != nil {
 	// 	log.Error(err, "Failed to get remoteK8sClient")

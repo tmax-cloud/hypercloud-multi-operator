@@ -209,9 +209,9 @@ func (r *ClusterManagerReconciler) CreateTraefikResources(ctx context.Context, c
 		return ctrl.Result{}, err
 	}
 
-	if err := r.CreateService(clusterManager); err != nil {
-		return ctrl.Result{}, err
-	}
+	// if err := r.CreateService(clusterManager); err != nil {
+	// 	return ctrl.Result{}, err
+	// }
 
 	if err := r.CreateMiddleware(clusterManager); err != nil {
 		return ctrl.Result{}, err
@@ -745,13 +745,13 @@ func (r *ClusterManagerReconciler) DeleteTraefikResources(clusterManager *cluste
 		return err
 	}
 
-	if err := r.DeleteService(clusterManager); err != nil {
-		return err
-	}
+	// if err := r.DeleteService(clusterManager); err != nil {
+	// 	return err
+	// }
 
-	if err := r.DeleteEndpoint(clusterManager); err != nil {
-		return err
-	}
+	// if err := r.DeleteEndpoint(clusterManager); err != nil {
+	// 	return err
+	// }
 
 	if err := r.DeleteMiddleware(clusterManager); err != nil {
 		return err

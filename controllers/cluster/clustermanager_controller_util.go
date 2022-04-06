@@ -124,14 +124,26 @@ func (r *ClusterManagerReconciler) CreateIngress(clusterManager *clusterv1alpha1
 						IngressRuleValue: networkingv1.IngressRuleValue{
 							HTTP: &networkingv1.HTTPIngressRuleValue{
 								Paths: []networkingv1.HTTPIngressPath{
+									// {
+									// 	Path:     urlPath,
+									// 	PathType: &pathType,
+									// 	Backend: networkingv1.IngressBackend{
+									// 		Service: &networkingv1.IngressServiceBackend{
+									// 			Name: clusterManager.Name + "-service",
+									// 			Port: networkingv1.ServiceBackendPort{
+									// 				Name: "https",
+									// 			},
+									// 		},
+									// 	},
+									// },
 									{
-										Path:     urlPath,
+										Path:     urlPath + "/api/kubernetes",
 										PathType: &pathType,
 										Backend: networkingv1.IngressBackend{
 											Service: &networkingv1.IngressServiceBackend{
-												Name: clusterManager.Name + "-service",
+												Name: clusterManager.Name + "-gateway-service",
 												Port: networkingv1.ServiceBackendPort{
-													Name: "https",
+													Number: 443,
 												},
 											},
 										},
