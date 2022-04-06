@@ -5,7 +5,6 @@ import (
 	"hash/fnv"
 	"math/rand"
 	"net/url"
-	"regexp"
 	"strings"
 	"time"
 
@@ -154,8 +153,8 @@ func GetProviderName(provider string) (string, error) {
 	return providerNamelogo[provider], nil
 }
 
-func IsIpAddress(endPoint string) bool {
-	reg, _ := regexp.Compile(`[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}`)
+// func IsIpAddress(endPoint string) bool {
+// 	reg, _ := regexp.Compile(`[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}`)
 
-	return reg.MatchString(endPoint)
-}
+// 	return reg.MatchString(endPoint)
+// }

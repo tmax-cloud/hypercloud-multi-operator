@@ -331,7 +331,7 @@ func (r *ClusterManagerReconciler) CreateService(clusterManager *clusterv1alpha1
 // 	return err
 // }
 
-func (r *ClusterManagerReconciler) CreateGatewayService(clusterManager *clusterv1alpha1.ClusterManager) error {
+func (r *ClusterManagerReconciler) CreateGatewayService(clusterManager *clusterv1alpha1.ClusterManager, annotationKey string) error {
 	log := r.Log.WithValues("clustermanager", clusterManager.GetNamespacedName())
 
 	key := types.NamespacedName{
@@ -392,7 +392,7 @@ func (r *ClusterManagerReconciler) CreateGatewayService(clusterManager *clusterv
 				},
 			},
 			Spec: corev1.ServiceSpec{
-				ExternalName: clusterManager.Annotations[clusterv1alpha1.AnnotationKeyClmGateway],
+				ExternalName: clusterManager.Annotations[annotationKey],
 				Ports: []corev1.ServicePort{
 					{
 						Port:       443,
@@ -723,5 +723,96 @@ func (r *ClusterManagerReconciler) DeleteGatewayEndpoint(clusterManager *cluster
 	}
 
 	log.Info("Delete Endpoint successfully")
+	return nil
+}
+
+func (r *ClusterManagerReconciler) DeleteDeprecatedTraefikResources(clusterManager *clusterv1alpha1.ClusterManager) (bool, error) {
+	log := r.Log.WithValues("clustermanager", clusterManager.GetNamespacedName())
+	ready := true
+	key := types.NamespacedName{
+		Name:      clusterManager.Name + "-ingress",
+		Namespace: clusterManager.Namespace,
+	}
+	ingress := &networkingv1.Ingress{}
+	if err := r.Get(context.TODO(), key, ingress); errors.IsNotFound(err) {
+		log.Info("Not found: " + key.Name)
+	} else if err != nil {
+		log.Error(err, "Failed to get: "+key.Name)
+		return ready, err
+	} else {
+		if err := r.Delete(context.TODO(), ingress); err != nil {
+			log.Error(err, "Failed to delete: "+key.Name)
+			return ready, err
+		}
+		ready = false
+	}
+
+	key = types.NamespacedName{
+		Name:      clusterManager.Name + "-service",
+		Namespace: clusterManager.Namespace,
+	}
+	service := &corev1.Service{}
+	if err := r.Get(context.TODO(), key, service); errors.IsNotFound(err) {
+		log.Info("Not found: " + key.Name)
+	} else if err != nil {
+		log.Error(err, "Failed to get: "+key.Name)
+		return ready, err
+	} else {
+		if err := r.Delete(context.TODO(), service); err != nil {
+			log.Error(err, "Failed to delete: "+key.Name)
+			return ready, err
+		}
+		ready = false
+	}
+
+	endpoint := &corev1.Endpoints{}
+	if err := r.Get(context.TODO(), key, endpoint); errors.IsNotFound(err) {
+		log.Info("Not found: " + key.Name)
+	} else if err != nil {
+		log.Error(err, "Failed to get: "+key.Name)
+		return ready, err
+	} else {
+		if err := r.Delete(context.TODO(), endpoint); err != nil {
+			log.Error(err, "Failed to delete: "+key.Name)
+			return ready, err
+		}
+		ready = false
+	}
+
+	return ready, nil
+}
+
+func (r *ClusterManagerReconciler) DeleteDeprecatedPrometheusResources(clusterManager *clusterv1alpha1.ClusterManager) error {
+	log := r.Log.WithValues("clustermanager", clusterManager.GetNamespacedName())
+	key := types.NamespacedName{
+		Name:      clusterManager.Name + "-prometheus-service",
+		Namespace: clusterManager.Namespace,
+	}
+	service := &corev1.Service{}
+	if err := r.Get(context.TODO(), key, service); errors.IsNotFound(err) {
+		log.Info("Not found: " + key.Name)
+	} else if err != nil {
+		log.Error(err, "Failed to get: "+key.Name)
+		return err
+	} else {
+		if err := r.Delete(context.TODO(), service); err != nil {
+			log.Error(err, "Failed to delete: "+key.Name)
+			return err
+		}
+	}
+
+	endpoint := &corev1.Endpoints{}
+	if err := r.Get(context.TODO(), key, endpoint); errors.IsNotFound(err) {
+		log.Info("Not found: " + key.Name)
+	} else if err != nil {
+		log.Error(err, "Failed to get: "+key.Name)
+		return err
+	} else {
+		if err := r.Delete(context.TODO(), endpoint); err != nil {
+			log.Error(err, "Failed to delete: "+key.Name)
+			return err
+		}
+	}
+
 	return nil
 }

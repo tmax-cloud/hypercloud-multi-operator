@@ -15,12 +15,17 @@ import (
 )
 
 type ClientConfig struct {
-	ClientId                  string   `json:"clientId,omitempty"`
 	Id                        string   `json:"id,omitempty"`
+	ClientId                  string   `json:"clientId,omitempty"`
 	Secret                    string   `json:"secret,omitempty"`
 	DirectAccessGrantsEnabled bool     `json:"directAccessGrantsEnabled,omitempty"`
+	ServiceAccountsEnabled    bool     `json:"serviceAccountsEnabled,omitempty"`
 	RedirectUris              []string `json:"redirectUris,omitempty"`
 }
+
+// func (source ClientConfig) IsEqual(dest ClientConfig) bool {
+// 	return source.ClientId == dest.ClientId
+// }
 
 type ProtocolMapperConfig struct {
 	Name           string       `json:"name,omitempty"`
@@ -34,6 +39,15 @@ type MapperConfig struct {
 	IdTokenClaim           bool   `json:"id.token.claim,omitempty"`
 	AccessTokenClaim       bool   `json:"access.token.claim,omitempty"`
 	UserInfoTokenClaim     bool   `json:"userinfo.token.claim,omitempty"`
+}
+
+type RoleConfig struct {
+	Id   string `json:"id,omitempty"`
+	Name string `json:"name,omitempty"`
+}
+
+type UserConfig struct {
+	Id string `json:"id,omitempty"`
 }
 
 // type ClientLevelRole struct {
@@ -62,7 +76,7 @@ func SetSecureHyperAuthURL(serviceName string, urlParameter map[string]string) s
 	return "https://hyperauth." + os.Getenv("HC_DOMAIN") + serviceName
 }
 
-func GetHyperauthAdminToken(secret corev1.Secret) (string, error) {
+func GetHyperauthAdminToken(secret *corev1.Secret) (string, error) {
 	// Make Body for Content-Type (application/x-www-form-urlencoded)
 	id, password := string(secret.Data["HYPERAUTH_ADMIN"]), string(secret.Data["HYPERAUTH_PASSWORD"])
 	data := url.Values{}
@@ -72,7 +86,7 @@ func GetHyperauthAdminToken(secret corev1.Secret) (string, error) {
 	data.Set("client_id", "admin-cli")
 
 	// Make Request Object
-	url := SetSecureHyperAuthURL(HYPERAUTH_SERVICE_NAME_GET_ADMIN_TOKEN, nil)
+	url := SetSecureHyperAuthURL(KEYCLOAK_ADMIN_SERVICE_GET_TOKEN, nil)
 	playload := strings.NewReader(data.Encode())
 	req, err := http.NewRequest(http.MethodPost, url, playload)
 	if err != nil {
@@ -100,8 +114,13 @@ func GetHyperauthAdminToken(secret corev1.Secret) (string, error) {
 	return accessToken, nil
 }
 
-func GetClients(clientId string, token string) (string, error) {
-	url := SetSecureHyperAuthURL(HYPERAUTH_SERVICE_NAME_GET_CLIENT, nil)
+func GetClients(clientId string, secret *corev1.Secret) (string, error) {
+	token, err := GetHyperauthAdminToken(secret)
+	if err != nil {
+		return "", err
+	}
+
+	url := SetSecureHyperAuthURL(KEYCLOAK_ADMIN_SERVICE_GET_CLIENTS, nil)
 	req, err := http.NewRequest(http.MethodGet, url, nil)
 	if err != nil {
 		return "", err
@@ -135,12 +154,17 @@ func GetClients(clientId string, token string) (string, error) {
 	return "", nil
 }
 
-func CreateClient(clientId string, token string) error {
-	id, err := GetClients(clientId, token)
+func CreateClient(clientId string, secret *corev1.Secret) error {
+	token, err := GetHyperauthAdminToken(secret)
 	if err != nil {
 		return err
 	}
-	if id != "" {
+
+	id, err := GetClients(clientId, secret)
+	if err != nil {
+		return err
+	}
+	if IsClientExist(id) {
 		return nil
 	}
 
@@ -148,6 +172,7 @@ func CreateClient(clientId string, token string) error {
 		ClientId:                  clientId,
 		Secret:                    "tmax-client-secret",
 		DirectAccessGrantsEnabled: true,
+		ServiceAccountsEnabled:    false,
 		RedirectUris:              []string{"*"},
 	}
 	jsonData, err := json.Marshal(data)
@@ -156,7 +181,7 @@ func CreateClient(clientId string, token string) error {
 	}
 	playload := bytes.NewBuffer(jsonData)
 
-	url := SetSecureHyperAuthURL(HYPERAUTH_SERVICE_NAME_CREATE_CLIENT, nil)
+	url := SetSecureHyperAuthURL(KEYCLOAK_ADMIN_SERVICE_CREATE_CLIENT, nil)
 	req, err := http.NewRequest(http.MethodPost, url, playload)
 	if err != nil {
 		return err
@@ -179,17 +204,22 @@ func CreateClient(clientId string, token string) error {
 	return nil
 }
 
-func CreateProtocolMapper(clientId string, token string) error {
-	id, err := GetClients(clientId, token)
+func CreateClientLevelProtocolMapper(clientId string, mapperName string, secret *corev1.Secret) error {
+	token, err := GetHyperauthAdminToken(secret)
 	if err != nil {
 		return err
 	}
-	if id == "" {
+
+	id, err := GetClients(clientId, secret)
+	if err != nil {
+		return err
+	}
+	if !IsClientExist(id) {
 		return fmt.Errorf("client not found")
 	}
 
 	data := ProtocolMapperConfig{
-		Name:           "kibana",
+		Name:           mapperName,
 		Protocol:       "openid-connect",
 		ProtocolMapper: "oidc-audience-mapper",
 		Config: MapperConfig{
@@ -208,7 +238,7 @@ func CreateProtocolMapper(clientId string, token string) error {
 	params := map[string]string{
 		"id": id,
 	}
-	url := SetSecureHyperAuthURL(HYPERAUTH_SERVICE_NAME_CREATE_MAPPER, params)
+	url := SetSecureHyperAuthURL(KEYCLOAK_ADMIN_SERVICE_CREATE_CLIENT_PROTOCOL_MAPPERS, params)
 	req, err := http.NewRequest(http.MethodPost, url, playload)
 	if err != nil {
 		return err
@@ -231,137 +261,225 @@ func CreateProtocolMapper(clientId string, token string) error {
 	return nil
 }
 
-// func CreateRoleForSingleCluster(clientId string, token string) error {
-// 	data := PlayLoad{
-// 		RoleName: KIBANA_ROLE_NAME,
-// 		Id:       KIBANA_ROLE_NAME,
-// 	}
-// 	jsonData, err := json.Marshal(data)
-// 	if err != nil {
-// 		return err
-// 	}
-// 	playload := bytes.NewBuffer(jsonData)
-
-// 	params := map[string]string{
-// 		"id": clientId,
-// 	}
-// 	url := SetSecureHyperAuthURL(HYPERAUTH_SERVICE_NAME_CREATE_ROLES, params)
-// 	req, err := http.NewRequest(http.MethodPost, url, playload)
-// 	if err != nil {
-// 		return err
-// 	}
-// 	req.Header.Add("Content-Type", "application/json")
-// 	req.Header.Add("Authorization", "Bearer "+token)
-
-// 	client := &http.Client{}
-// 	resp, err := client.Do(req)
-// 	if err != nil {
-// 		return err
-// 	}
-// 	defer resp.Body.Close()
-
-// 	if !IsOK(resp.StatusCode) {
-// 		reqDump, _ := httputil.DumpRequest(req, true)
-// 		return fmt.Errorf("failed to create role for client [" + clientId + "]: " + string(reqDump) + "\n" + resp.Status)
-// 	}
-
-// 	return nil
-// }
-
-// func GetHyperauthClientLevelRole(clientId string, roleName string, token string) (*ClientLevelRole, error) {
-// 	// data := RoleConfig{
-// 	// 	Name: KIBANA_ROLE_NAME,
-// 	// 	Id:   KIBANA_ROLE_NAME,
-// 	// }
-// 	// jsonData, err := json.Marshal(data)
-// 	// if err != nil {
-// 	// 	return err
-// 	// }
-// 	// playload := bytes.NewBuffer(jsonData)
-
-// 	params := map[string]string{
-// 		"id":       clientId,
-// 		"roleName": roleName,
-// 	}
-// 	url := SetSecureHyperAuthURL(HYPERAUTH_SERVICE_NAME_GET_ROLE, params)
-// 	req, err := http.NewRequest(http.MethodGet, url, nil)
-// 	if err != nil {
-// 		return nil, err
-// 	}
-// 	req.Header.Add("Authorization", "Bearer "+token)
-
-// 	client := &http.Client{}
-// 	resp, err := client.Do(req)
-// 	if err != nil {
-// 		return nil, err
-// 	}
-// 	defer resp.Body.Close()
-
-// 	if !IsOK(resp.StatusCode) {
-// 		reqDump, _ := httputil.DumpRequest(req, true)
-// 		return nil, fmt.Errorf("failed to create role for client [" + clientId + "]: " + string(reqDump) + "\n" + resp.Status)
-// 	}
-
-// 	respJson := &ClientLevelRole{}
-// 	err = json.NewDecoder(resp.Body).Decode(respJson)
-// 	if err != nil {
-// 		return nil, err
-// 	}
-
-// 	return respJson, nil
-// }
-
-// func UpdateUserForSingleCluster(userId string, token string) error {
-// 	data := []PlayLoad{
-// 		{
-// 			RoleName: KIBANA_ROLE_NAME,
-// 			Id:       KIBANA_ROLE_NAME,
-// 		},
-// 	}
-// 	jsonData, err := json.Marshal(data)
-// 	if err != nil {
-// 		return err
-// 	}
-// 	playload := bytes.NewBuffer(jsonData)
-
-// 	params := map[string]string{
-// 		"id": clientId,
-// 	}
-// 	url := SetSecureHyperAuthURL(HYPERAUTH_SERVICE_NAME_UPDATE_USER, params)
-// 	req, err := http.NewRequest(http.MethodPost, url, playload)
-// 	if err != nil {
-// 		return err
-// 	}
-// 	req.Header.Add("Content-Type", "application/json")
-// 	req.Header.Add("Authorization", "Bearer "+token)
-
-// 	client := &http.Client{}
-// 	resp, err := client.Do(req)
-// 	if err != nil {
-// 		return err
-// 	}
-// 	defer resp.Body.Close()
-
-// 	if !IsOK(resp.StatusCode) {
-// 		return fmt.Errorf("failed to update user for client [" + clientId + "]: " + resp.Status)
-// 	}
-
-// 	return nil
-// }
-
-func DeleteClient(clientId string, token string) error {
-	id, err := GetClients(clientId, token)
+func CreateClientLevelRole(clientId string, roleName string, secret *corev1.Secret) error {
+	token, err := GetHyperauthAdminToken(secret)
 	if err != nil {
 		return err
 	}
-	if id == "" {
+
+	id, err := GetClients(clientId, secret)
+	if err != nil {
+		return err
+	}
+	if !IsClientExist(id) {
+		return fmt.Errorf("client not found")
+	}
+
+	data := RoleConfig{
+		Name: roleName,
+	}
+	jsonData, err := json.Marshal(data)
+	if err != nil {
+		return err
+	}
+	playload := bytes.NewBuffer(jsonData)
+
+	params := map[string]string{
+		"id": id,
+	}
+	url := SetSecureHyperAuthURL(KEYCLOAK_ADMIN_SERVICE_CREATE_ROLES, params)
+	req, err := http.NewRequest(http.MethodPost, url, playload)
+	if err != nil {
+		return err
+	}
+	req.Header.Add("Content-Type", "application/json")
+	req.Header.Add("Authorization", "Bearer "+token)
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	if !IsOK(resp.StatusCode) {
+		reqDump, _ := httputil.DumpRequest(req, true)
+		return fmt.Errorf("failed to create client-level role: " + string(reqDump) + "\n" + resp.Status)
+	}
+
+	return nil
+}
+
+func GetUserIdByEmail(userEmail string, secret *corev1.Secret) (string, error) {
+	token, err := GetHyperauthAdminToken(secret)
+	if err != nil {
+		return "", err
+	}
+
+	params := map[string]string{
+		"userEmail": userEmail,
+		"token":     token,
+	}
+	url := SetSecureHyperAuthURL(HYPERAUTH_SERVICE_GET_USER_ID_BY_EMAIL, params)
+	req, err := http.NewRequest(http.MethodGet, url, nil)
+	if err != nil {
+		return "", err
+	}
+	req.Header.Add("Authorization", "Bearer "+token)
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+
+	reqDump, _ := httputil.DumpRequest(req, true)
+	if !IsOK(resp.StatusCode) {
+		return "", fmt.Errorf("failed to get user: " + string(reqDump) + "\n" + resp.Status)
+	}
+
+	respJson := &UserConfig{}
+	err = json.NewDecoder(resp.Body).Decode(respJson)
+	if err != nil {
+		return "", err
+	}
+	if respJson == nil {
+		return "", fmt.Errorf("user not found")
+	}
+
+	return respJson.Id, nil
+}
+
+func GetRoleIdByRoleName(clientId string, roleName string, secret *corev1.Secret) (string, error) {
+	token, err := GetHyperauthAdminToken(secret)
+	if err != nil {
+		return "", err
+	}
+
+	id, err := GetClients(clientId, secret)
+	if err != nil {
+		return "", err
+	}
+	if !IsClientExist(id) {
+		return "", fmt.Errorf("client not found")
+	}
+
+	params := map[string]string{
+		"id":       id,
+		"roleName": roleName,
+	}
+	url := SetSecureHyperAuthURL(KEYCLOAK_ADMIN_SERVICE_GET_ROLE_BY_NAME, params)
+	req, err := http.NewRequest(http.MethodGet, url, nil)
+	if err != nil {
+		return "", err
+	}
+	req.Header.Add("Authorization", "Bearer "+token)
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+
+	reqDump, _ := httputil.DumpRequest(req, true)
+	if !IsOK(resp.StatusCode) {
+		return "", fmt.Errorf("failed to get role: " + string(reqDump) + "\n" + resp.Status)
+	}
+
+	respJson := &RoleConfig{}
+	err = json.NewDecoder(resp.Body).Decode(respJson)
+	if err != nil {
+		return "", err
+	}
+	if respJson == nil {
+		return "", fmt.Errorf("role not found")
+	}
+
+	return respJson.Id, nil
+}
+
+func AddClientLevelRolesToUserRoleMapping(clientId string, roleName string, userEmail string, secret *corev1.Secret) error {
+	token, err := GetHyperauthAdminToken(secret)
+	if err != nil {
+		return err
+	}
+
+	id, err := GetClients(clientId, secret)
+	if err != nil {
+		return err
+	}
+	if !IsClientExist(id) {
+		return fmt.Errorf("client not found")
+	}
+
+	userId, err := GetUserIdByEmail(userEmail, secret)
+	if err != nil {
+		return err
+	}
+
+	roleId, err := GetRoleIdByRoleName(clientId, roleName, secret)
+	if err != nil {
+		return err
+	}
+	data := []RoleConfig{
+		{
+			Id:   roleId,
+			Name: roleName,
+		},
+	}
+	jsonData, err := json.Marshal(data)
+	if err != nil {
+		return err
+	}
+	playload := bytes.NewBuffer(jsonData)
+
+	params := map[string]string{
+		"userId": userId,
+		"id":     id,
+	}
+	url := SetSecureHyperAuthURL(KEYCLOAK_ADMIN_SERVICE_ADD_ROLE_TO_USER, params)
+	req, err := http.NewRequest(http.MethodPost, url, playload)
+	if err != nil {
+		return err
+	}
+	req.Header.Add("Content-Type", "application/json")
+	req.Header.Add("Authorization", "Bearer "+token)
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	if !IsOK(resp.StatusCode) {
+		reqDump, _ := httputil.DumpRequest(req, true)
+		return fmt.Errorf("failed to add role to user: " + string(reqDump) + "\n" + resp.Status)
+	}
+
+	return nil
+}
+
+func DeleteClient(clientId string, secret *corev1.Secret) error {
+	token, err := GetHyperauthAdminToken(secret)
+	if err != nil {
+		return err
+	}
+
+	id, err := GetClients(clientId, secret)
+	if err != nil {
+		return err
+	}
+	if !IsClientExist(id) {
 		return nil
 	}
 
 	params := map[string]string{
 		"id": id,
 	}
-	url := SetSecureHyperAuthURL(HYPERAUTH_SERVICE_NAME_DELETE_CLIENT, params)
+	url := SetSecureHyperAuthURL(KEYCLOAK_ADMIN_SERVICE_DELETE_CLIENT, params)
 	req, err := http.NewRequest(http.MethodDelete, url, nil)
 	if err != nil {
 		return err
@@ -389,9 +507,13 @@ func IsOK(check int) bool {
 		http.StatusCreated:        true,
 		http.StatusNoContent:      true,
 		http.StatusPartialContent: true,
-		// http.StatusConflict:       true,
+		http.StatusConflict:       true,
 		// http.StatusContinue:       true,
 	}
 	_, ok := SuccessStatusList[check]
 	return ok
+}
+
+func IsClientExist(id string) bool {
+	return id != ""
 }

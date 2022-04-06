@@ -556,7 +556,7 @@ func (r *ClusterManagerReconciler) CreateArgocdClusterSecret(ctx context.Context
 	return ctrl.Result{}, nil
 }
 
-func (r *ClusterManagerReconciler) UpdateGatewayService(ctx context.Context, clusterManager *clusterv1alpha1.ClusterManager) (reconcile.Result, error) {
+func (r *ClusterManagerReconciler) CreateMonitoringResources(ctx context.Context, clusterManager *clusterv1alpha1.ClusterManager) (reconcile.Result, error) {
 	if clusterManager.Status.MonitoringReady && clusterManager.Status.PrometheusReady {
 		return ctrl.Result{}, nil
 	}
@@ -594,23 +594,50 @@ func (r *ClusterManagerReconciler) UpdateGatewayService(ctx context.Context, clu
 		return ctrl.Result{}, err
 	}
 
-	if gatewayService.Status.LoadBalancer.Ingress == nil {
-		err := fmt.Errorf("service for gateway's type is not LoadBalancer or not ready")
-		log.Error(err, "Service for api-gateway is not Ready. Requeue after 1 min")
-		return ctrl.Result{Requeue: true, RequeueAfter: requeueAfter1Minute}, err
+	// nodeport
+	// if gatewayService.Spec.Type == corev1.ServiceTypeNodePort {
+	// 	// endpointIP := clusterManager.Annotations[clusterv1alpha1.AnnotationKeyClmApiserver]
+	// 	if err := r.CreateGatewayService(clusterManager, clusterv1alpha1.AnnotationKeyClmApiserver); err != nil {
+	// 		return ctrl.Result{}, err
+	// 	}
+
+	// 	clusterManager.Status.MonitoringReady = true
+	// 	clusterManager.Status.PrometheusReady = true
+	// 	clusterManager.Status.TraefikReady = false
+	// 	return ctrl.Result{}, nil
+	// }
+	annotationKey := clusterv1alpha1.AnnotationKeyClmApiserver
+	if gatewayService.Spec.Type != corev1.ServiceTypeNodePort {
+		if gatewayService.Status.LoadBalancer.Ingress == nil {
+			err := fmt.Errorf("service for gateway's type is not LoadBalancer or not ready")
+			log.Error(err, "Service for api-gateway is not Ready. Requeue after 1 min")
+			return ctrl.Result{Requeue: true, RequeueAfter: requeueAfter1Minute}, err
+		}
+
+		ingress := gatewayService.Status.LoadBalancer.Ingress[0]
+		hostnameOrIp := ingress.Hostname + ingress.IP
+		if hostnameOrIp == "" {
+			err := fmt.Errorf("service for gateway doesn't have both hostname and ip address")
+			log.Error(err, "Service for api-gateway is not Ready. Requeue after 1 min")
+			return ctrl.Result{Requeue: true, RequeueAfter: requeueAfter1Minute}, err
+		}
+
+		clusterManager.Annotations[clusterv1alpha1.AnnotationKeyClmGateway] = hostnameOrIp
+		annotationKey = clusterv1alpha1.AnnotationKeyClmGateway
 	}
 
-	ingress := gatewayService.Status.LoadBalancer.Ingress[0]
-	hostnameOrIp := ingress.Hostname + ingress.IP
-	if hostnameOrIp == "" {
-		err := fmt.Errorf("service for gateway doesn't have both hostname and ip address")
-		log.Error(err, "Service for api-gateway is not Ready. Requeue after 1 min")
-		return ctrl.Result{Requeue: true, RequeueAfter: requeueAfter1Minute}, err
+	if err := r.CreateGatewayService(clusterManager, annotationKey); err != nil {
+		return ctrl.Result{}, err
 	}
 
-	clusterManager.Annotations[clusterv1alpha1.AnnotationKeyClmGateway] = hostnameOrIp
+	// For migration from b5.0.26.6 > b5.0.26.7
+	traefikReady, err := r.DeleteDeprecatedTraefikResources(clusterManager)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+	clusterManager.Status.TraefikReady = traefikReady
 
-	if err := r.CreateGatewayService(clusterManager); err != nil {
+	if err := r.DeleteDeprecatedPrometheusResources(clusterManager); err != nil {
 		return ctrl.Result{}, err
 	}
 
@@ -647,68 +674,45 @@ func (r *ClusterManagerReconciler) CreateHyperauthClient(ctx context.Context, cl
 		return ctrl.Result{}, err
 	}
 
-	adminToken, err := util.GetHyperauthAdminToken(*secret)
-	if err != nil {
-		log.Error(err, "Failed to get admin token of Hyperauth")
-		return ctrl.Result{RequeueAfter: requeueAfter10Second}, err
-	}
-
 	clients := []string{
 		"kibana",
 		"grafana",
 		"kiali",
+		// "jaeger",
 	}
 	for _, client := range clients {
-		clientName := clusterManager.Name + "-" + client
-		err := util.CreateClient(clientName, adminToken)
+		clientId := clusterManager.Namespace + "-" + clusterManager.Name + "-" + client
+		err := util.CreateClient(clientId, secret)
 		if err != nil {
-			log.Error(err, "Failed to create hyperauth client ["+clientName+"] for single cluster")
+			log.Error(err, "Failed to create hyperauth client ["+clientId+"] for single cluster")
 			return ctrl.Result{RequeueAfter: requeueAfter10Second}, err
 		}
 	}
 
 	clients = []string{
 		"kibana",
+		// "jaeger",
 	}
 	for _, client := range clients {
-		clientName := clusterManager.Name + "-" + client
-		err := util.CreateProtocolMapper(clientName, adminToken)
-		if err != nil {
-			log.Error(err, "Failed to create hyperauth protocol mapper ["+clientName+"] for single cluster")
+		clientId := clusterManager.Namespace + "-" + clusterManager.Name + "-" + client
+		mapperName := client
+		if err := util.CreateClientLevelProtocolMapper(clientId, mapperName, secret); err != nil {
+			log.Error(err, "Failed to create hyperauth protocol mapper ["+clientId+"] for single cluster")
+			return ctrl.Result{RequeueAfter: requeueAfter10Second}, err
+		}
+
+		roleName := client + "-manager"
+		if err := util.CreateClientLevelRole(clientId, roleName, secret); err != nil {
+			log.Error(err, "Failed to create hyperauth client-level role ["+clientId+"] for single cluster")
+			return ctrl.Result{RequeueAfter: requeueAfter10Second}, err
+		}
+
+		userEmail := clusterManager.Annotations[util.AnnotationKeyOwner]
+		if err := util.AddClientLevelRolesToUserRoleMapping(clientId, roleName, userEmail, secret); err != nil {
+			log.Error(err, "Failed to add client-level role to user role mapping ["+clientId+"] for single cluster")
 			return ctrl.Result{RequeueAfter: requeueAfter10Second}, err
 		}
 	}
-
-	// token 재발급 필요한가? 혹은 refresh가 가능한가?
-	// adminToken, err = util.GetHyperauthAdminToken(*secret)
-	// if err != nil {
-	// 	log.Error(err, "Failed to get admin token of Hyperauth")
-	// 	return ctrl.Result{RequeueAfter: requeueAfter10Second}, err
-	// }
-
-	// clients = []string{
-	// 	"kibana",
-	// }
-	// for _, client := range clients {
-	// 	clientName := clusterManager.Name + "-" + client
-	// 	err := util.CreateRoleForSingleCluster(clientName, adminToken)
-	// 	if err != nil {
-	// 		log.Error(err, "Failed to create hyperauth role ["+clientName+"] for single cluster")
-	// 		return ctrl.Result{RequeueAfter: requeueAfter10Second}, err
-	// 	}
-	// }
-
-	// clients = []string{
-	// 	"kibana",
-	// }
-	// for _, client := range clients {
-	// 	clientName := clusterManager.Name + "-" + client
-	// 	err := util.UpdateUserForSingleCluster(clientName, adminToken)
-	// 	if err != nil {
-	// 		log.Error(err, "Failed to create hyperauth role ["+clientName+"] for single cluster")
-	// 		return ctrl.Result{RequeueAfter: requeueAfter10Second}, err
-	// 	}
-	// }
 
 	log.Info("Create clients for single cluster successfully")
 	clusterManager.Status.AuthClientReady = true
@@ -766,20 +770,21 @@ func (r *ClusterManagerReconciler) DeleteClientForSingleCluster(clusterManager *
 		return err
 	}
 
-	adminToken, err := util.GetHyperauthAdminToken(*secret)
-	if err != nil {
-		log.Error(err, "Failed to get admin token of Hyperauth")
-		return err
-	}
+	// adminToken, err := util.GetHyperauthAdminToken(secret)
+	// if err != nil {
+	// 	log.Error(err, "Failed to get admin token of Hyperauth")
+	// 	return err
+	// }
 
 	clients := []string{
 		"kibana",
 		"grafana",
 		"kiali",
+		// "jaeger",
 	}
 	for _, client := range clients {
-		clientName := clusterManager.Name + "-" + client
-		err := util.DeleteClient(clientName, adminToken)
+		clientName := clusterManager.Namespace + "-" + clusterManager.Name + "-" + client
+		err := util.DeleteClient(clientName, secret)
 		if err != nil {
 			log.Error(err, "Failed to delete hyperauth client ["+clientName+"] for single cluster")
 			return err
@@ -789,3 +794,19 @@ func (r *ClusterManagerReconciler) DeleteClientForSingleCluster(clusterManager *
 	log.Info("Delete clients for single cluster successfully")
 	return nil
 }
+
+// func (r *ClusterManagerReconciler) DeleteUnusableResources(ctx context.Context, clusterManager *clusterv1alpha1.ClusterManager) (ctrl.Result, error) {
+// 	// For migration from b5.0.26.6 > b5.0.26.7
+// 	if err := r.DeleteDeprecatedTraefikResources(clusterManager); err != nil {
+// 		return ctrl.Result{}, err
+// 	}
+
+// 	if err := r.DeletePrometheusResources(clusterManager); err != nil {
+// 		return ctrl.Result{}, err
+// 	}
+
+// 	clusterManager.Status.MonitoringReady = true
+// 	clusterManager.Status.PrometheusReady = true
+// 	clusterManager.Status.TraefikReady = false
+// 	return ctrl.Result{}, nil
+// }

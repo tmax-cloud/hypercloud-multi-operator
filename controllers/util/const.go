@@ -81,18 +81,16 @@ const (
 )
 
 const (
-	HYPERAUTH_SERVICE_NAME_GET_ADMIN_TOKEN = "/auth/realms/master/protocol/openid-connect/token"
-	HYPERAUTH_SERVICE_NAME_GET_CLIENT      = "/auth/admin/realms/tmax/clients"
-	HYPERAUTH_SERVICE_NAME_CREATE_CLIENT   = "/auth/admin/realms/tmax/clients"
-	HYPERAUTH_SERVICE_NAME_DELETE_CLIENT   = "/auth/admin/realms/tmax/clients/@@id@@"
-	HYPERAUTH_SERVICE_NAME_CREATE_MAPPER   = "/auth/admin/realms/tmax/clients/@@id@@/protocol-mappers/models"
+	// admin api
+	KEYCLOAK_ADMIN_SERVICE_GET_TOKEN                      = "/auth/realms/master/protocol/openid-connect/token"
+	KEYCLOAK_ADMIN_SERVICE_GET_CLIENTS                    = "/auth/admin/realms/tmax/clients"
+	KEYCLOAK_ADMIN_SERVICE_CREATE_CLIENT                  = "/auth/admin/realms/tmax/clients"
+	KEYCLOAK_ADMIN_SERVICE_DELETE_CLIENT                  = "/auth/admin/realms/tmax/clients/@@id@@"
+	KEYCLOAK_ADMIN_SERVICE_CREATE_CLIENT_PROTOCOL_MAPPERS = "/auth/admin/realms/tmax/clients/@@id@@/protocol-mappers/models"
+	KEYCLOAK_ADMIN_SERVICE_CREATE_ROLES                   = "/auth/admin/realms/tmax/clients/@@id@@/roles"
+	KEYCLOAK_ADMIN_SERVICE_GET_ROLE_BY_NAME               = "/auth/admin/realms/tmax/clients/@@id@@/roles/@@roleName@@"
+	KEYCLOAK_ADMIN_SERVICE_ADD_ROLE_TO_USER               = "/auth/admin/realms/tmax/users/@@userId@@/role-mappings/clients/@@id@@"
 
-	// deprecated
-	// HYPERAUTH_SERVICE_NAME_CREATE_ROLES    = "/auth/admin/realms/tmax/clients/@@id@@/roles"
-	// HYPERAUTH_SERVICE_NAME_GET_ROLE        = "/auth/admin/realms/tmax/clients/@@id@@/roles/@@roleName@@"
-	// HYPERAUTH_SERVICE_NAME_UPDATE_USER     = "/auth/admin/realms/tmax/users/@@id@@"
-)
-
-const (
-	KIBANA_ROLE_NAME = "kibana-manager"
+	// hyperauth api
+	HYPERAUTH_SERVICE_GET_USER_ID_BY_EMAIL = "/auth/realms/tmax/user/@@userEmail@@?token=@@token@@"
 )

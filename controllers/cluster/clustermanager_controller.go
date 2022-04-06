@@ -176,8 +176,9 @@ func (r *ClusterManagerReconciler) reconcileForRegisteredClusterManager(ctx cont
 		r.UpdateClusterManagerStatus,
 		r.CreateTraefikResources,
 		r.CreateArgocdClusterSecret,
-		r.UpdateGatewayService,
+		r.CreateMonitoringResources,
 		r.CreateHyperauthClient,
+		// r.DeleteUnusableResources,
 		// r.DeployAndUpdateAgentEndpoint,
 	}
 
@@ -246,8 +247,9 @@ func (r *ClusterManagerReconciler) reconcile(ctx context.Context, clusterManager
 		r.kubeadmControlPlaneUpdate,
 		r.machineDeploymentUpdate,
 		r.CreateArgocdClusterSecret,
-		r.UpdateGatewayService,
+		r.CreateMonitoringResources,
 		r.CreateHyperauthClient,
+		// r.DeleteUnusableResources,
 	}
 
 	res := ctrl.Result{}
@@ -492,7 +494,7 @@ func (r *ClusterManagerReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		&certmanagerv1.Certificate{},
 		&networkingv1.Ingress{},
 		&corev1.Service{},
-		&corev1.Endpoints{},
+		// &corev1.Endpoints{},
 		&traefikv2.Middleware{},
 	}
 	for _, resource := range subResources {
