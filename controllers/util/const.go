@@ -90,6 +90,8 @@ const (
 	KEYCLOAK_ADMIN_SERVICE_CREATE_ROLES                   = "/auth/admin/realms/tmax/clients/@@id@@/roles"
 	KEYCLOAK_ADMIN_SERVICE_GET_ROLE_BY_NAME               = "/auth/admin/realms/tmax/clients/@@id@@/roles/@@roleName@@"
 	KEYCLOAK_ADMIN_SERVICE_ADD_ROLE_TO_USER               = "/auth/admin/realms/tmax/users/@@userId@@/role-mappings/clients/@@id@@"
+	KEYCLOAK_ADMIN_SERVICE_GET_CLIENT_SCOPES              = "/auth/admin/realms/tmax/client-scopes"
+	KEYCLOAK_ADMIN_SERVICE_ADD_CLIENT_SCOPE_TO_CLIENT     = "/auth/admin/realms/tmax/clients/@@id@@/optional-client-scopes/@@clientScopeId@@"
 
 	// hyperauth api
 	HYPERAUTH_SERVICE_GET_USER_ID_BY_EMAIL = "/auth/realms/tmax/user/@@userEmail@@?token=@@token@@"

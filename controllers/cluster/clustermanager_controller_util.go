@@ -153,7 +153,7 @@ func (r *ClusterManagerReconciler) CreateIngress(clusterManager *clusterv1alpha1
 										PathType: &pathType,
 										Backend: networkingv1.IngressBackend{
 											Service: &networkingv1.IngressServiceBackend{
-												Name: clusterManager.Name + "gateway-service",
+												Name: clusterManager.Name + "-gateway-service",
 												Port: networkingv1.ServiceBackendPort{
 													Number: 443,
 												},

@@ -679,12 +679,13 @@ func (r *ClusterManagerReconciler) CreateHyperauthClient(ctx context.Context, cl
 		"grafana",
 		"kiali",
 		// "jaeger",
+		// "hyperregistry",
 	}
 	for _, client := range clients {
-		clientId := clusterManager.Namespace + "-" + clusterManager.Name + "-" + client
-		err := util.CreateClient(clientId, secret)
-		if err != nil {
-			log.Error(err, "Failed to create hyperauth client ["+clientId+"] for single cluster")
+		clientPrefix := clusterManager.Namespace + "-" + clusterManager.Name + "-"
+		config := util.GetClientConfig(client, clientPrefix)
+		if err := util.CreateClient(config, secret); err != nil {
+			log.Error(err, "Failed to create hyperauth client ["+config.ClientId+"] for single cluster")
 			return ctrl.Result{RequeueAfter: requeueAfter10Second}, err
 		}
 	}
@@ -710,6 +711,18 @@ func (r *ClusterManagerReconciler) CreateHyperauthClient(ctx context.Context, cl
 		userEmail := clusterManager.Annotations[util.AnnotationKeyOwner]
 		if err := util.AddClientLevelRolesToUserRoleMapping(clientId, roleName, userEmail, secret); err != nil {
 			log.Error(err, "Failed to add client-level role to user role mapping ["+clientId+"] for single cluster")
+			return ctrl.Result{RequeueAfter: requeueAfter10Second}, err
+		}
+	}
+
+	clients = []string{
+		"kiali",
+	}
+	for _, client := range clients {
+		clientId := clusterManager.Namespace + "-" + clusterManager.Name + "-" + client
+		err := util.AddClientScopeToClient(clientId, "kubernetes", secret)
+		if err != nil {
+			log.Error(err, "Failed to add client scope to client ["+client+"] for single cluster")
 			return ctrl.Result{RequeueAfter: requeueAfter10Second}, err
 		}
 	}

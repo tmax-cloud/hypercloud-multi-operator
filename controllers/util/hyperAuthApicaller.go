@@ -19,8 +19,17 @@ type ClientConfig struct {
 	ClientId                  string   `json:"clientId,omitempty"`
 	Secret                    string   `json:"secret,omitempty"`
 	DirectAccessGrantsEnabled bool     `json:"directAccessGrantsEnabled,omitempty"`
-	ServiceAccountsEnabled    bool     `json:"serviceAccountsEnabled,omitempty"`
+	ImplicitFlowEnabled       bool     `json:"implicitFlowEnabled,omitempty"`
 	RedirectUris              []string `json:"redirectUris,omitempty"`
+	// ServiceAccountsEnabled    bool     `json:"serviceAccountsEnabled,omitempty"`
+}
+
+// func (clientConfig ClientConfig) IsExist() bool {
+// 	return clientConfig.Id == ""
+// }
+
+func (clientConfig ClientConfig) IsEmpty() bool {
+	return clientConfig.ClientId == ""
 }
 
 // func (source ClientConfig) IsEqual(dest ClientConfig) bool {
@@ -50,15 +59,10 @@ type UserConfig struct {
 	Id string `json:"id,omitempty"`
 }
 
-// type ClientLevelRole struct {
-// 	Id          string            `json:"id"`
-// 	Name        string            `json:"name"`
-// 	Composite   bool              `json:"composite"`
-// 	ClientRole  bool              `json:"clientRole"`
-// 	ContainerId string            `json:"containerId"`
-// 	Attributes  map[string]string `json:"attributes"`
-// 	// TestAttr    string            `json:"testAttr,omitempty"`
-// }
+type ClientScopeConfig struct {
+	Id   string `json:"id,omitempty"`
+	Name string `json:"name,omitempty"`
+}
 
 // defunct
 // func SetHyperAuthURL(serviceName string) string {
@@ -114,7 +118,7 @@ func GetHyperauthAdminToken(secret *corev1.Secret) (string, error) {
 	return accessToken, nil
 }
 
-func GetClients(clientId string, secret *corev1.Secret) (string, error) {
+func GetIdByClientId(clientId string, secret *corev1.Secret) (string, error) {
 	token, err := GetHyperauthAdminToken(secret)
 	if err != nil {
 		return "", err
@@ -154,13 +158,13 @@ func GetClients(clientId string, secret *corev1.Secret) (string, error) {
 	return "", nil
 }
 
-func CreateClient(clientId string, secret *corev1.Secret) error {
+func CreateClient(clientConfig ClientConfig, secret *corev1.Secret) error {
 	token, err := GetHyperauthAdminToken(secret)
 	if err != nil {
 		return err
 	}
 
-	id, err := GetClients(clientId, secret)
+	id, err := GetIdByClientId(clientConfig.ClientId, secret)
 	if err != nil {
 		return err
 	}
@@ -168,14 +172,14 @@ func CreateClient(clientId string, secret *corev1.Secret) error {
 		return nil
 	}
 
-	data := ClientConfig{
-		ClientId:                  clientId,
-		Secret:                    "tmax-client-secret",
-		DirectAccessGrantsEnabled: true,
-		ServiceAccountsEnabled:    false,
-		RedirectUris:              []string{"*"},
-	}
-	jsonData, err := json.Marshal(data)
+	// data := ClientConfig{
+	// 	ClientId:                  clientConfig.ClientId,
+	// 	Secret:                    "tmax-client-secret",
+	// 	DirectAccessGrantsEnabled: true,
+	// 	RedirectUris:              []string{"*"},
+	// 	// ServiceAccountsEnabled:    true,
+	// }
+	jsonData, err := json.Marshal(clientConfig)
 	if err != nil {
 		return err
 	}
@@ -204,13 +208,62 @@ func CreateClient(clientId string, secret *corev1.Secret) error {
 	return nil
 }
 
+// func UpdateClient(clientId string, secret *corev1.Secret) error {
+// 	token, err := GetHyperauthAdminToken(secret)
+// 	if err != nil {
+// 		return err
+// 	}
+
+// 	id, err := GetClients(clientId, secret)
+// 	if err != nil {
+// 		return err
+// 	}
+// 	if !IsClientExist(id) {
+// 		return fmt.Errorf("client not found")
+// 	}
+
+// 	data := ClientConfig{
+// 		ImplicitFlowEnabled: true,
+// 	}
+// 	jsonData, err := json.Marshal(data)
+// 	if err != nil {
+// 		return err
+// 	}
+// 	playload := bytes.NewBuffer(jsonData)
+
+// 	params := map[string]string{
+// 		"id": id,
+// 	}
+// 	url := SetSecureHyperAuthURL(KEYCLOAK_ADMIN_SERVICE_UPDATE_CLIENT, params)
+// 	req, err := http.NewRequest(http.MethodPost, url, playload)
+// 	if err != nil {
+// 		return err
+// 	}
+// 	req.Header.Add("Content-Type", "application/json")
+// 	req.Header.Add("Authorization", "Bearer "+token)
+
+// 	client := &http.Client{}
+// 	resp, err := client.Do(req)
+// 	if err != nil {
+// 		return err
+// 	}
+// 	defer resp.Body.Close()
+
+// 	if !IsOK(resp.StatusCode) {
+// 		reqDump, _ := httputil.DumpRequest(req, true)
+// 		return fmt.Errorf("failed to create client-level role: " + string(reqDump) + "\n" + resp.Status)
+// 	}
+
+// 	return nil
+// }
+
 func CreateClientLevelProtocolMapper(clientId string, mapperName string, secret *corev1.Secret) error {
 	token, err := GetHyperauthAdminToken(secret)
 	if err != nil {
 		return err
 	}
 
-	id, err := GetClients(clientId, secret)
+	id, err := GetIdByClientId(clientId, secret)
 	if err != nil {
 		return err
 	}
@@ -267,7 +320,7 @@ func CreateClientLevelRole(clientId string, roleName string, secret *corev1.Secr
 		return err
 	}
 
-	id, err := GetClients(clientId, secret)
+	id, err := GetIdByClientId(clientId, secret)
 	if err != nil {
 		return err
 	}
@@ -357,7 +410,7 @@ func GetRoleIdByRoleName(clientId string, roleName string, secret *corev1.Secret
 		return "", err
 	}
 
-	id, err := GetClients(clientId, secret)
+	id, err := GetIdByClientId(clientId, secret)
 	if err != nil {
 		return "", err
 	}
@@ -406,7 +459,7 @@ func AddClientLevelRolesToUserRoleMapping(clientId string, roleName string, user
 		return err
 	}
 
-	id, err := GetClients(clientId, secret)
+	id, err := GetIdByClientId(clientId, secret)
 	if err != nil {
 		return err
 	}
@@ -462,13 +515,98 @@ func AddClientLevelRolesToUserRoleMapping(clientId string, roleName string, user
 	return nil
 }
 
+func GetClientScopesIdByName(name string, secret *corev1.Secret) (string, error) {
+	token, err := GetHyperauthAdminToken(secret)
+	if err != nil {
+		return "", err
+	}
+
+	url := SetSecureHyperAuthURL(KEYCLOAK_ADMIN_SERVICE_GET_CLIENT_SCOPES, nil)
+	req, err := http.NewRequest(http.MethodGet, url, nil)
+	if err != nil {
+		return "", err
+	}
+	req.Header.Add("Authorization", "Bearer "+token)
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+
+	if !IsOK(resp.StatusCode) {
+		reqDump, _ := httputil.DumpRequest(req, true)
+		return "", fmt.Errorf("failed to get client scope id: " + string(reqDump) + "\n" + resp.Status)
+	}
+
+	respJson := &[]ClientScopeConfig{}
+	err = json.NewDecoder(resp.Body).Decode(respJson)
+	if err != nil {
+		return "", err
+	}
+
+	for _, data := range *respJson {
+		if data.Name == name {
+			return data.Id, nil
+		}
+	}
+
+	return "", fmt.Errorf("client scope not found")
+}
+
+func AddClientScopeToClient(clientId string, clientScopeName string, secret *corev1.Secret) error {
+	token, err := GetHyperauthAdminToken(secret)
+	if err != nil {
+		return err
+	}
+
+	id, err := GetIdByClientId(clientId, secret)
+	if err != nil {
+		return err
+	}
+	if !IsClientExist(id) {
+		return nil
+	}
+
+	clientScopeId, err := GetClientScopesIdByName(clientScopeName, secret)
+	if err != nil {
+		return err
+	}
+
+	params := map[string]string{
+		"id":            id,
+		"clientScopeId": clientScopeId,
+	}
+	url := SetSecureHyperAuthURL(KEYCLOAK_ADMIN_SERVICE_ADD_CLIENT_SCOPE_TO_CLIENT, params)
+	req, err := http.NewRequest(http.MethodPut, url, nil)
+	if err != nil {
+		return err
+	}
+	req.Header.Add("Authorization", "Bearer "+token)
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	if !IsOK(resp.StatusCode) {
+		reqDump, _ := httputil.DumpRequest(req, true)
+		return fmt.Errorf("failed to add client scope to client: " + string(reqDump) + "\n" + resp.Status)
+	}
+
+	return nil
+}
+
 func DeleteClient(clientId string, secret *corev1.Secret) error {
 	token, err := GetHyperauthAdminToken(secret)
 	if err != nil {
 		return err
 	}
 
-	id, err := GetClients(clientId, secret)
+	id, err := GetIdByClientId(clientId, secret)
 	if err != nil {
 		return err
 	}
