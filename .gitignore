@@ -28,3 +28,6 @@ bin
 
 # personal setting for IDE
 .vscode
+
+# Test yaml
+build/test
