@@ -27,6 +27,8 @@ spec:
           value: ${custom_domain}
         - name: AUTH_CLIENT_SECRET
           value: ${auth_client_secret}
+        - name: AUTH_SUBDOMAIN
+          value: ${auth_subdomain}
         image: controller:latest
         name: manager
         resources:
