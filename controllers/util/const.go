@@ -15,10 +15,11 @@ limitations under the License.
 package util
 
 const (
-	KubeNamespace         = "kube-system"
-	ApiGatewayNamespace   = "api-gateway-system"
-	IngressNginxNamespace = "ingress-nginx"
-	ArgoNamespace         = "argocd"
+	KubeNamespace          = "kube-system"
+	ApiGatewayNamespace    = "api-gateway-system"
+	IngressNginxNamespace  = "ingress-nginx"
+	ArgoNamespace          = "argocd"
+	HyperregistryNamespace = "hyperregistry"
 )
 
 const (
@@ -78,4 +79,8 @@ const (
 	LabelKeyClmSecretType = "cluster.tmax.io/clm-secret-type"
 
 	LabelKeyArgoSecretType = "argocd.argoproj.io/secret-type"
+)
+
+const (
+	HARBOR_SERVICE_SET_OIDC_CONFIG = "/api/v2.0/configurations"
 )

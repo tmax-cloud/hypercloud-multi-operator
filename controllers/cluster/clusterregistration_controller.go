@@ -18,10 +18,9 @@ import (
 	"context"
 
 	"github.com/go-logr/logr"
-	clusterv1alpha1 "github.com/tmax-cloud/hypercloud-multi-operator/apis/cluster/v1alpha1"
+	clusterV1alpha1 "github.com/tmax-cloud/hypercloud-multi-operator/apis/cluster/v1alpha1"
 	util "github.com/tmax-cloud/hypercloud-multi-operator/controllers/util"
 
-	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -51,7 +50,7 @@ func (r *ClusterRegistrationReconciler) Reconcile(ctx context.Context, req ctrl.
 	log := r.Log.WithValues("clusterregistration", req.NamespacedName)
 
 	// get ClusterRegistration
-	clusterRegistration := &clusterv1alpha1.ClusterRegistration{}
+	clusterRegistration := &clusterV1alpha1.ClusterRegistration{}
 	if err := r.Get(context.TODO(), req.NamespacedName, clusterRegistration); errors.IsNotFound(err) {
 		log.Info("ClusterRegistration not found. Ignoring since object must be deleted")
 		return ctrl.Result{}, nil
@@ -81,8 +80,8 @@ func (r *ClusterRegistrationReconciler) Reconcile(ctx context.Context, req ctrl.
 }
 
 // reconcile handles cluster reconciliation.
-func (r *ClusterRegistrationReconciler) reconcile(ctx context.Context, ClusterRegistration *clusterv1alpha1.ClusterRegistration) (ctrl.Result, error) {
-	phases := []func(context.Context, *clusterv1alpha1.ClusterRegistration) (ctrl.Result, error){
+func (r *ClusterRegistrationReconciler) reconcile(ctx context.Context, ClusterRegistration *clusterV1alpha1.ClusterRegistration) (ctrl.Result, error) {
+	phases := []func(context.Context, *clusterV1alpha1.ClusterRegistration) (ctrl.Result, error){
 		r.CheckValidation,
 		r.CreateKubeconfigSecret,
 		r.CreateClusterManager,
@@ -105,22 +104,22 @@ func (r *ClusterRegistrationReconciler) reconcile(ctx context.Context, ClusterRe
 	return res, kerrors.NewAggregate(errs)
 }
 
-func (r *ClusterRegistrationReconciler) reconcilePhase(_ context.Context, ClusterRegistration *clusterv1alpha1.ClusterRegistration) {
+func (r *ClusterRegistrationReconciler) reconcilePhase(_ context.Context, ClusterRegistration *clusterV1alpha1.ClusterRegistration) {
 	if ClusterRegistration.Status.Phase == "validated" {
-		ClusterRegistration.Status.SetTypedPhase(clusterv1alpha1.ClusterRegistrationPhaseSuccess)
+		ClusterRegistration.Status.SetTypedPhase(clusterV1alpha1.ClusterRegistrationPhaseSuccess)
 	}
 }
 
 func (r *ClusterRegistrationReconciler) requeueClusterRegistrationsForClusterManager(o client.Object) []ctrl.Request {
-	clm := o.DeepCopyObject().(*clusterv1alpha1.ClusterManager)
+	clm := o.DeepCopyObject().(*clusterV1alpha1.ClusterManager)
 	log := r.Log.WithValues("ClusterRegistration-ObjectMapper", "clusterManagerToClusterClusterRegistrations", "ClusterRegistration", clm.Name)
 
 	//get clusterRegistration
 	key := types.NamespacedName{
-		Name:      clm.Labels[clusterv1alpha1.LabelKeyClrName],
+		Name:      clm.Labels[clusterV1alpha1.LabelKeyClrName],
 		Namespace: clm.Namespace,
 	}
-	clr := &clusterv1alpha1.ClusterRegistration{}
+	clr := &clusterV1alpha1.ClusterRegistration{}
 	if err := r.Get(context.TODO(), key, clr); errors.IsNotFound(err) {
 		log.Info("ClusterRegistration resource not found. Ignoring since object must be deleted")
 		return nil
@@ -144,59 +143,59 @@ func (r *ClusterRegistrationReconciler) requeueClusterRegistrationsForClusterMan
 	return nil
 }
 
-func (r *ClusterRegistrationReconciler) requeueClusterRegistrationsForSecret(o client.Object) []ctrl.Request {
-	secret := o.DeepCopyObject().(*corev1.Secret)
-	log := r.Log.WithValues("ClusterRegistration-ObjectMapper", "clusterManagerToClusterClusterRegistrations", "ClusterRegistration", secret.Name)
+// func (r *ClusterRegistrationReconciler) requeueClusterRegistrationsForSecret(o client.Object) []ctrl.Request {
+// 	secret := o.DeepCopyObject().(*coreV1.Secret)
+// 	log := r.Log.WithValues("ClusterRegistration-ObjectMapper", "clusterManagerToClusterClusterRegistrations", "ClusterRegistration", secret.Name)
 
-	key := types.NamespacedName{
-		Name:      secret.Labels[clusterv1alpha1.LabelKeyClmName],
-		Namespace: secret.Namespace,
-	}
-	clm := &clusterv1alpha1.ClusterManager{}
-	if err := r.Get(context.TODO(), key, clm); err != nil {
-		log.Error(err, "Failed to get ClusterManager")
-		return nil
-	}
+// 	key := types.NamespacedName{
+// 		Name:      secret.Labels[clusterV1alpha1.LabelKeyClmName],
+// 		Namespace: secret.Namespace,
+// 	}
+// 	clm := &clusterV1alpha1.ClusterManager{}
+// 	if err := r.Get(context.TODO(), key, clm); err != nil {
+// 		log.Error(err, "Failed to get ClusterManager")
+// 		return nil
+// 	}
 
-	if !clm.GetDeletionTimestamp().IsZero() {
-		return nil
-	}
+// 	if !clm.GetDeletionTimestamp().IsZero() {
+// 		return nil
+// 	}
 
-	key = types.NamespacedName{
-		Name:      clm.Labels[clusterv1alpha1.LabelKeyClrName],
-		Namespace: secret.Namespace,
-	}
-	clr := &clusterv1alpha1.ClusterRegistration{}
-	if err := r.Get(context.TODO(), key, clr); err != nil {
-		log.Error(err, "Failed to get ClusterRegistration")
-		return nil
-	}
+// 	key = types.NamespacedName{
+// 		Name:      clm.Labels[clusterV1alpha1.LabelKeyClrName],
+// 		Namespace: secret.Namespace,
+// 	}
+// 	clr := &clusterV1alpha1.ClusterRegistration{}
+// 	if err := r.Get(context.TODO(), key, clr); err != nil {
+// 		log.Error(err, "Failed to get ClusterRegistration")
+// 		return nil
+// 	}
 
-	if clr.Status.Phase == "Deleted" {
-		return nil
-	}
+// 	if clr.Status.Phase == "Deleted" {
+// 		return nil
+// 	}
 
-	clr.Status.Phase = "Validated"
-	clr.Status.Reason = "kubeconfig secret is deleted"
-	err := r.Status().Update(context.TODO(), clr)
-	if err != nil {
-		log.Error(err, "Failed to update ClusterRegistration status")
-		return nil //??
-	}
+// 	clr.Status.Phase = "Validated"
+// 	clr.Status.Reason = "kubeconfig secret is deleted"
+// 	err := r.Status().Update(context.TODO(), clr)
+// 	if err != nil {
+// 		log.Error(err, "Failed to update ClusterRegistration status")
+// 		return nil //??
+// 	}
 
-	return nil
-}
+// 	return nil
+// }
 
 func (r *ClusterRegistrationReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	controller, err := ctrl.NewControllerManagedBy(mgr).
-		For(&clusterv1alpha1.ClusterRegistration{}).
+		For(&clusterV1alpha1.ClusterRegistration{}).
 		WithEventFilter(
 			predicate.Funcs{
 				// Avoid reconciling if the event triggering the reconciliation is related to incremental status updates
 				// for kubefedcluster resources only
 				CreateFunc: func(e event.CreateEvent) bool {
 					// phase success 일 때 한번 들어오는데.. 왜 그러냐... controller 재기동 돼서?
-					clr := e.Object.(*clusterv1alpha1.ClusterRegistration)
+					clr := e.Object.(*clusterV1alpha1.ClusterRegistration)
 					if clr.Status.Phase == "" {
 						return true
 					} else {
@@ -204,8 +203,8 @@ func (r *ClusterRegistrationReconciler) SetupWithManager(mgr ctrl.Manager) error
 					}
 				},
 				UpdateFunc: func(e event.UpdateEvent) bool {
-					oldClr := e.ObjectOld.(*clusterv1alpha1.ClusterRegistration)
-					newClr := e.ObjectNew.(*clusterv1alpha1.ClusterRegistration)
+					oldClr := e.ObjectOld.(*clusterV1alpha1.ClusterRegistration)
+					newClr := e.ObjectNew.(*clusterV1alpha1.ClusterRegistration)
 					if oldClr.Status.Phase == "Success" && newClr.Status.Phase == "Validated" {
 						return true
 					}
@@ -226,7 +225,7 @@ func (r *ClusterRegistrationReconciler) SetupWithManager(mgr ctrl.Manager) error
 	}
 
 	return controller.Watch(
-		&source.Kind{Type: &clusterv1alpha1.ClusterManager{}},
+		&source.Kind{Type: &clusterV1alpha1.ClusterManager{}},
 		handler.EnqueueRequestsFromMapFunc(r.requeueClusterRegistrationsForClusterManager),
 		predicate.Funcs{
 			UpdateFunc: func(e event.UpdateEvent) bool {
@@ -236,9 +235,9 @@ func (r *ClusterRegistrationReconciler) SetupWithManager(mgr ctrl.Manager) error
 				return false
 			},
 			DeleteFunc: func(e event.DeleteEvent) bool {
-				clm := e.Object.(*clusterv1alpha1.ClusterManager)
-				val, ok := clm.Labels[clusterv1alpha1.LabelKeyClmClusterType]
-				if ok && val == clusterv1alpha1.ClusterTypeRegistered {
+				clm := e.Object.(*clusterV1alpha1.ClusterManager)
+				val, ok := clm.Labels[clusterV1alpha1.LabelKeyClmClusterType]
+				if ok && val == clusterV1alpha1.ClusterTypeRegistered {
 					return true
 				}
 				return false

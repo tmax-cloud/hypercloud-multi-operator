@@ -30,7 +30,7 @@ import (
 
 	typesv1beta1 "github.com/tmax-cloud/hypercloud-multi-operator/apis/external/v1beta1"
 	constant "github.com/tmax-cloud/hypercloud-multi-operator/controllers/util"
-	corev1 "k8s.io/api/core/v1"
+	coreV1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 )
@@ -48,7 +48,7 @@ func (r *ServiceReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	_ = context.Background()
 
 	//get service
-	svc := &corev1.Service{}
+	svc := &coreV1.Service{}
 	if err := r.Get(context.TODO(), req.NamespacedName, svc); err != nil {
 		if errors.IsNotFound(err) {
 			r.Log.Info("Service resource not found. Ignoring since object must be deleted")
@@ -96,14 +96,14 @@ func (r *ServiceReconciler) handleFcm(ip string, port string) {
 
 func (r *ServiceReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	_, err := ctrl.NewControllerManagedBy(mgr).
-		For(&corev1.Service{}).
+		For(&coreV1.Service{}).
 		WithEventFilter(
 			predicate.Funcs{
 				CreateFunc: func(e event.CreateEvent) bool {
 					return false
 				},
 				UpdateFunc: func(e event.UpdateEvent) bool {
-					svc := e.ObjectNew.(*corev1.Service).DeepCopy()
+					svc := e.ObjectNew.(*coreV1.Service).DeepCopy()
 					return checkValidSelector(*svc) && checkValidUpdate(e)
 				},
 				DeleteFunc: func(e event.DeleteEvent) bool {
@@ -120,8 +120,8 @@ func (r *ServiceReconciler) SetupWithManager(mgr ctrl.Manager) error {
 }
 
 func checkValidUpdate(e event.UpdateEvent) bool {
-	oldsvc := e.ObjectOld.(*corev1.Service).DeepCopy()
-	newsvc := e.ObjectNew.(*corev1.Service).DeepCopy()
+	oldsvc := e.ObjectOld.(*coreV1.Service).DeepCopy()
+	newsvc := e.ObjectNew.(*coreV1.Service).DeepCopy()
 
 	if oldsvc.Spec.Ports[0].NodePort != newsvc.Spec.Ports[0].NodePort ||
 		oldsvc.Spec.Ports[0].Port != newsvc.Spec.Ports[0].Port ||
@@ -133,7 +133,7 @@ func checkValidUpdate(e event.UpdateEvent) bool {
 	return false
 }
 
-func checkValidSelector(svc corev1.Service) bool {
+func checkValidSelector(svc coreV1.Service) bool {
 	selector := svc.Spec.Selector
 	if selector != nil {
 		if val, ok := selector[util.MultiApiServerServiceSelectorKey]; ok && strings.Compare(val, util.MultiApiServerServiceSelectorValue) == 0 {

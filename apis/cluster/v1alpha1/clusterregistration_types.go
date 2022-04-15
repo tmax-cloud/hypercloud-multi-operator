@@ -15,7 +15,7 @@ limitations under the License.
 package v1alpha1
 
 import (
-	corev1 "k8s.io/api/core/v1"
+	coreV1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 )
@@ -41,7 +41,7 @@ type ClusterRegistrationStatus struct {
 	MasterRun int                       `json:"masterRun,omitempty"`
 	WorkerNum int                       `json:"workerNum,omitempty"`
 	WorkerRun int                       `json:"workerRun,omitempty"`
-	NodeInfo  []corev1.NodeSystemInfo   `json:"nodeInfo,omitempty"`
+	NodeInfo  []coreV1.NodeSystemInfo   `json:"nodeInfo,omitempty"`
 	Phase     ClusterRegistrationPhase  `json:"phase,omitempty"`
 	Reason    ClusterRegistrationReason `json:"reason,omitempty"`
 }

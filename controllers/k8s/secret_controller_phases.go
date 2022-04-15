@@ -18,10 +18,10 @@ import (
 	"context"
 	"strings"
 
-	clusterv1alpha1 "github.com/tmax-cloud/hypercloud-multi-operator/apis/cluster/v1alpha1"
+	clusterV1alpha1 "github.com/tmax-cloud/hypercloud-multi-operator/apis/cluster/v1alpha1"
 	"github.com/tmax-cloud/hypercloud-multi-operator/controllers/util"
 
-	corev1 "k8s.io/api/core/v1"
+	coreV1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -32,7 +32,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
-func (r *SecretReconciler) UpdateClusterManagerControlPlaneEndpoint(ctx context.Context, secret *corev1.Secret) (ctrl.Result, error) {
+func (r *SecretReconciler) UpdateClusterManagerControlPlaneEndpoint(ctx context.Context, secret *coreV1.Secret) (ctrl.Result, error) {
 	key := types.NamespacedName{
 		Name:      secret.Name,
 		Namespace: secret.Namespace,
@@ -50,7 +50,7 @@ func (r *SecretReconciler) UpdateClusterManagerControlPlaneEndpoint(ctx context.
 		Name:      strings.Split(secret.Name, util.KubeconfigSuffix)[0],
 		Namespace: secret.Namespace,
 	}
-	clm := &clusterv1alpha1.ClusterManager{}
+	clm := &clusterV1alpha1.ClusterManager{}
 	err = r.Get(context.TODO(), key, clm)
 	if errors.IsNotFound(err) {
 		log.Info("Cannot found clusterManager")
@@ -75,7 +75,7 @@ func (r *SecretReconciler) UpdateClusterManagerControlPlaneEndpoint(ctx context.
 	return ctrl.Result{}, nil
 }
 
-func (r *SecretReconciler) DeployRolebinding(ctx context.Context, secret *corev1.Secret) (ctrl.Result, error) {
+func (r *SecretReconciler) DeployRolebinding(ctx context.Context, secret *coreV1.Secret) (ctrl.Result, error) {
 	log := r.Log.WithValues(
 		"secret",
 		types.NamespacedName{
@@ -85,7 +85,7 @@ func (r *SecretReconciler) DeployRolebinding(ctx context.Context, secret *corev1
 	)
 	log.Info("Start to reconcile phase for Deploy rolebinding to remote")
 
-	clm := &clusterv1alpha1.ClusterManager{}
+	clm := &clusterV1alpha1.ClusterManager{}
 	key := types.NamespacedName{
 		Name:      strings.Split(secret.Name, util.KubeconfigSuffix)[0],
 		Namespace: secret.Namespace,
@@ -182,7 +182,7 @@ func (r *SecretReconciler) DeployRolebinding(ctx context.Context, secret *corev1
 	return ctrl.Result{}, nil
 }
 
-func (r *SecretReconciler) DeployArgocdResources(ctx context.Context, secret *corev1.Secret) (ctrl.Result, error) {
+func (r *SecretReconciler) DeployArgocdResources(ctx context.Context, secret *coreV1.Secret) (ctrl.Result, error) {
 	log := r.Log.WithValues("secret", types.NamespacedName{Name: secret.Name, Namespace: secret.Namespace})
 	log.Info("Start to reconcile phase for Deploy argocd resources to remote")
 
@@ -192,7 +192,7 @@ func (r *SecretReconciler) DeployArgocdResources(ctx context.Context, secret *co
 		return ctrl.Result{}, err
 	}
 
-	argocdManager := &corev1.ServiceAccount{
+	argocdManager := &coreV1.ServiceAccount{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: util.ArgoServiceAccount,
 		},

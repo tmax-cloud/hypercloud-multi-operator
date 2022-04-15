@@ -17,8 +17,11 @@ package v1alpha1
 import (
 	"errors"
 	"reflect"
+	"regexp"
 
+	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/validation/field"
 	ctrl "sigs.k8s.io/controller-runtime"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
@@ -36,7 +39,7 @@ func (r *ClusterRegistration) SetupWebhookWithManager(mgr ctrl.Manager) error {
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
 
 // TODO(user): change verbs to "verbs=create;update;delete" if you want to enable deletion validation.
-// +kubebuilder:webhook:verbs=create;update,path=/validate-cluster-tmax-io-v1alpha1-clusterregistration,mutating=false,failurePolicy=fail,groups=cluster.tmax.io,resources=clusterregistrations,versions=v1alpha1,name=vclusterregistration.kb.io
+// +kubebuilder:webhook:verbs=create;update,path=/validate-cluster-tmax-io-v1alpha1-clusterregistration,mutating=false,failurePolicy=fail,groups=cluster.tmax.io,resources=clusterregistrations,versions=v1alpha1,name=validation.webhook.clusterregistration
 
 var _ webhook.Validator = &ClusterRegistration{}
 
@@ -44,7 +47,20 @@ var _ webhook.Validator = &ClusterRegistration{}
 func (r *ClusterRegistration) ValidateCreate() error {
 	clusterregistrationlog.Info("validate create", "name", r.Name)
 
-	// TODO(user): fill in your validation logic upon object creation.
+	reg, _ := regexp.Compile(`^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$`)
+	if !reg.MatchString(r.Spec.ClusterName) {
+		//return errors.NewInvalid()
+		errList := []*field.Error{
+			{
+				Type:     field.ErrorTypeInvalid,
+				Field:    "spec.clusterName",
+				BadValue: r.Spec.ClusterName,
+				Detail:   "a DNS-1123 subdomain must consist of lower case alphanumeric characters, '-' or '.', and must start and end with an alphanumeric character (e.g. 'example.com', regex used for validation is '[a-z0-9]([-a-z0-9]*[a-z0-9])?(\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*')",
+			},
+		}
+		return k8sErrors.NewInvalid(r.GroupVersionKind().GroupKind(), "InvalidSpecClusterName", errList)
+	}
+
 	return nil
 }
 
@@ -59,7 +75,7 @@ func (r *ClusterRegistration) ValidateUpdate(old runtime.Object) error {
 
 	if oldClusterRegistration.Status.Phase == "Success" || oldClusterRegistration.Status.Phase == "Deleted" {
 		if !reflect.DeepEqual(oldClusterRegistration.Spec, r.Spec) {
-			return errors.New("Cannot modify ClusterRegistration after approval")
+			return errors.New("cannot modify ClusterRegistration after approval")
 		}
 	}
 	return nil

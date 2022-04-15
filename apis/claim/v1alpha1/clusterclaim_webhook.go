@@ -17,8 +17,11 @@ package v1alpha1
 import (
 	"errors"
 	"reflect"
+	"regexp"
 
+	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/validation/field"
 	ctrl "sigs.k8s.io/controller-runtime"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
@@ -35,7 +38,7 @@ func (r *ClusterClaim) SetupWebhookWithManager(mgr ctrl.Manager) error {
 
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
 
-// +kubebuilder:webhook:path=/mutate-claim-tmax-io-v1alpha1-clusterclaim,mutating=true,failurePolicy=fail,groups=claim.tmax.io,resources=clusterclaims,verbs=update,versions=v1alpha1,name=mclusterclaim.kb.io
+// +kubebuilder:webhook:path=/mutate-claim-tmax-io-v1alpha1-clusterclaim,mutating=true,failurePolicy=fail,groups=claim.tmax.io,resources=clusterclaims,verbs=update,versions=v1alpha1,name=mutation.webhook.clusterclaim
 
 var _ webhook.Defaulter = &ClusterClaim{}
 
@@ -55,7 +58,7 @@ func (r *ClusterClaim) Default() {
 }
 
 // TODO(user): change verbs to "verbs=create;update;delete" if you want to enable deletion validation.
-// +kubebuilder:webhook:verbs=update;delete,path=/validate-claim-tmax-io-v1alpha1-clusterclaim,mutating=false,failurePolicy=fail,groups=claim.tmax.io,resources=clusterclaims;clusterclaims/status,versions=v1alpha1,name=vclusterclaim.kb.io
+// +kubebuilder:webhook:verbs=update;delete,path=/validate-claim-tmax-io-v1alpha1-clusterclaim,mutating=false,failurePolicy=fail,groups=claim.tmax.io,resources=clusterclaims;clusterclaims/status,versions=v1alpha1,name=validation.webhook.clusterclaim
 
 var _ webhook.Validator = &ClusterClaim{}
 
@@ -63,7 +66,20 @@ var _ webhook.Validator = &ClusterClaim{}
 func (r *ClusterClaim) ValidateCreate() error {
 	clusterclaimlog.Info("validate create", "name", r.Name)
 
-	// TODO(user): fill in your validation logic upon object creation.
+	reg, _ := regexp.Compile(`^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$`)
+	if !reg.MatchString(r.Spec.ClusterName) {
+		//return errors.NewInvalid()
+		errList := []*field.Error{
+			{
+				Type:     field.ErrorTypeInvalid,
+				Field:    "spec.clusterName",
+				BadValue: r.Spec.ClusterName,
+				Detail:   "a DNS-1123 subdomain must consist of lower case alphanumeric characters, '-' or '.', and must start and end with an alphanumeric character (e.g. 'example.com', regex used for validation is '[a-z0-9]([-a-z0-9]*[a-z0-9])?(\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*')",
+			},
+		}
+		return k8sErrors.NewInvalid(r.GroupVersionKind().GroupKind(), "InvalidSpecClusterName", errList)
+	}
+
 	return nil
 }
 
@@ -77,7 +93,7 @@ func (r *ClusterClaim) ValidateUpdate(old runtime.Object) error {
 
 	if oldClusterClaim.Status.Phase == "Approved" || oldClusterClaim.Status.Phase == "Rejected" || oldClusterClaim.Status.Phase == "ClusterDeleted" {
 		if !reflect.DeepEqual(oldClusterClaim.Spec, r.Spec) {
-			return errors.New("Cannot modify clusterClaim after approval")
+			return errors.New("cannot modify clusterClaim after approval")
 		}
 	}
 	return nil

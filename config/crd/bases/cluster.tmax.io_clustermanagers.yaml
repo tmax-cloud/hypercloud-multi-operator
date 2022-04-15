@@ -110,9 +110,15 @@ spec:
           properties:
             argoReady:
               type: boolean
+            authClientReady:
+              type: boolean
             controlPlaneEndpoint:
               type: string
             controlPlaneReady:
+              type: boolean
+            gatewayReady:
+              type: boolean
+            hyperregistryOidcReady:
               type: boolean
             masterRun:
               type: integer
@@ -174,6 +180,7 @@ spec:
             phase:
               type: string
             prometheusReady:
+              description: will be deprecated
               type: boolean
             provider:
               type: string
