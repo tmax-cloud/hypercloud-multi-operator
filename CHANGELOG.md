@@ -1,6 +1,40 @@
 # HyperCloud-Multi-Operator changelog!!
 All notable changes to this project will be documented in this file.
 
+<!-------------------- v5.0.26.7 start -------------------->
+
+## HyperCloud-Multi-Operator_5.0.26.7 (2022. 04. 15. (금) 16:04:27 KST)
+
+### Added
+  - [feat] hyperregistry oidc 연동 기능 추가 by SISILIA
+  - [feat] hyperauth client secret env 추가 by SISILIA
+  - [feat] single cluster kiali client 세부 설정 추가 by SISILIA
+  - [feat] Single cluster를 위한 kibana client생성시, role생성, user mapping도 해주도록 로직 추가 by SISILIA
+  - [feat] hyperauth client 생성 기능 추가 by SISILIA
+  - [feat] kibana를 위한 ingress path 추가 by SISILIA
+
+### Changed
+  - [mod] hyperauth 주소를 사용자가 설정한 subdomain으로 처리할 수 있도록 수정 by SISILIA
+  - [mod] hyperauth caller package 분리 및 refactoring by SISILIA
+  - [mod] webhook 이름 변경, webhook에 clm, clr의 spec.clusterName validation 로직 추가 by SISILIA
+  - [mod] 불필요한 서비스 생성하지 않도록 코드 수정 by SISILIA
+  - [mod] memory limit 100Mi로 상향 by SISILIA
+  - [mod] endpoint가 ip일때도 ep 객체를 생성하지 않고 service의 externalName에 넣도록 변경 by SISILIA
+
+### Fixed
+
+### CRD yaml
+
+### Etc
+  - [etc] kustomize manifest.yaml 에러 수정 by SISILIA
+  - [etc] code refactoring by SISILIA
+  - [etc] gitignore update by SISILIA
+  - [etc] code refactoring, warning 발생시키는 코드 수정 by SISILIA
+  - [etc] code refactoring by SISILIA
+  - [etc] argo status update 버그 수정 by SISILIA
+
+<!--------------------- v5.0.26.7 end --------------------->
+
 <!-------------------- v5.0.26.6 start -------------------->
 
 ## HyperCloud-Multi-Operator_5.0.26.6 (2022. 03. 17. (목) 17:00:04 KST)
