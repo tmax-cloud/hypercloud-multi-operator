@@ -18,8 +18,8 @@ import (
 	"context"
 
 	"github.com/go-logr/logr"
-	claimv1alpha1 "github.com/tmax-cloud/hypercloud-multi-operator/apis/claim/v1alpha1"
-	clusterv1alpha1 "github.com/tmax-cloud/hypercloud-multi-operator/apis/cluster/v1alpha1"
+	claimV1alpha1 "github.com/tmax-cloud/hypercloud-multi-operator/apis/claim/v1alpha1"
+	clusterV1alpha1 "github.com/tmax-cloud/hypercloud-multi-operator/apis/cluster/v1alpha1"
 
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -56,7 +56,7 @@ func (r *ClusterClaimReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	log := r.Log.WithValues("ClusterClaim", req.NamespacedName)
 
 	// get ClusterClaim
-	clusterClaim := &claimv1alpha1.ClusterClaim{}
+	clusterClaim := &claimV1alpha1.ClusterClaim{}
 	if err := r.Get(context.TODO(), req.NamespacedName, clusterClaim); errors.IsNotFound(err) {
 		log.Info("ClusterClaim resource not found. Ignoring since object must be deleted")
 		return ctrl.Result{}, nil
@@ -84,14 +84,14 @@ func (r *ClusterClaimReconciler) Reconcile(ctx context.Context, req ctrl.Request
 }
 
 func (r *ClusterClaimReconciler) requeueClusterClaimsForClusterManager(o client.Object) []ctrl.Request {
-	clm := o.DeepCopyObject().(*clusterv1alpha1.ClusterManager)
+	clm := o.DeepCopyObject().(*clusterV1alpha1.ClusterManager)
 	log := r.Log.WithValues("objectMapper", "clusterManagerToClusterClaim", "clusterManager", clm.Name)
 	log.Info("Start to clusterManagerToClusterClaim mapping...")
 
 	//get clusterManager
-	cc := &claimv1alpha1.ClusterClaim{}
+	cc := &claimV1alpha1.ClusterClaim{}
 	key := types.NamespacedName{
-		Name:      clm.Labels[clusterv1alpha1.LabelKeyClcName],
+		Name:      clm.Labels[clusterV1alpha1.LabelKeyClcName],
 		Namespace: clm.Namespace,
 	}
 	if err := r.Get(context.TODO(), key, cc); errors.IsNotFound(err) {
@@ -119,7 +119,7 @@ func (r *ClusterClaimReconciler) requeueClusterClaimsForClusterManager(o client.
 
 func (r *ClusterClaimReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	controller, err := ctrl.NewControllerManagedBy(mgr).
-		For(&claimv1alpha1.ClusterClaim{}).
+		For(&claimV1alpha1.ClusterClaim{}).
 		WithEventFilter(
 			predicate.Funcs{
 				CreateFunc: func(e event.CreateEvent) bool {
@@ -143,7 +143,7 @@ func (r *ClusterClaimReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	}
 
 	return controller.Watch(
-		&source.Kind{Type: &clusterv1alpha1.ClusterManager{}},
+		&source.Kind{Type: &clusterV1alpha1.ClusterManager{}},
 		handler.EnqueueRequestsFromMapFunc(r.requeueClusterClaimsForClusterManager),
 		predicate.Funcs{
 			UpdateFunc: func(e event.UpdateEvent) bool {
@@ -153,9 +153,9 @@ func (r *ClusterClaimReconciler) SetupWithManager(mgr ctrl.Manager) error {
 				return false
 			},
 			DeleteFunc: func(e event.DeleteEvent) bool {
-				clm := e.Object.(*clusterv1alpha1.ClusterManager)
-				val, ok := clm.Labels[clusterv1alpha1.LabelKeyClmClusterType]
-				if ok && val == clusterv1alpha1.ClusterTypeCreated {
+				clm := e.Object.(*clusterV1alpha1.ClusterManager)
+				val, ok := clm.Labels[clusterV1alpha1.LabelKeyClmClusterType]
+				if ok && val == clusterV1alpha1.ClusterTypeCreated {
 					return true
 				}
 				return false

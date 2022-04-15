@@ -18,12 +18,12 @@ import (
 	"context"
 	"strings"
 
-	clusterv1alpha1 "github.com/tmax-cloud/hypercloud-multi-operator/apis/cluster/v1alpha1"
+	clusterV1alpha1 "github.com/tmax-cloud/hypercloud-multi-operator/apis/cluster/v1alpha1"
 
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 
-	capiv1 "sigs.k8s.io/cluster-api/api/v1alpha3"
+	capiV1alpha3 "sigs.k8s.io/cluster-api/api/v1alpha3"
 	controlplanev1 "sigs.k8s.io/cluster-api/controlplane/kubeadm/api/v1alpha3"
 	"sigs.k8s.io/cluster-api/util/patch"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -31,7 +31,7 @@ import (
 )
 
 func (r *ClusterManagerReconciler) requeueClusterManagersForCluster(o client.Object) []ctrl.Request {
-	c := o.DeepCopyObject().(*capiv1.Cluster)
+	c := o.DeepCopyObject().(*capiV1alpha3.Cluster)
 	log := r.Log.WithValues("objectMapper", "clusterToClusterManager", "namespace", c.Namespace, c.Kind, c.Name)
 	log.Info("Start to requeueClusterManagersForCluster mapping...")
 
@@ -40,7 +40,7 @@ func (r *ClusterManagerReconciler) requeueClusterManagersForCluster(o client.Obj
 		Name:      c.Name,
 		Namespace: c.Namespace,
 	}
-	clm := &clusterv1alpha1.ClusterManager{}
+	clm := &clusterV1alpha1.ClusterManager{}
 	if err := r.Get(context.TODO(), key, clm); errors.IsNotFound(err) {
 		log.Info("ClusterManager resource not found. Ignoring since object must be deleted")
 		return nil
@@ -56,7 +56,7 @@ func (r *ClusterManagerReconciler) requeueClusterManagersForCluster(o client.Obj
 			log.Error(err, "ClusterManager patch error")
 		}
 	}()
-	// clm.Status.SetTypedPhase(clusterv1alpha1.ClusterManagerPhaseProvisioned)
+	// clm.Status.SetTypedPhase(clusterV1alpha1.ClusterManagerPhaseProvisioned)
 	clm.Status.ControlPlaneReady = c.Status.ControlPlaneInitialized
 
 	return nil
@@ -76,7 +76,7 @@ func (r *ClusterManagerReconciler) requeueClusterManagersForKubeadmControlPlane(
 		Name:      strings.Split(cp.Name, "-control-plane")[0],
 		Namespace: cp.Namespace,
 	}
-	clm := &clusterv1alpha1.ClusterManager{}
+	clm := &clusterV1alpha1.ClusterManager{}
 	if err := r.Get(context.TODO(), key, clm); errors.IsNotFound(err) {
 		log.Info("ClusterManager resource not found. Ignoring since object must be deleted")
 		return nil
@@ -99,7 +99,7 @@ func (r *ClusterManagerReconciler) requeueClusterManagersForKubeadmControlPlane(
 }
 
 func (r *ClusterManagerReconciler) requeueClusterManagersForMachineDeployment(o client.Object) []ctrl.Request {
-	md := o.DeepCopyObject().(*capiv1.MachineDeployment)
+	md := o.DeepCopyObject().(*capiV1alpha3.MachineDeployment)
 	log := r.Log.WithValues("objectMapper", "MachineDeploymentToClusterManagers", "namespace", md.Namespace, md.Kind, md.Name)
 
 	// Don't handle deleted machinedeployment
@@ -113,7 +113,7 @@ func (r *ClusterManagerReconciler) requeueClusterManagersForMachineDeployment(o 
 		Name:      strings.Split(md.Name, "-md-0")[0],
 		Namespace: md.Namespace,
 	}
-	clm := &clusterv1alpha1.ClusterManager{}
+	clm := &clusterV1alpha1.ClusterManager{}
 	if err := r.Get(context.TODO(), key, clm); errors.IsNotFound(err) {
 		log.Info("ClusterManager is deleted")
 		return nil
@@ -140,10 +140,10 @@ func (r *ClusterManagerReconciler) requeueClusterManagersForSubresources(o clien
 
 	//get ClusterManager
 	key := types.NamespacedName{
-		Name:      o.GetLabels()[clusterv1alpha1.LabelKeyClmName],
+		Name:      o.GetLabels()[clusterV1alpha1.LabelKeyClmName],
 		Namespace: o.GetNamespace(),
 	}
-	clm := &clusterv1alpha1.ClusterManager{}
+	clm := &clusterV1alpha1.ClusterManager{}
 	if err := r.Get(context.TODO(), key, clm); errors.IsNotFound(err) {
 		log.Info("ClusterManager is deleted")
 		return nil

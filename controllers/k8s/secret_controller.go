@@ -19,10 +19,10 @@ import (
 	"strings"
 
 	"github.com/go-logr/logr"
-	clusterv1alpha1 "github.com/tmax-cloud/hypercloud-multi-operator/apis/cluster/v1alpha1"
+	clusterV1alpha1 "github.com/tmax-cloud/hypercloud-multi-operator/apis/cluster/v1alpha1"
 	"github.com/tmax-cloud/hypercloud-multi-operator/controllers/util"
 
-	corev1 "k8s.io/api/core/v1"
+	coreV1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -64,7 +64,7 @@ func (r *SecretReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ c
 	log.Info("Start to reconcile secret")
 
 	//get secret
-	secret := &corev1.Secret{}
+	secret := &coreV1.Secret{}
 	if err := r.Get(context.TODO(), key, secret); errors.IsNotFound(err) {
 		log.Info("Secret resource not found. Ignoring since object must be deleted")
 		return ctrl.Result{}, nil
@@ -86,8 +86,8 @@ func (r *SecretReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ c
 	}()
 
 	// Add finalizer first if not exist to avoid the race condition between init and delete
-	if !controllerutil.ContainsFinalizer(secret, clusterv1alpha1.ClusterManagerFinalizer) {
-		controllerutil.AddFinalizer(secret, clusterv1alpha1.ClusterManagerFinalizer)
+	if !controllerutil.ContainsFinalizer(secret, clusterV1alpha1.ClusterManagerFinalizer) {
+		controllerutil.AddFinalizer(secret, clusterV1alpha1.ClusterManagerFinalizer)
 		return ctrl.Result{}, nil
 	}
 
@@ -100,8 +100,8 @@ func (r *SecretReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ c
 }
 
 // reconcile handles cluster reconciliation.
-func (r *SecretReconciler) reconcile(ctx context.Context, secret *corev1.Secret) (ctrl.Result, error) {
-	phases := []func(context.Context, *corev1.Secret) (ctrl.Result, error){
+func (r *SecretReconciler) reconcile(ctx context.Context, secret *coreV1.Secret) (ctrl.Result, error) {
+	phases := []func(context.Context, *coreV1.Secret) (ctrl.Result, error){
 		r.UpdateClusterManagerControlPlaneEndpoint,
 		r.DeployRolebinding,
 		r.DeployArgocdResources,
@@ -123,7 +123,7 @@ func (r *SecretReconciler) reconcile(ctx context.Context, secret *corev1.Secret)
 	return res, kerrors.NewAggregate(errs)
 }
 
-func (r *SecretReconciler) reconcileDelete(ctx context.Context, secret *corev1.Secret) (reconcile.Result, error) {
+func (r *SecretReconciler) reconcileDelete(ctx context.Context, secret *coreV1.Secret) (reconcile.Result, error) {
 	key := types.NamespacedName{
 		Name:      secret.Name,
 		Namespace: secret.Namespace,
@@ -132,10 +132,10 @@ func (r *SecretReconciler) reconcileDelete(ctx context.Context, secret *corev1.S
 	log.Info("Start to reconcile delete")
 
 	key = types.NamespacedName{
-		Name:      secret.Labels[clusterv1alpha1.LabelKeyClmName],
-		Namespace: secret.Labels[clusterv1alpha1.LabelKeyClmNamespace],
+		Name:      secret.Labels[clusterV1alpha1.LabelKeyClmName],
+		Namespace: secret.Labels[clusterV1alpha1.LabelKeyClmNamespace],
 	}
-	clm := &clusterv1alpha1.ClusterManager{}
+	clm := &clusterV1alpha1.ClusterManager{}
 	if err := r.Get(context.TODO(), key, clm); err != nil {
 		log.Error(err, "Failed to get ClusterManager")
 		return ctrl.Result{}, err
@@ -151,13 +151,13 @@ func (r *SecretReconciler) reconcileDelete(ctx context.Context, secret *corev1.S
 			}()
 
 			clm.Status.ArgoReady = false
-			controllerutil.RemoveFinalizer(secret, clusterv1alpha1.ClusterManagerFinalizer)
+			controllerutil.RemoveFinalizer(secret, clusterV1alpha1.ClusterManagerFinalizer)
 		} else {
 			key = types.NamespacedName{
-				Name:      clm.Labels[clusterv1alpha1.LabelKeyClrName],
-				Namespace: secret.Labels[clusterv1alpha1.LabelKeyClmNamespace],
+				Name:      clm.Labels[clusterV1alpha1.LabelKeyClrName],
+				Namespace: secret.Labels[clusterV1alpha1.LabelKeyClmNamespace],
 			}
-			clr := &clusterv1alpha1.ClusterRegistration{}
+			clr := &clusterV1alpha1.ClusterRegistration{}
 			if err := r.Get(context.TODO(), key, clr); err != nil {
 				log.Error(err, "Failed to get ClusterRegistration")
 				return ctrl.Result{}, err
@@ -172,15 +172,15 @@ func (r *SecretReconciler) reconcileDelete(ctx context.Context, secret *corev1.S
 
 			clr.Status.Phase = "Validated"
 			clr.Status.Reason = "kubeconfig secret is deleted"
-			controllerutil.RemoveFinalizer(secret, clusterv1alpha1.ClusterManagerFinalizer)
+			controllerutil.RemoveFinalizer(secret, clusterV1alpha1.ClusterManagerFinalizer)
 		}
 
-		controllerutil.RemoveFinalizer(secret, clusterv1alpha1.ClusterManagerFinalizer)
+		controllerutil.RemoveFinalizer(secret, clusterV1alpha1.ClusterManagerFinalizer)
 		return ctrl.Result{}, nil
 	}
 
 	if secret.Labels[util.LabelKeyClmSecretType] == util.ClmSecretTypeArgo {
-		controllerutil.RemoveFinalizer(secret, clusterv1alpha1.ClusterManagerFinalizer)
+		controllerutil.RemoveFinalizer(secret, clusterV1alpha1.ClusterManagerFinalizer)
 		return ctrl.Result{}, nil
 	}
 
@@ -276,7 +276,7 @@ func (r *SecretReconciler) reconcileDelete(ctx context.Context, secret *corev1.S
 		Name:      secret.Annotations[util.AnnotationKeyArgoClusterSecret],
 		Namespace: util.ArgoNamespace,
 	}
-	argoClusterSecret := &corev1.Secret{}
+	argoClusterSecret := &coreV1.Secret{}
 	if err := r.Get(context.TODO(), key, argoClusterSecret); errors.IsNotFound(err) {
 		log.Info("Cannot found Secret for argocd external cluster [" + argoClusterSecret.Name + "]. Maybe already deleted")
 	} else if err != nil {
@@ -291,25 +291,25 @@ func (r *SecretReconciler) reconcileDelete(ctx context.Context, secret *corev1.S
 	}
 	// 클러스터를 사용중이던 사용자의 crb도 지워야되나.. db에서 읽어서 지워야 하는데?
 
-	controllerutil.RemoveFinalizer(secret, clusterv1alpha1.ClusterManagerFinalizer)
+	controllerutil.RemoveFinalizer(secret, clusterV1alpha1.ClusterManagerFinalizer)
 	return ctrl.Result{}, nil
 }
 
 func (r *SecretReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	controller, err := ctrl.NewControllerManagedBy(mgr).
-		For(&corev1.Secret{}).
+		For(&coreV1.Secret{}).
 		WithEventFilter(
 			predicate.Funcs{
 				CreateFunc: func(e event.CreateEvent) bool {
 					return false
 				},
 				UpdateFunc: func(e event.UpdateEvent) bool {
-					oldSecret := e.ObjectOld.(*corev1.Secret).DeepCopy()
-					newSecret := e.ObjectNew.(*corev1.Secret).DeepCopy()
+					oldSecret := e.ObjectOld.(*coreV1.Secret).DeepCopy()
+					newSecret := e.ObjectNew.(*coreV1.Secret).DeepCopy()
 					_, isTarget := oldSecret.Labels[util.LabelKeyClmSecretType]
 					isDelete := oldSecret.GetDeletionTimestamp().IsZero() && !newSecret.GetDeletionTimestamp().IsZero()
-					isFinalized := !controllerutil.ContainsFinalizer(oldSecret, clusterv1alpha1.ClusterManagerFinalizer) &&
-						controllerutil.ContainsFinalizer(newSecret, clusterv1alpha1.ClusterManagerFinalizer)
+					isFinalized := !controllerutil.ContainsFinalizer(oldSecret, clusterV1alpha1.ClusterManagerFinalizer) &&
+						controllerutil.ContainsFinalizer(newSecret, clusterV1alpha1.ClusterManagerFinalizer)
 					if isTarget && (isDelete || isFinalized) {
 						return true
 					}
@@ -330,12 +330,12 @@ func (r *SecretReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	}
 
 	return controller.Watch(
-		&source.Kind{Type: &clusterv1alpha1.ClusterManager{}},
+		&source.Kind{Type: &clusterV1alpha1.ClusterManager{}},
 		&handler.EnqueueRequestForObject{},
 		predicate.Funcs{
 			UpdateFunc: func(e event.UpdateEvent) bool {
-				oldClm := e.ObjectOld.(*clusterv1alpha1.ClusterManager)
-				newClm := e.ObjectNew.(*clusterv1alpha1.ClusterManager)
+				oldClm := e.ObjectOld.(*clusterV1alpha1.ClusterManager)
+				newClm := e.ObjectNew.(*clusterV1alpha1.ClusterManager)
 				if !oldClm.Status.ControlPlaneReady && newClm.Status.ControlPlaneReady {
 					return true
 				}

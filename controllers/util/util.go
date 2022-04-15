@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	corev1 "k8s.io/api/core/v1"
+	coreV1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/client-go/kubernetes"
 	restclient "k8s.io/client-go/rest"
@@ -46,7 +46,7 @@ func LowestNonZeroResult(i, j ctrl.Result) ctrl.Result {
 // 	return id
 // }
 
-func GetRemoteK8sClient(secret *corev1.Secret) (*kubernetes.Clientset, error) {
+func GetRemoteK8sClient(secret *coreV1.Secret) (*kubernetes.Clientset, error) {
 	value, ok := secret.Data["value"]
 	if !ok {
 		err := errors.NewBadRequest("secret does not have a value")
@@ -154,7 +154,7 @@ func GetProviderName(provider string) (string, error) {
 }
 
 // func IsIpAddress(endPoint string) bool {
-// 	reg, _ := regexp.Compile(`[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}`)
+// 	reg, _ := regexp.Compile(`^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$`)
 
 // 	return reg.MatchString(endPoint)
 // }

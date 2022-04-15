@@ -8,7 +8,7 @@ import (
 	"net/http"
 	"strings"
 
-	clusterv1alpha1 "github.com/tmax-cloud/hypercloud-multi-operator/apis/cluster/v1alpha1"
+	clusterV1alpha1 "github.com/tmax-cloud/hypercloud-multi-operator/apis/cluster/v1alpha1"
 )
 
 func Delete(namespace, cluster string) error {
@@ -36,7 +36,7 @@ func Delete(namespace, cluster string) error {
 	return nil
 }
 
-func Insert(clusterManager *clusterv1alpha1.ClusterManager) error {
+func Insert(clusterManager *clusterV1alpha1.ClusterManager) error {
 	// hypercloud api call
 	url := "https://hypercloud5-api-server-service.hypercloud5-system.svc.cluster.local/namespaces/{namespace}/clustermanagers/{clustermanager}"
 

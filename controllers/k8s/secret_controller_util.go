@@ -15,7 +15,7 @@ limitations under the License.
 package controllers
 
 import (
-	corev1 "k8s.io/api/core/v1"
+	coreV1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -23,7 +23,7 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 )
 
-func getKubeConfig(secret corev1.Secret) (*rest.Config, error) {
+func getKubeConfig(secret coreV1.Secret) (*rest.Config, error) {
 	if value, ok := secret.Data["value"]; ok {
 		if clientConfig, err := clientcmd.NewClientConfigFromBytes(value); err == nil {
 			if restConfig, err := clientConfig.ClientConfig(); err == nil {

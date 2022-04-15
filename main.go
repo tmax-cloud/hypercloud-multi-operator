@@ -19,21 +19,21 @@ import (
 	"os"
 
 	// +kubebuilder:scaffold:imports
-	certmanagerv1 "github.com/jetstack/cert-manager/pkg/apis/certmanager/v1"
+	certmanagerV1 "github.com/jetstack/cert-manager/pkg/apis/certmanager/v1"
 	servicecatalogv1beta1 "github.com/kubernetes-sigs/service-catalog/pkg/apis/servicecatalog/v1beta1"
-	claimv1alpha1 "github.com/tmax-cloud/hypercloud-multi-operator/apis/claim/v1alpha1"
-	clusterv1alpha1 "github.com/tmax-cloud/hypercloud-multi-operator/apis/cluster/v1alpha1"
+	claimV1alpha1 "github.com/tmax-cloud/hypercloud-multi-operator/apis/claim/v1alpha1"
+	clusterV1alpha1 "github.com/tmax-cloud/hypercloud-multi-operator/apis/cluster/v1alpha1"
 	claimcontroller "github.com/tmax-cloud/hypercloud-multi-operator/controllers/claim"
 	clustercontroller "github.com/tmax-cloud/hypercloud-multi-operator/controllers/cluster"
 	k8scontroller "github.com/tmax-cloud/hypercloud-multi-operator/controllers/k8s"
-	traefikv2 "github.com/traefik/traefik/v2/pkg/provider/kubernetes/crd/traefik/v1alpha1"
+	traefikV1alpha1 "github.com/traefik/traefik/v2/pkg/provider/kubernetes/crd/traefik/v1alpha1"
 
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 
-	clusterv1alpha3 "sigs.k8s.io/cluster-api/api/v1alpha3"
+	clusterV1alpha3 "sigs.k8s.io/cluster-api/api/v1alpha3"
 	controlplanev1 "sigs.k8s.io/cluster-api/controlplane/kubeadm/api/v1alpha3"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
@@ -46,13 +46,13 @@ var (
 
 func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
-	utilruntime.Must(claimv1alpha1.AddToScheme(scheme))
-	utilruntime.Must(clusterv1alpha1.AddToScheme(scheme))
-	utilruntime.Must(clusterv1alpha3.AddToScheme(scheme))
+	utilruntime.Must(claimV1alpha1.AddToScheme(scheme))
+	utilruntime.Must(clusterV1alpha1.AddToScheme(scheme))
+	utilruntime.Must(clusterV1alpha3.AddToScheme(scheme))
 	utilruntime.Must(controlplanev1.AddToScheme(scheme))
 	utilruntime.Must(servicecatalogv1beta1.AddToScheme(scheme))
-	utilruntime.Must(certmanagerv1.AddToScheme((scheme)))
-	utilruntime.Must(traefikv2.AddToScheme(scheme))
+	utilruntime.Must(certmanagerV1.AddToScheme((scheme)))
+	utilruntime.Must(traefikV1alpha1.AddToScheme(scheme))
 	// +kubebuilder:scaffold:scheme
 }
 
@@ -95,11 +95,11 @@ func main() {
 		setupLog.Error(err, "unable to create controller", "controller", "ClusterManager")
 		os.Exit(1)
 	}
-	if err = (&claimv1alpha1.ClusterClaim{}).SetupWebhookWithManager(mgr); err != nil {
+	if err = (&claimV1alpha1.ClusterClaim{}).SetupWebhookWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create webhook", "webhook", "ClusterClaim")
 		os.Exit(1)
 	}
-	if err = (&clusterv1alpha1.ClusterManager{}).SetupWebhookWithManager(mgr); err != nil {
+	if err = (&clusterV1alpha1.ClusterManager{}).SetupWebhookWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create webhook", "webhook", "ClusterManager")
 		os.Exit(1)
 	}
@@ -136,7 +136,7 @@ func main() {
 		setupLog.Error(err, "unable to create controller", "controller", "ClusterRegistration")
 		os.Exit(1)
 	}
-	if err = (&clusterv1alpha1.ClusterRegistration{}).SetupWebhookWithManager(mgr); err != nil {
+	if err = (&clusterV1alpha1.ClusterRegistration{}).SetupWebhookWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create webhook", "webhook", "ClusterRegistration")
 		os.Exit(1)
 	}
