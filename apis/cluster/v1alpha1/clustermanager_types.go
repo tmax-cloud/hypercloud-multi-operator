@@ -15,7 +15,7 @@ limitations under the License.
 package v1alpha1
 
 import (
-	corev1 "k8s.io/api/core/v1"
+	coreV1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 )
@@ -101,19 +101,20 @@ type ProviderVsphereSpec struct {
 
 // ClusterManagerStatus defines the observed state of ClusterManager
 type ClusterManagerStatus struct {
-	Provider             string                  `json:"provider,omitempty"`
-	Version              string                  `json:"version,omitempty"`
-	Ready                bool                    `json:"ready,omitempty"`
-	ControlPlaneReady    bool                    `json:"controlPlaneReady,omitempty"`
-	MasterRun            int                     `json:"masterRun,omitempty"`
-	WorkerRun            int                     `json:"workerRun,omitempty"`
-	NodeInfo             []corev1.NodeSystemInfo `json:"nodeInfo,omitempty"`
-	Phase                string                  `json:"phase,omitempty"`
-	ControlPlaneEndpoint string                  `json:"controlPlaneEndpoint,omitempty"`
-	ArgoReady            bool                    `json:"argoReady,omitempty"`
-	TraefikReady         bool                    `json:"traefikReady,omitempty"`
-	MonitoringReady      bool                    `json:"gatewayReady,omitempty"`
-	AuthClientReady      bool                    `json:"authClientReady,omitempty"`
+	Provider               string                  `json:"provider,omitempty"`
+	Version                string                  `json:"version,omitempty"`
+	Ready                  bool                    `json:"ready,omitempty"`
+	ControlPlaneReady      bool                    `json:"controlPlaneReady,omitempty"`
+	MasterRun              int                     `json:"masterRun,omitempty"`
+	WorkerRun              int                     `json:"workerRun,omitempty"`
+	NodeInfo               []coreV1.NodeSystemInfo `json:"nodeInfo,omitempty"`
+	Phase                  string                  `json:"phase,omitempty"`
+	ControlPlaneEndpoint   string                  `json:"controlPlaneEndpoint,omitempty"`
+	ArgoReady              bool                    `json:"argoReady,omitempty"`
+	TraefikReady           bool                    `json:"traefikReady,omitempty"`
+	MonitoringReady        bool                    `json:"gatewayReady,omitempty"`
+	AuthClientReady        bool                    `json:"authClientReady,omitempty"`
+	HyperregistryOidcReady bool                    `json:"hyperregistryOidcReady,omitempty"`
 	// will be deprecated
 	PrometheusReady bool `json:"prometheusReady,omitempty"`
 }

@@ -118,6 +118,8 @@ spec:
               type: boolean
             gatewayReady:
               type: boolean
+            hyperregistryOidcReady:
+              type: boolean
             masterRun:
               type: integer
             nodeInfo:
