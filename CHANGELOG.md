@@ -1,6 +1,23 @@
 # HyperCloud-Multi-Operator changelog!!
 All notable changes to this project will be documented in this file.
 
+<!-------------------- v5.0.26.8 start -------------------->
+
+## HyperCloud-Multi-Operator_5.0.26.8 (2022. 04. 21. (목) 17:11:41 KST)
+
+### Added
+  - [feat] opensearch용 hyperauth client 생성 로직 추가 및 tls secret deploy 로직 추가 by SISILIA
+
+### Changed
+
+### Fixed
+
+### CRD yaml
+
+### Etc
+
+<!--------------------- v5.0.26.8 end --------------------->
+
 <!-------------------- v5.0.26.7 start -------------------->
 
 ## HyperCloud-Multi-Operator_5.0.26.7 (2022. 04. 15. (금) 16:04:27 KST)
