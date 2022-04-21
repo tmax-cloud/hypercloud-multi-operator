@@ -29,6 +29,8 @@ spec:
           value: ${auth_client_secret}
         - name: AUTH_SUBDOMAIN
           value: ${auth_subdomain}
+        - name: GATEWAY_TLS_SECRET
+          value: ${gateway_tls_secret}
         image: controller:latest
         name: manager
         resources:

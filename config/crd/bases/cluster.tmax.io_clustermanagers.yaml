@@ -177,6 +177,8 @@ spec:
                 - systemUUID
                 type: object
               type: array
+            openSearchReady:
+              type: boolean
             phase:
               type: string
             prometheusReady:

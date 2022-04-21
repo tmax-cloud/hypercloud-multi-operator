@@ -15,26 +15,22 @@ limitations under the License.
 package controllers
 
 import (
-	coreV1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/rest"
-	"k8s.io/client-go/tools/clientcmd"
 )
 
-func getKubeConfig(secret coreV1.Secret) (*rest.Config, error) {
-	if value, ok := secret.Data["value"]; ok {
-		if clientConfig, err := clientcmd.NewClientConfigFromBytes(value); err == nil {
-			if restConfig, err := clientConfig.ClientConfig(); err == nil {
-				return restConfig, nil
-			}
-		}
-	}
-	return nil, errors.NewBadRequest("getClientConfig Error")
-}
+// func getKubeConfig(secret coreV1.Secret) (*rest.Config, error) {
+// 	if value, ok := secret.Data["value"]; ok {
+// 		if clientConfig, err := clientcmd.NewClientConfigFromBytes(value); err == nil {
+// 			if restConfig, err := clientConfig.ClientConfig(); err == nil {
+// 				return restConfig, nil
+// 			}
+// 		}
+// 	}
+// 	return nil, errors.NewBadRequest("getClientConfig Error")
+// }
 
-func createClusterRole(name string, targetGroup []string, verbList []string) *rbacv1.ClusterRole {
+func CreateClusterRole(name string, targetGroup []string, verbList []string) *rbacv1.ClusterRole {
 	clusterRole := &rbacv1.ClusterRole{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: name,

@@ -278,7 +278,7 @@ func CreateClientLevelRole(config ClientLevelRoleConfig, secret *coreV1.Secret) 
 	params := map[string]string{
 		"id": id,
 	}
-	url := SetServiceDomainURI(KEYCLOAK_ADMIN_SERVICE_CREATE_ROLES, params)
+	url := SetServiceDomainURI(KEYCLOAK_ADMIN_SERVICE_CREATE_CLIENT_ROLES, params)
 	req, err := http.NewRequest(http.MethodPost, url, playload)
 	if err != nil {
 		return err
@@ -342,7 +342,7 @@ func GetUserIdByEmail(userEmail string, secret *coreV1.Secret) (string, error) {
 	return respJson.Id, nil
 }
 
-func GetRoleIdByRoleName(clientId string, roleName string, secret *coreV1.Secret) (string, error) {
+func GetClientRoleIdByRoleName(clientId string, roleName string, secret *coreV1.Secret) (string, error) {
 	token, err := GetTokenAsAdmin(secret)
 	if err != nil {
 		return "", err
@@ -360,7 +360,7 @@ func GetRoleIdByRoleName(clientId string, roleName string, secret *coreV1.Secret
 		"id":       id,
 		"roleName": roleName,
 	}
-	url := SetServiceDomainURI(KEYCLOAK_ADMIN_SERVICE_GET_ROLE_BY_NAME, params)
+	url := SetServiceDomainURI(KEYCLOAK_ADMIN_SERVICE_GET_CLIENT_ROLE_BY_NAME, params)
 	req, err := http.NewRequest(http.MethodGet, url, nil)
 	if err != nil {
 		return "", err
@@ -410,7 +410,7 @@ func AddClientLevelRolesToUserRoleMapping(config ClientLevelRoleConfig, userEmai
 		return err
 	}
 
-	roleId, err := GetRoleIdByRoleName(config.ClientId, config.Role.Name, secret)
+	roleId, err := GetClientRoleIdByRoleName(config.ClientId, config.Role.Name, secret)
 	if err != nil {
 		return err
 	}
@@ -430,7 +430,100 @@ func AddClientLevelRolesToUserRoleMapping(config ClientLevelRoleConfig, userEmai
 		"userId": userId,
 		"id":     id,
 	}
-	url := SetServiceDomainURI(KEYCLOAK_ADMIN_SERVICE_ADD_ROLE_TO_USER, params)
+	url := SetServiceDomainURI(KEYCLOAK_ADMIN_SERVICE_ADD_CLIENT_ROLE_TO_USER, params)
+	req, err := http.NewRequest(http.MethodPost, url, playload)
+	if err != nil {
+		return err
+	}
+	req.Header.Add("Content-Type", "application/json")
+	req.Header.Add("Authorization", "Bearer "+token)
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	if !IsOK(resp.StatusCode) {
+		reqDump, _ := httputil.DumpRequest(req, true)
+		return fmt.Errorf("failed to add role to user: " + string(reqDump) + "\n" + resp.Status)
+	}
+
+	return nil
+}
+
+func GetRealmRoleIdByRoleName(roleName string, secret *coreV1.Secret) (string, error) {
+	token, err := GetTokenAsAdmin(secret)
+	if err != nil {
+		return "", err
+	}
+
+	params := map[string]string{
+		"roleName": roleName,
+	}
+	url := SetServiceDomainURI(KEYCLOAK_ADMIN_SERVICE_GET_REALM_ROLE_BY_NAME, params)
+	req, err := http.NewRequest(http.MethodGet, url, nil)
+	if err != nil {
+		return "", err
+	}
+	req.Header.Add("Authorization", "Bearer "+token)
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+
+	reqDump, _ := httputil.DumpRequest(req, true)
+	if !IsOK(resp.StatusCode) {
+		return "", fmt.Errorf("failed to get role: " + string(reqDump) + "\n" + resp.Status)
+	}
+
+	respJson := &RoleConfig{}
+	err = json.NewDecoder(resp.Body).Decode(respJson)
+	if err != nil {
+		return "", err
+	}
+	if respJson == nil {
+		return "", fmt.Errorf("role not found")
+	}
+
+	return respJson.Id, nil
+}
+
+func AddRealmLevelRolesToUserRoleMapping(roleName string, userEmail string, secret *coreV1.Secret) error {
+	token, err := GetTokenAsAdmin(secret)
+	if err != nil {
+		return err
+	}
+
+	userId, err := GetUserIdByEmail(userEmail, secret)
+	if err != nil {
+		return err
+	}
+
+	roleId, err := GetRealmRoleIdByRoleName(roleName, secret)
+	if err != nil {
+		return err
+	}
+	data := []RoleConfig{
+		{
+			Id:   roleId,
+			Name: roleName,
+		},
+	}
+	jsonData, err := json.Marshal(data)
+	if err != nil {
+		return err
+	}
+	playload := bytes.NewBuffer(jsonData)
+
+	params := map[string]string{
+		"userId": userId,
+	}
+	url := SetServiceDomainURI(KEYCLOAK_ADMIN_SERVICE_ADD_REALM_ROLE_TO_USER, params)
 	req, err := http.NewRequest(http.MethodPost, url, playload)
 	if err != nil {
 		return err

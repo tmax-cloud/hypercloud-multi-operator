@@ -20,6 +20,7 @@ const (
 	IngressNginxNamespace  = "ingress-nginx"
 	ArgoNamespace          = "argocd"
 	HyperregistryNamespace = "hyperregistry"
+	OpenSearchNamespace    = "kube-logging"
 )
 
 const (

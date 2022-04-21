@@ -21,12 +21,13 @@ const (
 	KEYCLOAK_ADMIN_SERVICE_CREATE_CLIENT                  = "/auth/admin/realms/tmax/clients"
 	KEYCLOAK_ADMIN_SERVICE_DELETE_CLIENT                  = "/auth/admin/realms/tmax/clients/@@id@@"
 	KEYCLOAK_ADMIN_SERVICE_CREATE_CLIENT_PROTOCOL_MAPPERS = "/auth/admin/realms/tmax/clients/@@id@@/protocol-mappers/models"
-	KEYCLOAK_ADMIN_SERVICE_CREATE_ROLES                   = "/auth/admin/realms/tmax/clients/@@id@@/roles"
-	KEYCLOAK_ADMIN_SERVICE_GET_ROLE_BY_NAME               = "/auth/admin/realms/tmax/clients/@@id@@/roles/@@roleName@@"
-	KEYCLOAK_ADMIN_SERVICE_ADD_ROLE_TO_USER               = "/auth/admin/realms/tmax/users/@@userId@@/role-mappings/clients/@@id@@"
+	KEYCLOAK_ADMIN_SERVICE_CREATE_CLIENT_ROLES            = "/auth/admin/realms/tmax/clients/@@id@@/roles"
+	KEYCLOAK_ADMIN_SERVICE_GET_CLIENT_ROLE_BY_NAME        = "/auth/admin/realms/tmax/clients/@@id@@/roles/@@roleName@@"
+	KEYCLOAK_ADMIN_SERVICE_ADD_CLIENT_ROLE_TO_USER        = "/auth/admin/realms/tmax/users/@@userId@@/role-mappings/clients/@@id@@"
 	KEYCLOAK_ADMIN_SERVICE_GET_CLIENT_SCOPES              = "/auth/admin/realms/tmax/client-scopes"
 	KEYCLOAK_ADMIN_SERVICE_ADD_CLIENT_SCOPE_TO_CLIENT     = "/auth/admin/realms/tmax/clients/@@id@@/optional-client-scopes/@@clientScopeId@@"
-
+	KEYCLOAK_ADMIN_SERVICE_GET_REALM_ROLE_BY_NAME         = "/auth/admin/realms/tmax/roles/@@roleName@@"
+	KEYCLOAK_ADMIN_SERVICE_ADD_REALM_ROLE_TO_USER         = "/auth/admin/realms/tmax/users/@@userId@@/role-mappings/realm"
 	// hyperauth api
 	HYPERAUTH_SERVICE_GET_USER_ID_BY_EMAIL = "/auth/realms/tmax/user/@@userEmail@@?token=@@token@@"
 )
@@ -35,4 +36,6 @@ const (
 	PROTOCOL_MAPPER_CONFIG_PROTOCOL_OPENID_CONNECT        = "openid-connect"
 	PROTOCOL_MAPPER_CONFIG_PROTOCOL_NAME_AUDIENCE         = "oidc-audience-mapper"
 	PROTOCOL_MAPPER_CONFIG_PROTOCOL_NAME_GROUP_MEMBERSHIP = "oidc-group-membership-mapper"
+	PROTOCOL_MAPPER_CONFIG_PROTOCOL_NAME_USER_REALM_ROLE  = "oidc-usermodel-realm-role-mapper"
+	PROTOCOL_MAPPER_CONFIG_PROTOCOL_NAME_USER_CLIENT_ROLE = "oidc-usermodel-client-role-mapper"
 )

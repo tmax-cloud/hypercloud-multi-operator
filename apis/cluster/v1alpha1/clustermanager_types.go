@@ -115,6 +115,7 @@ type ClusterManagerStatus struct {
 	MonitoringReady        bool                    `json:"gatewayReady,omitempty"`
 	AuthClientReady        bool                    `json:"authClientReady,omitempty"`
 	HyperregistryOidcReady bool                    `json:"hyperregistryOidcReady,omitempty"`
+	OpenSearchReady        bool                    `json:"openSearchReady,omitempty"`
 	// will be deprecated
 	PrometheusReady bool `json:"prometheusReady,omitempty"`
 }

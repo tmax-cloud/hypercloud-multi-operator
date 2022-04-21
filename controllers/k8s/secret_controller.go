@@ -105,6 +105,7 @@ func (r *SecretReconciler) reconcile(ctx context.Context, secret *coreV1.Secret)
 		r.UpdateClusterManagerControlPlaneEndpoint,
 		r.DeployRolebinding,
 		r.DeployArgocdResources,
+		r.DeployOpensearchResources,
 	}
 
 	res := ctrl.Result{}
@@ -290,6 +291,27 @@ func (r *SecretReconciler) reconcileDelete(ctx context.Context, secret *coreV1.S
 		log.Info("Delete Secret for argocd external cluster [" + argoClusterSecret.Name + "] successfully")
 	}
 	// 클러스터를 사용중이던 사용자의 crb도 지워야되나.. db에서 읽어서 지워야 하는데?
+
+	_, err = remoteClientset.
+		CoreV1().
+		Secrets(util.OpenSearchNamespace).
+		Get(context.TODO(), "hyperauth-ca", metav1.GetOptions{})
+	if errors.IsNotFound(err) {
+		log.Info("Cannot found Secret for opensearch. Maybe already deleted")
+	} else if err != nil {
+		log.Error(err, "Cannot found Secret for search")
+		return ctrl.Result{}, err
+	} else {
+		err = remoteClientset.
+			CoreV1().
+			Secrets(util.OpenSearchNamespace).
+			Delete(context.TODO(), "hyperauth-ca", metav1.DeleteOptions{})
+		if err != nil {
+			log.Error(err, "Failed to delete secret for opensearch")
+			return ctrl.Result{}, err
+		}
+		log.Info("Delete secret for opensearch successfully")
+	}
 
 	controllerutil.RemoveFinalizer(secret, clusterV1alpha1.ClusterManagerFinalizer)
 	return ctrl.Result{}, nil

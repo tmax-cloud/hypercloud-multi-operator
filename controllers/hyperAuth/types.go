@@ -21,6 +21,9 @@ type ClientConfig struct {
 	DirectAccessGrantsEnabled bool     `json:"directAccessGrantsEnabled,omitempty"`
 	ImplicitFlowEnabled       bool     `json:"implicitFlowEnabled,omitempty"`
 	RedirectUris              []string `json:"redirectUris,omitempty"`
+	// AdminUrl                  string   `json:"adminUrl,omitempty"`
+	// RootUrl                   string   `json:"rootUrl,omitempty"`
+	// WebOrigins                []string `json:"webOrigins,omitempty"`
 	// ServiceAccountsEnabled    bool     `json:"serviceAccountsEnabled,omitempty"`
 }
 
@@ -51,9 +54,11 @@ type ProtocolMapperConfig struct {
 type MapperConfig struct {
 	IncludedClientAudience string `json:"included.client.audience,omitempty"`
 	IncludedCustomAudience string `json:"included.custom.audience,omitempty"`
+	Multivalued            bool   `json:"multivalued,omitempty"`
 	ClaimName              string `json:"claim.name,omitempty"`
-	IdTokenClaim           bool   `json:"id.token.claim,omitempty"`
 	FullPath               bool   `json:"full.path,omitempty"`
+	JsonType               string `json:"jsonType,omitempty"`
+	IdTokenClaim           bool   `json:"id.token.claim,omitempty"`
 	AccessTokenClaim       bool   `json:"access.token.claim,omitempty"`
 	UserInfoTokenClaim     bool   `json:"userinfo.token.claim,omitempty"`
 }

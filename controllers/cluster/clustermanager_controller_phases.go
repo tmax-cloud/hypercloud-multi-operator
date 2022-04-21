@@ -52,6 +52,7 @@ func (r *ClusterManagerReconciler) UpdateClusterManagerStatus(ctx context.Contex
 
 	kubeconfigSecret, err := r.GetKubeconfigSecret(clusterManager)
 	if err != nil {
+		log.Error(err, "Failed to get kubeconfig secret")
 		return ctrl.Result{RequeueAfter: requeueAfter10Second}, nil
 	}
 
@@ -473,6 +474,7 @@ func (r *ClusterManagerReconciler) CreateArgocdClusterSecret(ctx context.Context
 
 	kubeconfigSecret, err := r.GetKubeconfigSecret(clusterManager)
 	if err != nil {
+		log.Error(err, "Failed to get kubeconfig secret")
 		return ctrl.Result{RequeueAfter: requeueAfter10Second}, nil
 	}
 
@@ -554,6 +556,7 @@ func (r *ClusterManagerReconciler) CreateMonitoringResources(ctx context.Context
 
 	kubeconfigSecret, err := r.GetKubeconfigSecret(clusterManager)
 	if err != nil {
+		log.Error(err, "Failed to get kubeconfig secret")
 		return ctrl.Result{RequeueAfter: requeueAfter10Second}, nil
 	}
 
@@ -688,7 +691,7 @@ func (r *ClusterManagerReconciler) CreateHyperauthClient(ctx context.Context, cl
 		}
 	}
 
-	clientScopeMappingConfig := hyperauthCaller.GetClientScopeMappingConfig(prefix)
+	clientScopeMappingConfig := hyperauthCaller.GetClientScopeMappingPreset(prefix)
 	for _, config := range clientScopeMappingConfig {
 		err := hyperauthCaller.AddClientScopeToClient(config, secret)
 		if err != nil {
@@ -711,12 +714,13 @@ func (r *ClusterManagerReconciler) SetHyperregistryOidcConfig(ctx context.Contex
 
 	kubeconfigSecret, err := r.GetKubeconfigSecret(clusterManager)
 	if err != nil {
+		log.Error(err, "Failed to get kubeconfig secret")
 		return ctrl.Result{RequeueAfter: requeueAfter10Second}, nil
 	}
 
 	remoteClientset, err := util.GetRemoteK8sClient(kubeconfigSecret)
 	if err != nil {
-		log.Error(err, "failed to get remoteK8sClient")
+		log.Error(err, "Failed to get remoteK8sClient")
 		return ctrl.Result{}, err
 	}
 
@@ -732,7 +736,7 @@ func (r *ClusterManagerReconciler) SetHyperregistryOidcConfig(ctx context.Contex
 	ingress, err := remoteClientset.
 		NetworkingV1().
 		Ingresses(util.HyperregistryNamespace).
-		Get(context.TODO(), "hyperregistry-harbor-core", metav1.GetOptions{})
+		Get(context.TODO(), "hyperregistry-harbor-ingress", metav1.GetOptions{})
 	if err != nil {
 		log.Error(err, "Failed to get Ingress \"hyperregistry-harbor-ingress\"")
 		return ctrl.Result{}, err
@@ -755,75 +759,11 @@ func (r *ClusterManagerReconciler) SetHyperregistryOidcConfig(ctx context.Contex
 	}
 	hostpath := ingress.Spec.Rules[0].Host
 	if err := util.SetHyperregistryOIDC(config, secret, hostpath); err != nil {
+		log.Error(err, "Failed to get ingress for hyperregistry")
 		return ctrl.Result{}, err
 	}
 
 	log.Info("Set oidc config for hyperregistry successfully")
 	clusterManager.Status.HyperregistryOidcReady = true
 	return ctrl.Result{}, nil
-}
-
-func (r *ClusterManagerReconciler) DeleteTraefikResources(clusterManager *clusterV1alpha1.ClusterManager) error {
-	if err := r.DeleteCertificate(clusterManager); err != nil {
-		return err
-	}
-
-	if err := r.DeleteCertSecret(clusterManager); err != nil {
-		return err
-	}
-
-	if err := r.DeleteIngress(clusterManager); err != nil {
-		return err
-	}
-
-	// if err := r.DeleteService(clusterManager); err != nil {
-	// 	return err
-	// }
-
-	// if err := r.DeleteEndpoint(clusterManager); err != nil {
-	// 	return err
-	// }
-
-	if err := r.DeleteMiddleware(clusterManager); err != nil {
-		return err
-	}
-
-	if err := r.DeleteGatewayService(clusterManager); err != nil {
-		return err
-	}
-
-	if err := r.DeleteGatewayEndpoint(clusterManager); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func (r *ClusterManagerReconciler) DeleteClientForSingleCluster(clusterManager *clusterV1alpha1.ClusterManager) error {
-	log := r.Log.WithValues("clustermanager", clusterManager.GetNamespacedName())
-	key := types.NamespacedName{
-		Name:      "passwords",
-		Namespace: "hyperauth",
-	}
-	secret := &coreV1.Secret{}
-	if err := r.Get(context.TODO(), key, secret); errors.IsNotFound(err) {
-		log.Info("Hyperauth password secret is not found")
-		return err
-	} else if err != nil {
-		log.Error(err, "Failed to get hyperauth password secret")
-		return err
-	}
-
-	prefix := clusterManager.Namespace + "-" + clusterManager.Name + "-"
-	clientConfigs := hyperauthCaller.GetClientConfigPreset(prefix)
-	for _, config := range clientConfigs {
-		err := hyperauthCaller.DeleteClient(config, secret)
-		if err != nil {
-			log.Error(err, "Failed to delete hyperauth client ["+config.ClientId+"] for single cluster")
-			return err
-		}
-	}
-
-	log.Info("Delete clients for single cluster successfully")
-	return nil
 }

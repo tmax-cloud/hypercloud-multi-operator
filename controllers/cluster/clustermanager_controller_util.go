@@ -21,6 +21,7 @@ import (
 	certmanagerV1 "github.com/jetstack/cert-manager/pkg/apis/certmanager/v1"
 	certmanagermetaV1 "github.com/jetstack/cert-manager/pkg/apis/meta/v1"
 	clusterV1alpha1 "github.com/tmax-cloud/hypercloud-multi-operator/apis/cluster/v1alpha1"
+	hyperauthCaller "github.com/tmax-cloud/hypercloud-multi-operator/controllers/hyperAuth"
 	util "github.com/tmax-cloud/hypercloud-multi-operator/controllers/util"
 	dynamicv2 "github.com/traefik/traefik/v2/pkg/config/dynamic"
 	traefikV1alpha1 "github.com/traefik/traefik/v2/pkg/provider/kubernetes/crd/traefik/v1alpha1"
@@ -845,5 +846,70 @@ func (r *ClusterManagerReconciler) DeleteDeprecatedPrometheusResources(clusterMa
 		}
 	}
 
+	return nil
+}
+
+func (r *ClusterManagerReconciler) DeleteTraefikResources(clusterManager *clusterV1alpha1.ClusterManager) error {
+	if err := r.DeleteCertificate(clusterManager); err != nil {
+		return err
+	}
+
+	if err := r.DeleteCertSecret(clusterManager); err != nil {
+		return err
+	}
+
+	if err := r.DeleteIngress(clusterManager); err != nil {
+		return err
+	}
+
+	// if err := r.DeleteService(clusterManager); err != nil {
+	// 	return err
+	// }
+
+	// if err := r.DeleteEndpoint(clusterManager); err != nil {
+	// 	return err
+	// }
+
+	if err := r.DeleteMiddleware(clusterManager); err != nil {
+		return err
+	}
+
+	if err := r.DeleteGatewayService(clusterManager); err != nil {
+		return err
+	}
+
+	if err := r.DeleteGatewayEndpoint(clusterManager); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (r *ClusterManagerReconciler) DeleteClientForSingleCluster(clusterManager *clusterV1alpha1.ClusterManager) error {
+	log := r.Log.WithValues("clustermanager", clusterManager.GetNamespacedName())
+	key := types.NamespacedName{
+		Name:      "passwords",
+		Namespace: "hyperauth",
+	}
+	secret := &coreV1.Secret{}
+	if err := r.Get(context.TODO(), key, secret); errors.IsNotFound(err) {
+		log.Info("Hyperauth password secret is not found")
+		return err
+	} else if err != nil {
+		log.Error(err, "Failed to get hyperauth password secret")
+		return err
+	}
+
+	prefix := clusterManager.Namespace + "-" + clusterManager.Name + "-"
+	clientConfigs := hyperauthCaller.GetClientConfigPreset(prefix)
+	for _, config := range clientConfigs {
+		err := hyperauthCaller.DeleteClient(config, secret)
+		if err != nil {
+			log.Error(err, "Failed to delete hyperauth client ["+config.ClientId+"] for single cluster")
+			return err
+		}
+	}
+
+	log.Info("Delete clients for single cluster successfully")
 	return nil
 }

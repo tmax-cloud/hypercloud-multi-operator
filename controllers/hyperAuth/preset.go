@@ -53,6 +53,13 @@ func GetClientConfigPreset(prefix string) []ClientConfig {
 			ImplicitFlowEnabled:       false,
 			RedirectUris:              []string{"*"},
 		},
+		{
+			ClientId:                  prefix + "opensearch",
+			Secret:                    os.Getenv("AUTH_CLIENT_SECRET"),
+			DirectAccessGrantsEnabled: true,
+			ImplicitFlowEnabled:       false,
+			RedirectUris:              []string{"*"},
+		},
 	}
 
 	return configs
@@ -101,6 +108,22 @@ func GetMappingProtocolMapperToClientConfigPreset(prefix string) []ClientLevelPr
 				},
 			},
 		},
+		{
+			ClientId: prefix + "opensearch",
+			ProtocolMapper: ProtocolMapperConfig{
+				Name:           "client roles",
+				Protocol:       PROTOCOL_MAPPER_CONFIG_PROTOCOL_OPENID_CONNECT,
+				ProtocolMapper: PROTOCOL_MAPPER_CONFIG_PROTOCOL_NAME_USER_CLIENT_ROLE,
+				Config: MapperConfig{
+					Multivalued:        true,
+					ClaimName:          "roles",
+					JsonType:           "String",
+					IdTokenClaim:       true,
+					AccessTokenClaim:   true,
+					UserInfoTokenClaim: true,
+				},
+			},
+		},
 	}
 
 	return configs
@@ -120,13 +143,19 @@ func GetClientLevelRoleConfigPreset(prefix string) []ClientLevelRoleConfig {
 				Name: "jaeger-manager",
 			},
 		},
+		{
+			ClientId: prefix + "opensearch",
+			Role: RoleConfig{
+				Name: "opensearch-admin",
+			},
+		},
 	}
+
 	return configs
 }
 
-func GetClientScopeMappingConfig(prefix string) []ClientScopeMappingConfig {
+func GetClientScopeMappingPreset(prefix string) []ClientScopeMappingConfig {
 	configs := []ClientScopeMappingConfig{
-
 		{
 			ClientId: prefix + "kiali",
 			ClientScope: ClientScopeConfig{
