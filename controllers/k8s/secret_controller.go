@@ -105,7 +105,7 @@ func (r *SecretReconciler) reconcile(ctx context.Context, secret *coreV1.Secret)
 		r.UpdateClusterManagerControlPlaneEndpoint,
 		r.DeployRolebinding,
 		r.DeployArgocdResources,
-		r.DeployOpensearchResources,
+		// r.DeployOpensearchResources,
 	}
 
 	res := ctrl.Result{}

@@ -16,7 +16,6 @@ package controllers
 
 import (
 	"context"
-	"os"
 	"strings"
 
 	clusterV1alpha1 "github.com/tmax-cloud/hypercloud-multi-operator/apis/cluster/v1alpha1"
@@ -290,76 +289,77 @@ func (r *SecretReconciler) DeployArgocdResources(ctx context.Context, secret *co
 	return ctrl.Result{}, nil
 }
 
-func (r *SecretReconciler) DeployOpensearchResources(ctx context.Context, secret *coreV1.Secret) (ctrl.Result, error) {
-	log := r.Log.WithValues("secret", types.NamespacedName{Name: secret.Name, Namespace: secret.Namespace})
-	log.Info("Start to reconcile phase for Deploy opensearch resources to remote")
+// deprecated
+// func (r *SecretReconciler) DeployOpensearchResources(ctx context.Context, secret *coreV1.Secret) (ctrl.Result, error) {
+// 	log := r.Log.WithValues("secret", types.NamespacedName{Name: secret.Name, Namespace: secret.Namespace})
+// 	log.Info("Start to reconcile phase for Deploy opensearch resources to remote")
 
-	key := types.NamespacedName{
-		Name:      os.Getenv("GATEWAY_TLS_SECRET"),
-		Namespace: util.ApiGatewayNamespace,
-	}
-	gatewaySecret := &coreV1.Secret{}
-	if err := r.Get(context.TODO(), key, gatewaySecret); err != nil {
-		log.Error(err, "Failed to get gateway tls secret")
-		return ctrl.Result{}, nil
-	}
+// 	key := types.NamespacedName{
+// 		Name:      os.Getenv("GATEWAY_TLS_SECRET"),
+// 		Namespace: util.ApiGatewayNamespace,
+// 	}
+// 	gatewaySecret := &coreV1.Secret{}
+// 	if err := r.Get(context.TODO(), key, gatewaySecret); err != nil {
+// 		log.Error(err, "Failed to get gateway tls secret")
+// 		return ctrl.Result{}, nil
+// 	}
 
-	remoteClientset, err := util.GetRemoteK8sClient(secret)
-	if err != nil {
-		log.Error(err, "Failed to get remoteK8sClient")
-		return ctrl.Result{}, err
-	}
+// 	remoteClientset, err := util.GetRemoteK8sClient(secret)
+// 	if err != nil {
+// 		log.Error(err, "Failed to get remoteK8sClient")
+// 		return ctrl.Result{}, err
+// 	}
 
-	_, err = remoteClientset.
-		CoreV1().
-		Namespaces().
-		Get(context.TODO(), util.OpenSearchNamespace, metav1.GetOptions{})
-	if errors.IsNotFound(err) {
-		namespace := &coreV1.Namespace{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: util.OpenSearchNamespace,
-			},
-		}
-		_, err := remoteClientset.
-			CoreV1().
-			Namespaces().
-			Create(context.TODO(), namespace, metav1.CreateOptions{})
-		if err != nil {
-			log.Error(err, "Failed to create kube-logging namespace")
-			return ctrl.Result{}, err
-		}
-	} else if err != nil {
-		log.Error(err, "Failed to get kube-logging namespace")
-		return ctrl.Result{}, err
-	}
+// 	_, err = remoteClientset.
+// 		CoreV1().
+// 		Namespaces().
+// 		Get(context.TODO(), util.OpenSearchNamespace, metav1.GetOptions{})
+// 	if errors.IsNotFound(err) {
+// 		namespace := &coreV1.Namespace{
+// 			ObjectMeta: metav1.ObjectMeta{
+// 				Name: util.OpenSearchNamespace,
+// 			},
+// 		}
+// 		_, err := remoteClientset.
+// 			CoreV1().
+// 			Namespaces().
+// 			Create(context.TODO(), namespace, metav1.CreateOptions{})
+// 		if err != nil {
+// 			log.Error(err, "Failed to create kube-logging namespace")
+// 			return ctrl.Result{}, err
+// 		}
+// 	} else if err != nil {
+// 		log.Error(err, "Failed to get kube-logging namespace")
+// 		return ctrl.Result{}, err
+// 	}
 
-	_, err = remoteClientset.
-		CoreV1().
-		Secrets(util.OpenSearchNamespace).
-		Get(context.TODO(), "hyperauth-ca", metav1.GetOptions{})
-	if errors.IsNotFound(err) {
-		openSearchSecret := &coreV1.Secret{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "hyperauth-ca",
-				Namespace: util.OpenSearchNamespace,
-			},
-			Data: map[string][]byte{
-				"ca.crt": gatewaySecret.Data["tls.crt"],
-			},
-		}
-		_, err := remoteClientset.
-			CoreV1().
-			Secrets(util.OpenSearchNamespace).
-			Create(context.TODO(), openSearchSecret, metav1.CreateOptions{})
-		if err != nil {
-			log.Error(err, "Failed to create hyperauth-ca secret")
-			return ctrl.Result{}, err
-		}
-	} else if err != nil {
-		log.Error(err, "Failed to get hyperauth-ca secret")
-		return ctrl.Result{}, err
-	}
+// 	_, err = remoteClientset.
+// 		CoreV1().
+// 		Secrets(util.OpenSearchNamespace).
+// 		Get(context.TODO(), "hyperauth-ca", metav1.GetOptions{})
+// 	if errors.IsNotFound(err) {
+// 		openSearchSecret := &coreV1.Secret{
+// 			ObjectMeta: metav1.ObjectMeta{
+// 				Name:      "hyperauth-ca",
+// 				Namespace: util.OpenSearchNamespace,
+// 			},
+// 			Data: map[string][]byte{
+// 				"ca.crt": gatewaySecret.Data["tls.crt"],
+// 			},
+// 		}
+// 		_, err := remoteClientset.
+// 			CoreV1().
+// 			Secrets(util.OpenSearchNamespace).
+// 			Create(context.TODO(), openSearchSecret, metav1.CreateOptions{})
+// 		if err != nil {
+// 			log.Error(err, "Failed to create hyperauth-ca secret")
+// 			return ctrl.Result{}, err
+// 		}
+// 	} else if err != nil {
+// 		log.Error(err, "Failed to get hyperauth-ca secret")
+// 		return ctrl.Result{}, err
+// 	}
 
-	log.Info("Create secret for opensearch to single cluster successfully")
-	return ctrl.Result{}, nil
-}
+// 	log.Info("Create secret for opensearch to single cluster successfully")
+// 	return ctrl.Result{}, nil
+// }
