@@ -1,6 +1,23 @@
 # HyperCloud-Multi-Operator changelog!!
 All notable changes to this project will be documented in this file.
 
+<!-------------------- v5.0.26.9 start -------------------->
+
+## HyperCloud-Multi-Operator_5.0.26.9 (2022. 04. 26. (화) 10:50:21 KST)
+
+### Added
+
+### Changed
+  - [mod] opensearch용 시크릿 배포 로직 제거 by SISILIA
+
+### Fixed
+
+### CRD yaml
+
+### Etc
+
+<!--------------------- v5.0.26.9 end --------------------->
+
 <!-------------------- v5.0.26.8 start -------------------->
 
 ## HyperCloud-Multi-Operator_5.0.26.8 (2022. 04. 21. (목) 17:11:41 KST)
