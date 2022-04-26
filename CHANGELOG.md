@@ -142,7 +142,7 @@ All notable changes to this project will be documented in this file.
 ### Etc
   - [etc] code refactoring by SISILIA
   - [etc] remove temp files by SISILIA
-  - [etc] fix merge confict by SISILIA
+  - [etc] fix merge conflict by SISILIA
   - [etc] merge shinhan2 to main by SISILIA
   - [etc] update git ignore by SISILIA
   - [etc] 불필요한 주석 제거 by SISILIA
@@ -180,9 +180,9 @@ All notable changes to this project will be documented in this file.
 ## HyperCloud-Multi-Operator_5.0.26.0 (2022. 01. 21. (금) 13:40:34 KST)
 
 ### Added
-  - [feat] traefike resource관리를 위한 cluster role 추가 by SISILIA
-  - [feat] traeif resource 생성 기능 추가 by SISILIA
-  - [feat] traeif resource 생성 기능 추가 by SISILIA
+  - [feat] traefik resource관리를 위한 cluster role 추가 by SISILIA
+  - [feat] traefik resource 생성 기능 추가 by SISILIA
+  - [feat] traefik resource 생성 기능 추가 by SISILIA
 
 ### Changed
 
@@ -561,7 +561,7 @@ All notable changes to this project will be documented in this file.
   - [Etc] cluster claim property name 에러 수정, 불필요한 로깅 제거 by soohwan kim
   - [Etc] 스펙명 오타 수정 by soohwan kim
   - [etc] cluster manager spec에 provider 복구 by soohwan kim
-  - [Etc] 코드 indenent mismatch 수정, Makefile 주석 수정 by soohwan kim
+  - [Etc] 코드 indent mismatch 수정, Makefile 주석 수정 by soohwan kim
 
 <!--------------------- v5.0.25.0 end --------------------->
 
