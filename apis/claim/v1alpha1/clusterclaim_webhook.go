@@ -18,6 +18,7 @@ import (
 	"errors"
 	"reflect"
 	"regexp"
+	"strings"
 
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -67,14 +68,33 @@ func (r *ClusterClaim) ValidateCreate() error {
 	clusterclaimlog.Info("validate create", "name", r.Name)
 
 	reg, _ := regexp.Compile(`^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$`)
-	if !reg.MatchString(r.Spec.ClusterName) {
+	if !reg.MatchString(r.Spec.ClusterName) || len(r.Spec.ClusterName) > 253 {
 		//return errors.NewInvalid()
 		errList := []*field.Error{
 			{
 				Type:     field.ErrorTypeInvalid,
 				Field:    "spec.clusterName",
 				BadValue: r.Spec.ClusterName,
-				Detail:   "a DNS-1123 subdomain must consist of lower case alphanumeric characters, '-' or '.', and must start and end with an alphanumeric character (e.g. 'example.com', regex used for validation is '[a-z0-9]([-a-z0-9]*[a-z0-9])?(\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*')",
+				Detail: strings.Join(
+					[]string{
+						"a DNS-1123 subdomain must consist of lower case alphanumeric characters, '-' or '.',",
+						" and must start and end with an alphanumeric character (e.g. 'example.com',",
+						" regex used for validation is '[a-z0-9]([-a-z0-9]*[a-z0-9])?(\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*')",
+					},
+					"",
+				),
+			},
+		}
+		return k8sErrors.NewInvalid(r.GroupVersionKind().GroupKind(), "InvalidSpecClusterName", errList)
+	}
+
+	if len(r.Spec.ClusterName) > 253 {
+		errList := []*field.Error{
+			{
+				Type:     field.ErrorTypeInvalid,
+				Field:    "spec.clusterName",
+				BadValue: r.Spec.ClusterName,
+				Detail:   "must be no more than 253 characters",
 			},
 		}
 		return k8sErrors.NewInvalid(r.GroupVersionKind().GroupKind(), "InvalidSpecClusterName", errList)
