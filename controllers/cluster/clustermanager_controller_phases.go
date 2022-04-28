@@ -515,6 +515,7 @@ func (r *ClusterManagerReconciler) CreateArgocdClusterSecret(ctx context.Context
 	)
 	if err != nil {
 		log.Error(err, "Failed to marshal cluster authorization parameters")
+		return ctrl.Result{}, err
 	}
 
 	// master cluster에 secret 생성
