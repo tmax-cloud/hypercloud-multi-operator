@@ -48,6 +48,10 @@ var _ webhook.Validator = &ClusterRegistration{}
 func (r *ClusterRegistration) ValidateCreate() error {
 	clusterregistrationlog.Info("validate create", "name", r.Name)
 
+	// k8s 리소스들의 이름은 기본적으로 DNS-1123의 룰을 따라야 함
+	// 자세한 내용은 https://kubernetes.io/ko/docs/concepts/overview/working-with-objects/names/ 참조
+	// cluster manager 리소스는 cluster registration의 spec.clusterName을 metada.name으로 가지게 되므로
+	// spec.clusterName도 DNS-1123 룰을 따르게 해야할 필요가 있으므로 웹훅을 통해 validation
 	reg, _ := regexp.Compile(`^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$`)
 	if !reg.MatchString(r.Spec.ClusterName) {
 		errList := []*field.Error{
