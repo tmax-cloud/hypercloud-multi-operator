@@ -215,8 +215,8 @@ func (r *SecretReconciler) DeployArgocdResources(ctx context.Context, secret *co
 		return ctrl.Result{}, err
 	}
 
-	// ArgoCD single cluster 연동을 위한 secret을 만들때 token을 조회 할 수 있도록
-	// argocd-manager-token 이름의 시크릿을 수동으로 생성
+	// service account 생성시 token secret이 자동으로 생성되지만
+	// random suffix가 붙기때문에 조회하는 process가 번잡하므로 시크릿을 수동으로 생성
 	argocdManagerTokenSecret := &coreV1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: util.ArgoServiceAccountTokenSecret,
