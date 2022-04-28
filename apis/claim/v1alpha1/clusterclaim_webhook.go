@@ -68,7 +68,7 @@ func (r *ClusterClaim) ValidateCreate() error {
 	clusterclaimlog.Info("validate create", "name", r.Name)
 
 	reg, _ := regexp.Compile(`^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$`)
-	if !reg.MatchString(r.Spec.ClusterName) || len(r.Spec.ClusterName) > 253 {
+	if !reg.MatchString(r.Spec.ClusterName) {
 		//return errors.NewInvalid()
 		errList := []*field.Error{
 			{
