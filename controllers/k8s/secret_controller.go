@@ -191,29 +191,61 @@ func (r *SecretReconciler) reconcileDelete(ctx context.Context, secret *coreV1.S
 		return ctrl.Result{}, err
 	}
 
-	saList := []string{
-		util.ArgoServiceAccount,
+	saList := []types.NamespacedName{
+		{
+			Name:      util.ArgoServiceAccount,
+			Namespace: util.KubeNamespace,
+		},
 	}
 	for _, targetSa := range saList {
 		_, err := remoteClientset.
 			CoreV1().
-			ServiceAccounts(util.KubeNamespace).
-			Get(context.TODO(), targetSa, metav1.GetOptions{})
+			ServiceAccounts(targetSa.Namespace).
+			Get(context.TODO(), targetSa.Name, metav1.GetOptions{})
 		if errors.IsNotFound(err) {
-			log.Info("Cannot found ServiceAccount [" + targetSa + "] from remote cluster. Maybe already deleted")
+			log.Info("Cannot found ServiceAccount [" + targetSa.String() + "] from remote cluster. Maybe already deleted")
 		} else if err != nil {
-			log.Error(err, "Failed to get ServiceAccount ["+targetSa+"] from remote cluster")
+			log.Error(err, "Failed to get ServiceAccount ["+targetSa.String()+"] from remote cluster")
 			return ctrl.Result{}, err
 		} else {
 			err := remoteClientset.
 				CoreV1().
-				ServiceAccounts(util.KubeNamespace).
-				Delete(context.TODO(), targetSa, metav1.DeleteOptions{})
+				ServiceAccounts(targetSa.Namespace).
+				Delete(context.TODO(), targetSa.Name, metav1.DeleteOptions{})
 			if err != nil {
-				log.Error(err, "Cannot delete ServiceAccount ["+targetSa+"] from remote cluster")
+				log.Error(err, "Cannot delete ServiceAccount ["+targetSa.String()+"] from remote cluster")
 				return ctrl.Result{}, err
 			}
-			log.Info("Delete ServiceAccount [" + targetSa + "] from remote cluster successfully")
+			log.Info("Delete ServiceAccount [" + targetSa.String() + "] from remote cluster successfully")
+		}
+	}
+
+	secretList := []types.NamespacedName{
+		{
+			Name:      util.ArgoServiceAccountTokenSecret,
+			Namespace: util.KubeNamespace,
+		},
+	}
+	for _, targetSecret := range secretList {
+		_, err := remoteClientset.
+			CoreV1().
+			Secrets(targetSecret.Namespace).
+			Get(context.TODO(), targetSecret.Name, metav1.GetOptions{})
+		if errors.IsNotFound(err) {
+			log.Info("Cannot found Secret [" + targetSecret.String() + "] from remote cluster. Maybe already deleted")
+		} else if err != nil {
+			log.Error(err, "Failed to get Secret ["+targetSecret.String()+"] from remote cluster")
+			return ctrl.Result{}, err
+		} else {
+			err := remoteClientset.
+				CoreV1().
+				Secrets(targetSecret.Namespace).
+				Delete(context.TODO(), targetSecret.Name, metav1.DeleteOptions{})
+			if err != nil {
+				log.Error(err, "Cannot delete Secret ["+targetSecret.String()+"] from remote cluster")
+				return ctrl.Result{}, err
+			}
+			log.Info("Delete Secret [" + targetSecret.String() + "] from remote cluster successfully")
 		}
 	}
 
@@ -292,26 +324,26 @@ func (r *SecretReconciler) reconcileDelete(ctx context.Context, secret *coreV1.S
 	}
 	// 클러스터를 사용중이던 사용자의 crb도 지워야되나.. db에서 읽어서 지워야 하는데?
 
-	_, err = remoteClientset.
-		CoreV1().
-		Secrets(util.OpenSearchNamespace).
-		Get(context.TODO(), "hyperauth-ca", metav1.GetOptions{})
-	if errors.IsNotFound(err) {
-		log.Info("Cannot found Secret for opensearch. Maybe already deleted")
-	} else if err != nil {
-		log.Error(err, "Cannot found Secret for search")
-		return ctrl.Result{}, err
-	} else {
-		err = remoteClientset.
-			CoreV1().
-			Secrets(util.OpenSearchNamespace).
-			Delete(context.TODO(), "hyperauth-ca", metav1.DeleteOptions{})
-		if err != nil {
-			log.Error(err, "Failed to delete secret for opensearch")
-			return ctrl.Result{}, err
-		}
-		log.Info("Delete secret for opensearch successfully")
-	}
+	// _, err = remoteClientset.
+	// 	CoreV1().
+	// 	Secrets(util.OpenSearchNamespace).
+	// 	Get(context.TODO(), "hyperauth-ca", metav1.GetOptions{})
+	// if errors.IsNotFound(err) {
+	// 	log.Info("Cannot found Secret for opensearch. Maybe already deleted")
+	// } else if err != nil {
+	// 	log.Error(err, "Cannot found Secret for search")
+	// 	return ctrl.Result{}, err
+	// } else {
+	// 	err = remoteClientset.
+	// 		CoreV1().
+	// 		Secrets(util.OpenSearchNamespace).
+	// 		Delete(context.TODO(), "hyperauth-ca", metav1.DeleteOptions{})
+	// 	if err != nil {
+	// 		log.Error(err, "Failed to delete secret for opensearch")
+	// 		return ctrl.Result{}, err
+	// 	}
+	// 	log.Info("Delete secret for opensearch successfully")
+	// }
 
 	controllerutil.RemoveFinalizer(secret, clusterV1alpha1.ClusterManagerFinalizer)
 	return ctrl.Result{}, nil
