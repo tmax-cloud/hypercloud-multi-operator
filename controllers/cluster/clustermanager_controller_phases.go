@@ -62,6 +62,8 @@ func (r *ClusterManagerReconciler) UpdateClusterManagerStatus(ctx context.Contex
 		return ctrl.Result{}, err
 	}
 
+	// cluster registration의 경우에는 k8s version을 parameter로 받지 않기 때문에,
+	// k8s version을 single cluster의 kube-system 네임스페이스의 kubeadm-config comfigmap로 부터 조회
 	kubeadmConfig, err := remoteClientset.
 		CoreV1().
 		ConfigMaps(util.KubeNamespace).
@@ -566,6 +568,8 @@ func (r *ClusterManagerReconciler) CreateMonitoringResources(ctx context.Context
 		return ctrl.Result{}, err
 	}
 
+	// host domain or ip를 얻기 위해 single cluster의
+	// api-gateway-system 네임스페이스의 gateway service를 조회
 	gatewayService, err := remoteClientset.
 		CoreV1().
 		Services(util.ApiGatewayNamespace).
@@ -578,18 +582,11 @@ func (r *ClusterManagerReconciler) CreateMonitoringResources(ctx context.Context
 		return ctrl.Result{}, err
 	}
 
-	// nodeport
-	// if gatewayService.Spec.Type == coreV1.ServiceTypeNodePort {
-	// 	// endpointIP := clusterManager.Annotations[clusterV1alpha1.AnnotationKeyClmApiserver]
-	// 	if err := r.CreateGatewayService(clusterManager, clusterV1alpha1.AnnotationKeyClmApiserver); err != nil {
-	// 		return ctrl.Result{}, err
-	// 	}
-
-	// 	clusterManager.Status.MonitoringReady = true
-	// 	clusterManager.Status.PrometheusReady = true
-	// 	clusterManager.Status.TraefikReady = false
-	// 	return ctrl.Result{}, nil
-	// }
+	// single cluster의 gateway service가 loadbalancer가 아닐 경우에는(시나리오상 nodeport일 경우)
+	// k8s api-server의 endpoint도 nodeport로 되어있을 것이므로
+	// k8s api-server의 domain host를 gateway service의 endpoint로 사용
+	// single cluster의 k8s api-server domain과 gateway service의 domain중
+	// 어떤 것을 이용해야 할지 앞의 로직에서 annotation key를 통해 전달
 	annotationKey := clusterV1alpha1.AnnotationKeyClmApiserver
 	if gatewayService.Spec.Type != coreV1.ServiceTypeNodePort {
 		if gatewayService.Status.LoadBalancer.Ingress == nil {
@@ -610,11 +607,15 @@ func (r *ClusterManagerReconciler) CreateMonitoringResources(ctx context.Context
 		annotationKey = clusterV1alpha1.AnnotationKeyClmGateway
 	}
 
+	// master cluster에 service 생성
+	// single cluster의 gateway service로 연결시켜줄 external name type의 service
+	// 앞에서 받은 annotation key를 이용하여 service의 endpoint가 설정 됨
 	if err := r.CreateGatewayService(clusterManager, annotationKey); err != nil {
 		return ctrl.Result{}, err
 	}
 
 	// For migration from b5.0.26.6 > b5.0.26.7
+	// 리소스 이름 및 status 이름 변경에 대응하기 위한 migration 코드
 	traefikReady, err := r.DeleteDeprecatedTraefikResources(clusterManager)
 	if err != nil {
 		return ctrl.Result{}, err
@@ -625,6 +626,10 @@ func (r *ClusterManagerReconciler) CreateMonitoringResources(ctx context.Context
 		return ctrl.Result{}, err
 	}
 
+	// defunct
+	// ip address의 경우 k8s 기본 정책상으로는 endpoint resource로 생성하여 연결을 하는게 일반적인데
+	// ip address도 external name type service의 external name의 value로 넣을 수 있기 때문에
+	// 리소스 관리를 최소화 하기 위해 defunct 시킴
 	// if !util.IsIpAddress(clusterManager.Annotations[clusterV1alpha1.AnnotationKeyClmGateway]) {
 	// 	clusterManager.Status.MonitoringReady = true
 	// 	clusterManager.Status.PrometheusReady = true
@@ -635,6 +640,7 @@ func (r *ClusterManagerReconciler) CreateMonitoringResources(ctx context.Context
 	// 	return ctrl.Result{}, err
 	// }
 
+	log.Info("Create monitoring resources for single cluster successfully")
 	clusterManager.Status.MonitoringReady = true
 	clusterManager.Status.PrometheusReady = true
 	return ctrl.Result{}, nil
@@ -647,6 +653,7 @@ func (r *ClusterManagerReconciler) CreateHyperauthClient(ctx context.Context, cl
 	log := r.Log.WithValues("clustermanager", clusterManager.GetNamespacedName())
 	log.Info("Start to reconcile phase for CreateHyperauthClient")
 
+	// Hyperauth의 password를 가져오기 위한 secret을 조회
 	key := types.NamespacedName{
 		Name:      "passwords",
 		Namespace: "hyperauth",
@@ -660,7 +667,11 @@ func (r *ClusterManagerReconciler) CreateHyperauthClient(ctx context.Context, cl
 		return ctrl.Result{}, err
 	}
 
+	// Hyperauth와 연동해야 하는 module 리스트는 정해져 있으므로, preset.go에서 관리
+	// cluster마다 client 이름이 달라야 해서 {namespace}-{cluster name} 를 prefix로
+	// 붙여주기로 했기 때문에, preset을 기본토대로 prefix를 추가하여 리턴하도록 구성
 	prefix := clusterManager.Namespace + "-" + clusterManager.Name + "-"
+	// client 생성
 	clientConfigs := hyperauthCaller.GetClientConfigPreset(prefix)
 	for _, config := range clientConfigs {
 		if err := hyperauthCaller.CreateClient(config, secret); err != nil {
@@ -669,6 +680,7 @@ func (r *ClusterManagerReconciler) CreateHyperauthClient(ctx context.Context, cl
 		}
 	}
 
+	// protocol mapper 생성
 	protocolMapperMappingConfigs := hyperauthCaller.GetMappingProtocolMapperToClientConfigPreset(prefix)
 	for _, config := range protocolMapperMappingConfigs {
 		if err := hyperauthCaller.CreateClientLevelProtocolMapper(config, secret); err != nil {
@@ -677,6 +689,7 @@ func (r *ClusterManagerReconciler) CreateHyperauthClient(ctx context.Context, cl
 		}
 	}
 
+	// client level role을 생성하고 role에 cluster admin 계정을 mapping
 	clientLevelRoleConfigs := hyperauthCaller.GetClientLevelRoleConfigPreset(prefix)
 	for _, config := range clientLevelRoleConfigs {
 		if err := hyperauthCaller.CreateClientLevelRole(config, secret); err != nil {
@@ -691,6 +704,7 @@ func (r *ClusterManagerReconciler) CreateHyperauthClient(ctx context.Context, cl
 		}
 	}
 
+	// client와 client scope를 매핑
 	clientScopeMappingConfig := hyperauthCaller.GetClientScopeMappingPreset(prefix)
 	for _, config := range clientScopeMappingConfig {
 		err := hyperauthCaller.AddClientScopeToClient(config, secret)
@@ -724,6 +738,7 @@ func (r *ClusterManagerReconciler) SetHyperregistryOidcConfig(ctx context.Contex
 		return ctrl.Result{}, err
 	}
 
+	// single cluster의 hyperregistry 계정정보를 조회하기 위해 secret을 조회
 	secret, err := remoteClientset.
 		CoreV1().
 		Secrets(util.HyperregistryNamespace).
@@ -733,6 +748,7 @@ func (r *ClusterManagerReconciler) SetHyperregistryOidcConfig(ctx context.Contex
 		return ctrl.Result{}, err
 	}
 
+	// single cluster의 hyperregistry 접속 주소를 조회하기 위해 ingress를 조회
 	ingress, err := remoteClientset.
 		NetworkingV1().
 		Ingresses(util.HyperregistryNamespace).
@@ -742,6 +758,8 @@ func (r *ClusterManagerReconciler) SetHyperregistryOidcConfig(ctx context.Contex
 		return ctrl.Result{}, err
 	}
 
+	// hyperregistry의 경우 configmap이나 deploy의 env로 oidc 정보를 줄 수 없게 되어 있어서
+	// http request를 생성하여 oidc 정보를 put 할 수 있도록 구현
 	prefix := clusterManager.Namespace + "-" + clusterManager.Name + "-"
 	hyperauthDomain := "https://" + os.Getenv("AUTH_SUBDOMAIN") + "." + os.Getenv("HC_DOMAIN") + "/auth/realms/tmax"
 	config := util.OidcConfig{

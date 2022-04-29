@@ -119,6 +119,8 @@ func (r *SecretReconciler) reconcile(ctx context.Context, secret *coreV1.Secret)
 		if len(errs) > 0 {
 			continue
 		}
+
+		// Aggregate phases which requeued without err
 		res = util.LowestNonZeroResult(res, phaseResult)
 	}
 	return res, kerrors.NewAggregate(errs)

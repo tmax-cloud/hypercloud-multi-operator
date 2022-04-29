@@ -98,6 +98,8 @@ func (r *ClusterRegistrationReconciler) reconcile(ctx context.Context, ClusterRe
 		if len(errs) > 0 {
 			continue
 		}
+
+		// Aggregate phases which requeued without err
 		res = util.LowestNonZeroResult(res, phaseResult)
 	}
 
