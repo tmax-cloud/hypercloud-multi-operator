@@ -219,13 +219,17 @@ func (r *SecretReconciler) DeployArgocdResources(ctx context.Context, secret *co
 	// random suffix가 붙기때문에 조회하는 process가 번잡하므로 시크릿을 수동으로 생성
 	argocdManagerTokenSecret := &coreV1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
+			Annotations: map[string]string{
+				coreV1.ServiceAccountNameKey: util.ArgoServiceAccount,
+			},
 			Name: util.ArgoServiceAccountTokenSecret,
 		},
+		Type: coreV1.SecretTypeServiceAccountToken,
 	}
 	_, err = remoteClientset.
 		CoreV1().
 		Secrets(util.KubeNamespace).
-		Get(context.TODO(), util.ArgoServiceAccount, metav1.GetOptions{})
+		Get(context.TODO(), util.ArgoServiceAccountTokenSecret, metav1.GetOptions{})
 	if errors.IsNotFound(err) {
 		_, err := remoteClientset.
 			CoreV1().
