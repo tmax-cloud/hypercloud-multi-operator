@@ -461,6 +461,7 @@ func (r *ClusterManagerReconciler) CreateTraefikResources(ctx context.Context, c
 	// 	return ctrl.Result{}, err
 	// }
 
+	log.Info("Create traefik resources successfully")
 	clusterManager.Status.TraefikReady = true
 	return ctrl.Result{}, nil
 }
@@ -498,7 +499,7 @@ func (r *ClusterManagerReconciler) CreateArgocdClusterSecret(ctx context.Context
 		Get(context.TODO(), util.ArgoServiceAccountTokenSecret, metav1.GetOptions{})
 	if err != nil {
 		log.Error(err, "Failed to get service account token secret")
-		return ctrl.Result{}, nil
+		return ctrl.Result{}, err
 	}
 
 	// ArgoCD single cluster 연동을 위한 secret에 들어가야 할 데이터를 생성
@@ -564,6 +565,7 @@ func (r *ClusterManagerReconciler) CreateArgocdClusterSecret(ctx context.Context
 		return ctrl.Result{Requeue: true}, nil
 	}
 
+	log.Info("Create argocd cluster secret successfully")
 	clusterManager.Status.ArgoReady = true
 	return ctrl.Result{}, nil
 }
@@ -657,6 +659,7 @@ func (r *ClusterManagerReconciler) CreateMonitoringResources(ctx context.Context
 	// 	return ctrl.Result{}, err
 	// }
 
+	log.Info("Create monitoring resources successfully")
 	clusterManager.Status.MonitoringReady = true
 	clusterManager.Status.PrometheusReady = true
 	return ctrl.Result{}, nil
@@ -781,7 +784,7 @@ func (r *ClusterManagerReconciler) SetHyperregistryOidcConfig(ctx context.Contex
 	}
 	hostpath := ingress.Spec.Rules[0].Host
 	if err := util.SetHyperregistryOIDC(config, secret, hostpath); err != nil {
-		log.Error(err, "Failed to get ingress for hyperregistry")
+		log.Error(err, "Failed to set oidc configuration for hyperregistry")
 		return ctrl.Result{}, err
 	}
 
