@@ -710,6 +710,12 @@ func (r *ClusterManagerReconciler) SetHyperregistryOidcConfig(ctx context.Contex
 		return ctrl.Result{}, nil
 	}
 	log := r.Log.WithValues("clustermanager", clusterManager.GetNamespacedName())
+
+	if os.Getenv("HYPERREGISTRY_ENABLED") == "false" {
+		log.Info("Skip oidc config for hyperregistry")
+		clusterManager.Status.HyperregistryOidcReady = true
+		return ctrl.Result{}, nil
+	}
 	log.Info("Start to reconcile phase for SetHyperregistryOidcConfig")
 
 	kubeconfigSecret, err := r.GetKubeconfigSecret(clusterManager)
