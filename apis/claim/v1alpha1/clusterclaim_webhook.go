@@ -18,6 +18,7 @@ import (
 	"errors"
 	"reflect"
 	"regexp"
+	"strings"
 
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -66,6 +67,10 @@ var _ webhook.Validator = &ClusterClaim{}
 func (r *ClusterClaim) ValidateCreate() error {
 	clusterclaimlog.Info("validate create", "name", r.Name)
 
+	// k8s 리소스들의 이름은 기본적으로 DNS-1123의 룰을 따라야 함
+	// 자세한 내용은 https://kubernetes.io/ko/docs/concepts/overview/working-with-objects/names/ 참조
+	// cluster manager 리소스는 cluster claim의 spec.clusterName을 metada.name으로 가지게 되므로
+	// spec.clusterName도 DNS-1123 룰을 따르게 해야할 필요가 있으므로 웹훅을 통해 validation
 	reg, _ := regexp.Compile(`^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$`)
 	if !reg.MatchString(r.Spec.ClusterName) {
 		//return errors.NewInvalid()
@@ -74,7 +79,26 @@ func (r *ClusterClaim) ValidateCreate() error {
 				Type:     field.ErrorTypeInvalid,
 				Field:    "spec.clusterName",
 				BadValue: r.Spec.ClusterName,
-				Detail:   "a DNS-1123 subdomain must consist of lower case alphanumeric characters, '-' or '.', and must start and end with an alphanumeric character (e.g. 'example.com', regex used for validation is '[a-z0-9]([-a-z0-9]*[a-z0-9])?(\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*')",
+				Detail: strings.Join(
+					[]string{
+						"a DNS-1123 subdomain must consist of lower case alphanumeric characters, '-' or '.',",
+						" and must start and end with an alphanumeric character (e.g. 'example.com',",
+						" regex used for validation is '[a-z0-9]([-a-z0-9]*[a-z0-9])?(\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*')",
+					},
+					"",
+				),
+			},
+		}
+		return k8sErrors.NewInvalid(r.GroupVersionKind().GroupKind(), "InvalidSpecClusterName", errList)
+	}
+
+	if len(r.Spec.ClusterName) > 253 {
+		errList := []*field.Error{
+			{
+				Type:     field.ErrorTypeInvalid,
+				Field:    "spec.clusterName",
+				BadValue: r.Spec.ClusterName,
+				Detail:   "must be no more than 253 characters",
 			},
 		}
 		return k8sErrors.NewInvalid(r.GroupVersionKind().GroupKind(), "InvalidSpecClusterName", errList)
