@@ -180,18 +180,6 @@ func (r *ClusterManagerReconciler) CreateIngress(clusterManager *clusterV1alpha1
 											},
 										},
 									},
-									// {
-									// 	Path:     urlPath + "/console/kibana",
-									// 	PathType: &pathType,
-									// 	Backend: networkingv1.IngressBackend{
-									// 		Service: &networkingv1.IngressServiceBackend{
-									// 			Name: clusterManager.Name + "-gateway-service",
-									// 			Port: networkingv1.ServiceBackendPort{
-									// 				Number: 443,
-									// 			},
-									// 		},
-									// 	},
-									// },
 								},
 							},
 						},

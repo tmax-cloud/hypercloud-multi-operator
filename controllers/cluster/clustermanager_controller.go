@@ -223,7 +223,6 @@ func (r *ClusterManagerReconciler) reconcileDeleteForRegisteredClusterManager(ct
 		}
 
 		log.Info("Delete kubeconfig Secret successfully")
-		// return ctrl.Result{RequeueAfter: requeueAfter10Second}, nil
 	}
 
 	if err := r.DeleteTraefikResources(clusterManager); err != nil {
@@ -300,35 +299,6 @@ func (r *ClusterManagerReconciler) reconcileDelete(ctx context.Context, clusterM
 	if err := r.DeleteClientForSingleCluster(clusterManager); err != nil {
 		return ctrl.Result{}, err
 	}
-
-	// remoteClientset, err := util.GetRemoteK8sClient(kubeconfigSecret)
-	// if err != nil {
-	// 	log.Error(err, "Failed to get remoteK8sClient")
-	// 	return ctrl.Result{}, err
-	// }
-
-	// secret은 존재하는데.. 실제 instance가 없어서 에러 발생
-	// _, err = remoteClientset.
-	// 	CoreV1().
-	// 	Namespaces().
-	// 	Get(context.TODO(), util.IngressNginxNamespace, metav1.GetOptions{})
-	// if errors.IsNotFound(err) {
-	// 	log.Info("Ingress-nginx namespace is already deleted")
-	// } else if err != nil {
-	// 	log.Info(err.Error())
-	// 	log.Info("Failed to get Ingress-nginx loadbalancer service... may be instance was deleted before secret was deleted...")
-	// 	// log.Info("###################### Never executed... ############################")
-	// 	// error 처리 필요
-	// } else {
-	// 	err := remoteClientset.
-	// 		CoreV1().
-	// 		Namespaces().
-	// 		Delete(context.TODO(), util.IngressNginxNamespace, metav1.DeleteOptions{})
-	// 	if err != nil {
-	// 		log.Error(err, "Failed to delete Ingress-nginx namespace")
-	// 		return ctrl.Result{}, err
-	// 	}
-	// }
 
 	// delete serviceinstance
 	key = types.NamespacedName{
@@ -507,7 +477,6 @@ func (r *ClusterManagerReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		&certmanagerV1.Certificate{},
 		&networkingv1.Ingress{},
 		&coreV1.Service{},
-		// &coreV1.Endpoints{},
 		&traefikV1alpha1.Middleware{},
 	}
 	for _, resource := range subResources {

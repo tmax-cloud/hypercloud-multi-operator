@@ -157,55 +157,6 @@ func CreateClient(config ClientConfig, secret *coreV1.Secret) error {
 	return nil
 }
 
-// func UpdateClient(clientId string, secret *coreV1.Secret) error {
-// 	token, err := GetTokenAsAdmin(secret)
-// 	if err != nil {
-// 		return err
-// 	}
-
-// 	id, err := GetClients(clientId, secret)
-// 	if err != nil {
-// 		return err
-// 	}
-// 	if !IsClientExist(id) {
-// 		return fmt.Errorf("client not found")
-// 	}
-
-// 	data := ClientConfig{
-// 		ImplicitFlowEnabled: true,
-// 	}
-// 	jsonData, err := json.Marshal(data)
-// 	if err != nil {
-// 		return err
-// 	}
-// 	playload := bytes.NewBuffer(jsonData)
-
-// 	params := map[string]string{
-// 		"id": id,
-// 	}
-// 	url := SetServiceDomainURI(KEYCLOAK_ADMIN_SERVICE_UPDATE_CLIENT, params)
-// 	req, err := http.NewRequest(http.MethodPost, url, playload)
-// 	if err != nil {
-// 		return err
-// 	}
-// 	req.Header.Add("Content-Type", "application/json")
-// 	req.Header.Add("Authorization", "Bearer "+token)
-
-// 	client := &http.Client{}
-// 	resp, err := client.Do(req)
-// 	if err != nil {
-// 		return err
-// 	}
-// 	defer resp.Body.Close()
-
-// 	if !IsOK(resp.StatusCode) {
-// 		reqDump, _ := httputil.DumpRequest(req, true)
-// 		return fmt.Errorf("failed to create client-level role: " + string(reqDump) + "\n" + resp.Status)
-// 	}
-
-// 	return nil
-// }
-
 func CreateClientLevelProtocolMapper(config ClientLevelProtocolMapperConfig, secret *coreV1.Secret) error {
 	token, err := GetTokenAsAdmin(secret)
 	if err != nil {

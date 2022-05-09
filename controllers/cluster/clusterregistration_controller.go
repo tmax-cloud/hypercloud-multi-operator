@@ -143,56 +143,11 @@ func (r *ClusterRegistrationReconciler) requeueClusterRegistrationsForClusterMan
 	return nil
 }
 
-// func (r *ClusterRegistrationReconciler) requeueClusterRegistrationsForSecret(o client.Object) []ctrl.Request {
-// 	secret := o.DeepCopyObject().(*coreV1.Secret)
-// 	log := r.Log.WithValues("ClusterRegistration-ObjectMapper", "clusterManagerToClusterClusterRegistrations", "ClusterRegistration", secret.Name)
-
-// 	key := types.NamespacedName{
-// 		Name:      secret.Labels[clusterV1alpha1.LabelKeyClmName],
-// 		Namespace: secret.Namespace,
-// 	}
-// 	clm := &clusterV1alpha1.ClusterManager{}
-// 	if err := r.Get(context.TODO(), key, clm); err != nil {
-// 		log.Error(err, "Failed to get ClusterManager")
-// 		return nil
-// 	}
-
-// 	if !clm.GetDeletionTimestamp().IsZero() {
-// 		return nil
-// 	}
-
-// 	key = types.NamespacedName{
-// 		Name:      clm.Labels[clusterV1alpha1.LabelKeyClrName],
-// 		Namespace: secret.Namespace,
-// 	}
-// 	clr := &clusterV1alpha1.ClusterRegistration{}
-// 	if err := r.Get(context.TODO(), key, clr); err != nil {
-// 		log.Error(err, "Failed to get ClusterRegistration")
-// 		return nil
-// 	}
-
-// 	if clr.Status.Phase == "Deleted" {
-// 		return nil
-// 	}
-
-// 	clr.Status.Phase = "Validated"
-// 	clr.Status.Reason = "kubeconfig secret is deleted"
-// 	err := r.Status().Update(context.TODO(), clr)
-// 	if err != nil {
-// 		log.Error(err, "Failed to update ClusterRegistration status")
-// 		return nil //??
-// 	}
-
-// 	return nil
-// }
-
 func (r *ClusterRegistrationReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	controller, err := ctrl.NewControllerManagedBy(mgr).
 		For(&clusterV1alpha1.ClusterRegistration{}).
 		WithEventFilter(
 			predicate.Funcs{
-				// Avoid reconciling if the event triggering the reconciliation is related to incremental status updates
-				// for kubefedcluster resources only
 				CreateFunc: func(e event.CreateEvent) bool {
 					// phase success 일 때 한번 들어오는데.. 왜 그러냐... controller 재기동 돼서?
 					clr := e.Object.(*clusterV1alpha1.ClusterRegistration)
