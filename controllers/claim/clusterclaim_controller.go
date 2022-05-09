@@ -51,6 +51,8 @@ type ClusterClaimReconciler struct {
 // +kubebuilder:rbac:groups=cluster.tmax.io,resources=clustermanagers,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=cluster.tmax.io,resources=clustermanagers/status,verbs=get;update;patch
 
+// cluster claim 이 생성되면, reconcile 함수는 해당 cluster claim 의 status 를 awaiting 으로 변경해준다.
+// 해당 claim 으로 생성한 cluster 에 대한 cluster manager 의 생성은 hypercloud-api-server 에서 진행된다.
 func (r *ClusterClaimReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	_ = context.Background()
 	log := r.Log.WithValues("ClusterClaim", req.NamespacedName)
