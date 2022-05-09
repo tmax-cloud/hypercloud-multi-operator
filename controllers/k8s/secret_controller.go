@@ -102,15 +102,15 @@ func (r *SecretReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ c
 // reconcile handles cluster reconciliation.
 func (r *SecretReconciler) reconcile(ctx context.Context, secret *coreV1.Secret) (ctrl.Result, error) {
 	phases := []func(context.Context, *coreV1.Secret) (ctrl.Result, error){
-		// cluster manager 가 바라봐야 할 remote client 의 api-server 를 설정해주는 작업을 진행한다.
+		// cluster manager 가 바라봐야 할 single cluster 의 api-server 를 설정해주는 작업을 진행한다.
 		// 해당 secret 으로 부터 kubeconfig data 를 가져와 kubeconfig 의 server 를 cluster manager 의 control plane endpoint 로 설정해준다.
 		r.UpdateClusterManagerControlPlaneEndpoint,
-		// remote client 에 admin/developer/guest 에 따른 cluster role 을 생성하고,
-		// cluster owner 에 대해 admin role 을 가지는 rolebinding 을 생성한다.
+		// single cluster 에 admin/developer/guest 에 따른 cluster role 을 생성하고,
+		// cluster owner 에 대해 admin role 을 가지는 cluster rolebinding 을 생성한다.
 		r.DeployRolebinding,
-		// remote client 에 Argocd 연동을 위한 리소스 배포작업을 진행한다.
+		// single cluster 에 Argocd 연동을 위한 리소스 배포작업을 진행한다.
 		// Argocd 용 service account 를 생성하고,
-		// cluster role 과 rolebinding 을 생성한다.
+		// cluster role 과 cluster rolebinding 을 생성한다.
 		r.DeployArgocdResources,
 		// r.DeployOpensearchResources,
 	}

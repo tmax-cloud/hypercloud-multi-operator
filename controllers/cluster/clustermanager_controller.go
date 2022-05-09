@@ -270,7 +270,7 @@ func (r *ClusterManagerReconciler) reconcile(ctx context.Context, clusterManager
 		// Kibana, Grafana, Kiali 등 모듈과 hyperauth oidc 연동을 위한 client 생성 작업 (hyperauth 계정정보로 여러 모듈에 로그인 가능)
 		// hyperauth caller 를 통해 admin token 을 가져와 각 모듈 마다 hyperauth client 를 생성후, 모듈에 따른 role 을 추가한다.
 		r.CreateHyperauthClient,
-		// hyperregistry domain 을 remoteClient ingress 로 부터 가져와 oidc 연동설정
+		// hyperregistry domain 을 single cluster 의 ingress 로 부터 가져와 oidc 연동설정
 		r.SetHyperregistryOidcConfig,
 	)
 
