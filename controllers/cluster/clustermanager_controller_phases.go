@@ -661,6 +661,7 @@ func (r *ClusterManagerReconciler) CreateHyperauthClient(ctx context.Context, cl
 	}
 
 	prefix := clusterManager.Namespace + "-" + clusterManager.Name + "-"
+	// hyperauth client 생성 (kibana, grafana, kiali, jaeger, hyperregistry, opensearch)
 	clientConfigs := hyperauthCaller.GetClientConfigPreset(prefix)
 	for _, config := range clientConfigs {
 		if err := hyperauthCaller.CreateClient(config, secret); err != nil {
@@ -669,6 +670,7 @@ func (r *ClusterManagerReconciler) CreateHyperauthClient(ctx context.Context, cl
 		}
 	}
 
+	// hyperauth protocol mapper 생성 (kibana, jaeger, hyperregistry, opensearch)
 	protocolMapperMappingConfigs := hyperauthCaller.GetMappingProtocolMapperToClientConfigPreset(prefix)
 	for _, config := range protocolMapperMappingConfigs {
 		if err := hyperauthCaller.CreateClientLevelProtocolMapper(config, secret); err != nil {
@@ -677,6 +679,7 @@ func (r *ClusterManagerReconciler) CreateHyperauthClient(ctx context.Context, cl
 		}
 	}
 
+	// hyperauth client-level role 생성 후 user 에 추가 (kibana, jaeger, opensearch)
 	clientLevelRoleConfigs := hyperauthCaller.GetClientLevelRoleConfigPreset(prefix)
 	for _, config := range clientLevelRoleConfigs {
 		if err := hyperauthCaller.CreateClientLevelRole(config, secret); err != nil {
@@ -691,6 +694,7 @@ func (r *ClusterManagerReconciler) CreateHyperauthClient(ctx context.Context, cl
 		}
 	}
 
+	// client 에 client scope 추가 (kiali)
 	clientScopeMappingConfig := hyperauthCaller.GetClientScopeMappingPreset(prefix)
 	for _, config := range clientScopeMappingConfig {
 		err := hyperauthCaller.AddClientScopeToClient(config, secret)
