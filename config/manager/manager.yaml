@@ -29,6 +29,8 @@ spec:
           value: ${auth_client_secret}
         - name: AUTH_SUBDOMAIN
           value: ${auth_subdomain}
+        - name: HYPERREGISTRY_ENABLED
+          value: ${hyperregistry_enabled}
         image: controller:latest
         name: manager
         resources:
