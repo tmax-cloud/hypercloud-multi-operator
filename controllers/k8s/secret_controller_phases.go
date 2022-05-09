@@ -168,12 +168,12 @@ func (r *SecretReconciler) DeployRolebinding(ctx context.Context, secret *coreV1
 				ClusterRoles().
 				Create(context.TODO(), targetCr, metav1.CreateOptions{})
 			if err != nil {
-				log.Error(err, "Cannot create ClusteRrole ["+targetCr.Name+"] to remote cluster")
+				log.Error(err, "Cannot create ClusterRole ["+targetCr.Name+"] to remote cluster")
 				return ctrl.Result{}, err
 			}
-			log.Info("Create ClusteRrole [" + targetCr.Name + "] to remote cluster successfully")
+			log.Info("Create ClusterRole [" + targetCr.Name + "] to remote cluster successfully")
 		} else if err != nil {
-			log.Error(err, "Failed to get ClusteRrole ["+targetCr.Name+"] from remote cluster")
+			log.Error(err, "Failed to get ClusterRole ["+targetCr.Name+"] from remote cluster")
 			return ctrl.Result{}, err
 		}
 	}

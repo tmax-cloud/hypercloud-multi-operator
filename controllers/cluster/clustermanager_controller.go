@@ -242,27 +242,42 @@ func (r *ClusterManagerReconciler) reconcileDeleteForRegisteredClusterManager(ct
 func (r *ClusterManagerReconciler) reconcile(ctx context.Context, clusterManager *clusterV1alpha1.ClusterManager) (ctrl.Result, error) {
 	phases := []func(context.Context, *clusterV1alpha1.ClusterManager) (ctrl.Result, error){}
 	if clusterManager.Labels[clusterV1alpha1.LabelKeyClmClusterType] == clusterV1alpha1.ClusterTypeCreated {
+		// cluster claim 으로 cluster 를 생성한 경우에만 수행
 		phases = append(
 			phases,
+			// cluster manager 의  metadata 와 provider 정보를 service instance 의 parameter 값에 넣어 service instance 를 생성한다.
 			r.CreateServiceInstance,
+			// cluster manager 가 바라봐야 할 cluster 의 endpoint 를 annotation 으로 달아준다.
 			r.SetEndpoint,
+			// cluster claim 을 통해, cluster 의 spec 을 변경한 경우, 그에 맞게 master 노드의 spec 을 업데이트 해준다.
 			r.kubeadmControlPlaneUpdate,
+			// cluster claim 을 통해, cluster 의 spec 을 변경한 경우, 그에 맞게 worker 노드의 spec 을 업데이트 해준다.
 			r.machineDeploymentUpdate,
 		)
 	} else {
+		// cluster registration 으로 cluster 를 등록한 경우에만 수행
 		phases = append(phases, r.UpdateClusterManagerStatus)
 	}
+	// 공통적으로 수행
 	phases = append(
 		phases,
+		// Traefik 을 통하기 위한 리소스인 certificate, ingress, middleware 를 생성한다.
 		r.CreateTraefikResources,
+		// Argocd 연동을 위해 필요한 정보를 kube-config 로 부터 가져와 secret 을 생성한다.
 		r.CreateArgocdClusterSecret,
+		// single cluster 의 api gateway service 의 주소로 gateway service 생성
 		r.CreateMonitoringResources,
+		// Kibana, Grafana, Kiali 등 모듈과 hyperauth oidc 연동을 위한 client 생성 작업 (hyperauth 계정정보로 여러 모듈에 로그인 가능)
+		// hyperauth caller 를 통해 admin token 을 가져와 각 모듈 마다 hyperauth client 를 생성후, 모듈에 따른 role 을 추가한다.
 		r.CreateHyperauthClient,
+		// hyperregistry domain 을 single cluster 의 ingress 로 부터 가져와 oidc 연동설정
 		r.SetHyperregistryOidcConfig,
 	)
 
 	res := ctrl.Result{}
 	errs := []error{}
+	// phases 를 돌면서, append 한 함수들을 순차적으로 수행하고,
+	// 다시 requeue 가 되어야 하는 경우, LowestNonZeroResult 함수를 통해 requeueAfter time 이 가장 짧은 함수를 찾는다.
 	for _, phase := range phases {
 		// Call the inner reconciliation methods.
 		phaseResult, err := phase(ctx, clusterManager)
