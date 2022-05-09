@@ -82,8 +82,13 @@ func (r *ClusterRegistrationReconciler) Reconcile(ctx context.Context, req ctrl.
 // reconcile handles cluster reconciliation.
 func (r *ClusterRegistrationReconciler) reconcile(ctx context.Context, ClusterRegistration *clusterV1alpha1.ClusterRegistration) (ctrl.Result, error) {
 	phases := []func(context.Context, *clusterV1alpha1.ClusterRegistration) (ctrl.Result, error){
+		// cluster 등록전, validation 을 체크하는 과정으로
+		// single cluster 의 kube-config 가 올바른지 체크하기 위해, kube-config 를 사용해 node 들을 가져올수있는지 확인한다.
+		// 또한, 중복성 체크를 위해 해당 name 과 namespace 를 가지는 cluster manager 가 이미 있는지 확인한다.
 		r.CheckValidation,
+		// kube-config 를 secret 으로 생성한다.
 		r.CreateKubeconfigSecret,
+		// 해당 cluster 에 대한 cluster manager 를 생성한다.
 		r.CreateClusterManager,
 	}
 

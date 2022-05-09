@@ -695,7 +695,7 @@ func (r *ClusterManagerReconciler) CreateHyperauthClient(ctx context.Context, cl
 	// cluster마다 client 이름이 달라야 해서 {namespace}-{cluster name} 를 prefix로
 	// 붙여주기로 했기 때문에, preset을 기본토대로 prefix를 추가하여 리턴하도록 구성
 	prefix := clusterManager.Namespace + "-" + clusterManager.Name + "-"
-	// client 생성
+	// client 생성 (kibana, grafana, kiali, jaeger, hyperregistry, opensearch)
 	clientConfigs := hyperauthCaller.GetClientConfigPreset(prefix)
 	for _, config := range clientConfigs {
 		if err := hyperauthCaller.CreateClient(config, secret); err != nil {
@@ -704,7 +704,7 @@ func (r *ClusterManagerReconciler) CreateHyperauthClient(ctx context.Context, cl
 		}
 	}
 
-	// protocol mapper 생성
+	// protocol mapper 생성 (kibana, jaeger, hyperregistry, opensearch)
 	protocolMapperMappingConfigs := hyperauthCaller.GetMappingProtocolMapperToClientConfigPreset(prefix)
 	for _, config := range protocolMapperMappingConfigs {
 		if err := hyperauthCaller.CreateClientLevelProtocolMapper(config, secret); err != nil {
@@ -713,7 +713,7 @@ func (r *ClusterManagerReconciler) CreateHyperauthClient(ctx context.Context, cl
 		}
 	}
 
-	// client level role을 생성하고 role에 cluster admin 계정을 mapping
+	// client-level role을 생성하고 role에 cluster admin 계정을 mapping (kibana, jaeger, opensearch)
 	clientLevelRoleConfigs := hyperauthCaller.GetClientLevelRoleConfigPreset(prefix)
 	for _, config := range clientLevelRoleConfigs {
 		if err := hyperauthCaller.CreateClientLevelRole(config, secret); err != nil {
@@ -728,7 +728,7 @@ func (r *ClusterManagerReconciler) CreateHyperauthClient(ctx context.Context, cl
 		}
 	}
 
-	// client와 client scope를 매핑
+	// client와 client scope를 매핑 (kiali)
 	clientScopeMappingConfig := hyperauthCaller.GetClientScopeMappingPreset(prefix)
 	for _, config := range clientScopeMappingConfig {
 		err := hyperauthCaller.AddClientScopeToClient(config, secret)
