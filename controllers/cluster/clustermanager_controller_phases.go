@@ -461,6 +461,7 @@ func (r *ClusterManagerReconciler) CreateTraefikResources(ctx context.Context, c
 	// 	return ctrl.Result{}, err
 	// }
 
+	log.Info("Create traefik resources successfully")
 	clusterManager.Status.TraefikReady = true
 	return ctrl.Result{}, nil
 }
@@ -484,20 +485,42 @@ func (r *ClusterManagerReconciler) CreateArgocdClusterSecret(ctx context.Context
 		return ctrl.Result{}, err
 	}
 
+	remoteClientset, err := util.GetRemoteK8sClient(kubeconfigSecret)
+	if err != nil {
+		log.Error(err, "Failed to get remoteK8sClient")
+		return ctrl.Result{}, err
+	}
+
+	// single cluster에서 secret을 조회
+	// argocd-manager service account의 token을 얻기 위한 secret
+	tokenSecret, err := remoteClientset.
+		CoreV1().
+		Secrets(util.KubeNamespace).
+		Get(context.TODO(), util.ArgoServiceAccountTokenSecret, metav1.GetOptions{})
+	if err != nil {
+		log.Error(err, "Failed to get service account token secret")
+		return ctrl.Result{}, err
+	}
+
+	// ArgoCD single cluster 연동을 위한 secret에 들어가야 할 데이터를 생성
 	configJson, err := json.Marshal(
 		&argocdV1alpha1.ClusterConfig{
+			BearerToken: string(tokenSecret.Data["token"]),
 			TLSClientConfig: argocdV1alpha1.TLSClientConfig{
 				Insecure: false,
-				CertData: kubeConfig.AuthInfos[kubeConfig.Contexts[kubeConfig.CurrentContext].AuthInfo].ClientCertificateData,
-				KeyData:  kubeConfig.AuthInfos[kubeConfig.Contexts[kubeConfig.CurrentContext].AuthInfo].ClientKeyData,
-				CAData:   kubeConfig.Clusters[kubeConfig.Contexts[kubeConfig.CurrentContext].Cluster].CertificateAuthorityData,
+				// CertData: kubeConfig.AuthInfos[kubeConfig.Contexts[kubeConfig.CurrentContext].AuthInfo].ClientCertificateData,
+				// KeyData:  kubeConfig.AuthInfos[kubeConfig.Contexts[kubeConfig.CurrentContext].AuthInfo].ClientKeyData,
+				CAData: kubeConfig.Clusters[kubeConfig.Contexts[kubeConfig.CurrentContext].Cluster].CertificateAuthorityData,
 			},
 		},
 	)
 	if err != nil {
 		log.Error(err, "Failed to marshal cluster authorization parameters")
+		return ctrl.Result{}, err
 	}
 
+	// master cluster에 secret 생성
+	// ArgoCD에서 single cluster를 연동하기 위한 secret
 	clusterName := strings.Split(kubeconfigSecret.Name, util.KubeconfigSuffix)[0]
 	key := types.NamespacedName{
 		Name:      kubeconfigSecret.Annotations[util.AnnotationKeyArgoClusterSecret],
@@ -542,6 +565,7 @@ func (r *ClusterManagerReconciler) CreateArgocdClusterSecret(ctx context.Context
 		return ctrl.Result{Requeue: true}, nil
 	}
 
+	log.Info("Create argocd cluster secret successfully")
 	clusterManager.Status.ArgoReady = true
 	return ctrl.Result{}, nil
 }
@@ -635,6 +659,7 @@ func (r *ClusterManagerReconciler) CreateMonitoringResources(ctx context.Context
 	// 	return ctrl.Result{}, err
 	// }
 
+	log.Info("Create monitoring resources successfully")
 	clusterManager.Status.MonitoringReady = true
 	clusterManager.Status.PrometheusReady = true
 	return ctrl.Result{}, nil
@@ -759,7 +784,7 @@ func (r *ClusterManagerReconciler) SetHyperregistryOidcConfig(ctx context.Contex
 	}
 	hostpath := ingress.Spec.Rules[0].Host
 	if err := util.SetHyperregistryOIDC(config, secret, hostpath); err != nil {
-		log.Error(err, "Failed to get ingress for hyperregistry")
+		log.Error(err, "Failed to set oidc configuration for hyperregistry")
 		return ctrl.Result{}, err
 	}
 

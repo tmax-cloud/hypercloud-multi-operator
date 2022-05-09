@@ -53,12 +53,13 @@ const (
 )
 
 const (
-	ArgoApiGroup           = "argocd.argoproj.io"
-	ArgoServiceAccount     = "argocd-manager"
-	ArgoClusterRole        = "argocd-manager-role"
-	ArgoClusterRoleBinding = "argocd-manager-role-binding"
-	ArgoSecretTypeCluster  = "cluster"
-	ArgoSecretTypeGit      = "repo"
+	ArgoApiGroup                  = "argocd.argoproj.io"
+	ArgoServiceAccount            = "argocd-manager"
+	ArgoServiceAccountTokenSecret = "argocd-manager-token"
+	ArgoClusterRole               = "argocd-manager-role"
+	ArgoClusterRoleBinding        = "argocd-manager-role-binding"
+	ArgoSecretTypeCluster         = "cluster"
+	ArgoSecretTypeGit             = "repo"
 )
 
 const (

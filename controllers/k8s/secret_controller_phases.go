@@ -191,7 +191,7 @@ func (r *SecretReconciler) DeployArgocdResources(ctx context.Context, secret *co
 		return ctrl.Result{}, err
 	}
 
-	argocdManager := &coreV1.ServiceAccount{
+	argocdManagerSA := &coreV1.ServiceAccount{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: util.ArgoServiceAccount,
 		},
@@ -204,7 +204,7 @@ func (r *SecretReconciler) DeployArgocdResources(ctx context.Context, secret *co
 		_, err := remoteClientset.
 			CoreV1().
 			ServiceAccounts(util.KubeNamespace).
-			Create(context.TODO(), argocdManager, metav1.CreateOptions{})
+			Create(context.TODO(), argocdManagerSA, metav1.CreateOptions{})
 		if err != nil {
 			log.Error(err, "Cannot create ServiceAccount for argocd ["+util.ArgoClusterRole+"] to remote cluster")
 			return ctrl.Result{}, err
@@ -212,6 +212,36 @@ func (r *SecretReconciler) DeployArgocdResources(ctx context.Context, secret *co
 		log.Info("Create ServiceAccount for argocd [" + util.ArgoClusterRole + "] to remote cluster successfully")
 	} else if err != nil {
 		log.Error(err, "Failed to get ServiceAccount for argocd ["+util.ArgoServiceAccount+"] from remote cluster")
+		return ctrl.Result{}, err
+	}
+
+	// service account 생성시 token secret이 자동으로 생성되지만
+	// random suffix가 붙기때문에 조회하는 process가 번잡하므로 시크릿을 수동으로 생성
+	argocdManagerTokenSecret := &coreV1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Annotations: map[string]string{
+				coreV1.ServiceAccountNameKey: util.ArgoServiceAccount,
+			},
+			Name: util.ArgoServiceAccountTokenSecret,
+		},
+		Type: coreV1.SecretTypeServiceAccountToken,
+	}
+	_, err = remoteClientset.
+		CoreV1().
+		Secrets(util.KubeNamespace).
+		Get(context.TODO(), util.ArgoServiceAccountTokenSecret, metav1.GetOptions{})
+	if errors.IsNotFound(err) {
+		_, err := remoteClientset.
+			CoreV1().
+			Secrets(util.KubeNamespace).
+			Create(context.TODO(), argocdManagerTokenSecret, metav1.CreateOptions{})
+		if err != nil {
+			log.Error(err, "Cannot create ServiceAccount token secret for argocd ["+util.ArgoClusterRole+"] to remote cluster")
+			return ctrl.Result{}, err
+		}
+		log.Info("Create ServiceAccount token secret for argocd [" + util.ArgoClusterRole + "] to remote cluster successfully")
+	} else if err != nil {
+		log.Error(err, "Failed to get ServiceAccount token secret for argocd ["+util.ArgoServiceAccount+"] from remote cluster")
 		return ctrl.Result{}, err
 	}
 
