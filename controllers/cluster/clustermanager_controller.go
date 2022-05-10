@@ -255,7 +255,12 @@ func (r *ClusterManagerReconciler) reconcile(ctx context.Context, clusterManager
 			r.machineDeploymentUpdate,
 		)
 	} else {
-		// cluster registration 으로 cluster 를 등록한 경우에만 수행
+		// cluster 를 등록한 경우에만 수행
+		// cluster registration 으로 cluster 를 등록한 경우에는, kubeadm-config 를 가져와 그에 맞게 cluster manager 의 spec 을 업데이트 해야한다.
+		// kubeadm-config 에 따라,
+		// cluster manager 에 k8s version을 업데이트 해주고,
+		// single cluster 의 nodes 를 가져와 ready 상태의 worker node 와 master node의 개수를 업데이트해준다.
+		// 또한, 해당 cluster 의 provider 이름 (Aws/Vsphere) 을 업데이트 해주는 과정을 진행한다.
 		phases = append(phases, r.UpdateClusterManagerStatus)
 	}
 	// 공통적으로 수행
