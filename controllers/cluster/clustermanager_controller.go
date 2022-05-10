@@ -288,6 +288,7 @@ func (r *ClusterManagerReconciler) reconcile(ctx context.Context, clusterManager
 			continue
 		}
 
+		// Aggregate phases which requeued without err
 		res = util.LowestNonZeroResult(res, phaseResult)
 	}
 
