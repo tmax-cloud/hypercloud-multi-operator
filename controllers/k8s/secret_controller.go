@@ -16,7 +16,9 @@ package controllers
 
 import (
 	"context"
+	"encoding/json"
 	"strings"
+	"time"
 
 	"github.com/go-logr/logr"
 	clusterV1alpha1 "github.com/tmax-cloud/hypercloud-multi-operator/apis/cluster/v1alpha1"
@@ -45,6 +47,21 @@ type SecretReconciler struct {
 	client.Client
 	Log    logr.Logger
 	Scheme *runtime.Scheme
+}
+
+// Cluster member information
+type ClusterMemberInfo struct {
+	Id          int64     `json:"Id"`
+	Namespace   string    `json:"Namespace"`
+	Cluster     string    `json:"Cluster"`
+	MemberId    string    `json:"MemberId"`
+	Groups      []string  `json:"Groups"`
+	MemberName  string    `json:"MemberName"`
+	Attribute   string    `json:"Attribute"`
+	Role        string    `json:"Role"`
+	Status      string    `json:"Status"`
+	CreatedTime time.Time `json:"CreatedTime"`
+	UpdatedTime time.Time `json:"UpdatedTime"`
 }
 
 // +kubebuilder:rbac:groups="",resources=secrets;namespaces;serviceaccounts,verbs=create;delete;get;list;patch;post;update;watch;
@@ -258,16 +275,31 @@ func (r *SecretReconciler) reconcileDelete(ctx context.Context, secret *coreV1.S
 		}
 	}
 
-	// shlee - todo
-	// member list 가져와서,
-	// memberId + "-user-rolebinding"
-	// memberId + "-group-rolebinding"
-
-	crbList := []string{
-		"cluster-owner-crb-" + secret.Annotations[util.AnnotationKeyOwner],
-		//"hypercloud-admin-clusterrolebinding",
-		util.ArgoClusterRoleBinding,
+	// db 로 부터 클러스터에 초대 된 member 들의 info 가져오기
+	jsonData, _ := util.List(clm.Namespace, clm.Name)
+	memberList := []ClusterMemberInfo{}
+	if err := json.Unmarshal(jsonData, &memberList); err != nil {
+		return ctrl.Result{}, err
 	}
+
+	var crbList []string
+	for _, member := range memberList {
+		if member.Status == "invited" && member.Attribute == "user" {
+			// user 로 초대 된 member crb
+			crbList = append(crbList, member.MemberId+"-user-rolebinding")
+		} else if member.Status == "invited" && member.Attribute == "group" {
+			// group 으로 초대 된 member crb
+			crbList = append(crbList, member.MemberId+"-group-rolebinding")
+		}
+	}
+	crbList = append(crbList, "cluster-owner-crb-"+secret.Annotations[util.AnnotationKeyOwner])
+	crbList = append(crbList, util.ArgoClusterRoleBinding)
+
+	// crbList := []string{
+	// 	"cluster-owner-crb-" + secret.Annotations[util.AnnotationKeyOwner],
+	// 	//"hypercloud-admin-clusterrolebinding",
+	// 	util.ArgoClusterRoleBinding,
+	// }
 	for _, targetCrb := range crbList {
 		_, err := remoteClientset.
 			RbacV1().
@@ -289,6 +321,12 @@ func (r *SecretReconciler) reconcileDelete(ctx context.Context, secret *coreV1.S
 			}
 			log.Info("Delete ClusterRoleBinding [" + targetCrb + "] from remote cluster successfully")
 		}
+	}
+
+	// db 에서 member 삭제
+	if err := util.Delete(clm.Namespace, clm.Name); err != nil {
+		log.Error(err, "Failed to delete cluster info from cluster_member table")
+		return ctrl.Result{}, err
 	}
 
 	crList := []string{
