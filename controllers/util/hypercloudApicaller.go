@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"crypto/tls"
 	"encoding/json"
+	"io/ioutil"
 	"log"
 	"net/http"
 	"strings"
@@ -58,4 +59,29 @@ func Insert(clusterManager *clusterV1alpha1.ClusterManager) error {
 		return err
 	}
 	return nil
+}
+
+func List(namespace, cluster string) ([]byte, error) {
+	// hypercloud api call
+	url := "https://hypercloud5-api-server-service.hypercloud5-system.svc.cluster.local/namespaces/{namespace}/clustermanagers/{clustermanager}/member/{member}"
+	tr := &http.Transport{
+		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+	}
+	url = strings.Replace(url, "{namespace}", namespace, -1)
+	url = strings.Replace(url, "{clustermanager}", cluster, -1)
+	url = strings.Replace(url, "{member}", "all", -1)
+	client := &http.Client{Transport: tr}
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		log.Fatalf("An Error Occurred %v", err)
+		return nil, err
+	}
+	resp, err := client.Do(req)
+	if err != nil {
+		log.Fatalf("An Error Occurred %v", err)
+		return nil, err
+	}
+	defer resp.Body.Close()
+	bytes, _ := ioutil.ReadAll(resp.Body)
+	return bytes, nil
 }
