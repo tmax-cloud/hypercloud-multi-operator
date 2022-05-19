@@ -1,6 +1,40 @@
 # HyperCloud-Multi-Operator changelog!!
 All notable changes to this project will be documented in this file.
 
+<!-------------------- v5.0.26.11 start -------------------->
+
+## HyperCloud-Multi-Operator_5.0.26.11 (2022. 05. 19. (목) 13:46:44 KST)
+
+### Added
+  - [feat] 클러스터 등록 삭제시 초대된 member에 대한 cluster role binding을 삭제하는 로직 추가 by sihyunglee823
+  - [feat] hyperregistry를 설치 하지 않는 경우에는 oidc 설정 phase를 skip하는 로직 추가 by SISILIA
+  - [feat] 클러스터 등록 삭제시 argocd-manager service account token secret 삭제 기능 추가 by SISILIA
+  - [feat] spec.clusterName의 글자수를 체크하는 webhook 로직 추가 by SISILIA
+
+### Changed
+  - [mod] argocd-manager service account token secret 스펙 에러 수정 by SISILIA
+  - [mod] webhook 로직 if문 조건 중복 에러 수정 by SISILIA
+  - [mod] ArgoCD 연동을 위한 secret을 생성할 때, admin정보가 아닌 service account정보를 사용하도록 변경 by SISILIA
+
+### Fixed
+
+### CRD yaml
+
+### Etc
+  - [etc] 주석 수정 by sihyunglee823
+  - [etc] 주석 추가 by sihyunglee823
+  - [etc] 주석 수정 by sihyunglee823
+  - [etc] 주석추가 및 오타수정 by sihyunglee823
+  - [etc] 주석추가 및 오타수정 by sihyunglee823
+  - [etc] 주석 추가 by SISILIA
+  - [etc] log 에러 수정, 누락된 로그 추가 by SISILIA
+  - [etc] json marshal 에러 발생시 방어로직 추가 by SISILIA
+  - [etc] 웹훅 로직에 DNS-1123룰에 대한 설명 및 웹훅로직 설명 주석 추가 by SISILIA
+  - [etc] 주석 보강 by SISILIA
+  - [etc] fix changelog.md typo by SISILIA
+
+<!--------------------- v5.0.26.11 end --------------------->
+
 <!-------------------- v5.0.26.10 start -------------------->
 
 ## HyperCloud-Multi-Operator_5.0.26.10 (2022. 04. 26. (화) 11:17:16 KST)
