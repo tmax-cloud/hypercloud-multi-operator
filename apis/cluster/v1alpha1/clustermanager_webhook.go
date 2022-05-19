@@ -34,7 +34,7 @@ func (r *ClusterManager) SetupWebhookWithManager(mgr ctrl.Manager) error {
 
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
 
-// // +kubebuilder:webhook:path=/mutate-cluster-tmax-io-v1alpha1-clustermanager,mutating=true,failurePolicy=fail,groups=cluster.tmax.io,resources=clustermanagers,verbs=create;update,versions=v1alpha1,name=mutation.webhook.clustermanager
+// // +kubebuilder:webhook:path=/mutate-cluster-tmax-io-v1alpha1-clustermanager,mutating=true,failurePolicy=fail,groups=cluster.tmax.io,resources=clustermanagers,verbs=create;update,versions=v1alpha1,name=mutation.webhook.clustermanager,admissionReviewVersions=v1beta1;v1,sideEffects=NoneOnDryRun
 
 // var _ webhook.Defaulter = &ClusterManager{}
 
@@ -46,7 +46,7 @@ func (r *ClusterManager) SetupWebhookWithManager(mgr ctrl.Manager) error {
 // }
 
 // TODO(user): change verbs to "verbs=create;update;delete" if you want to enable deletion validation.
-// +kubebuilder:webhook:verbs=update,path=/validate-cluster-tmax-io-v1alpha1-clustermanager,mutating=false,failurePolicy=fail,groups=cluster.tmax.io,resources=clustermanagers,versions=v1alpha1,name=validation.webhook.clustermanager
+// +kubebuilder:webhook:verbs=update,path=/validate-cluster-tmax-io-v1alpha1-clustermanager,mutating=false,failurePolicy=fail,groups=cluster.tmax.io,resources=clustermanagers,versions=v1alpha1,name=validation.webhook.clustermanager,admissionReviewVersions=v1beta1;v1,sideEffects=NoneOnDryRun
 
 var _ webhook.Validator = &ClusterManager{}
 
