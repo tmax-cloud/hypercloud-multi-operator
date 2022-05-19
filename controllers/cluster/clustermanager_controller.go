@@ -203,10 +203,11 @@ func (r *ClusterManagerReconciler) reconcileDeleteForRegisteredClusterManager(ct
 	log := r.Log.WithValues("clustermanager", clusterManager.GetNamespacedName())
 	log.Info("Start to reconcile delete for registered ClusterManager")
 
-	if err := util.Delete(clusterManager.Namespace, clusterManager.Name); err != nil {
-		log.Error(err, "Failed to delete cluster info from cluster_member table")
-		return ctrl.Result{}, err
-	}
+	// cluster member crb 는 db 에 저장되어있는 member 의 정보로 삭제 되어지기 때문에, crb 를 지운후 db 에서 삭제 해야한다.
+	// if err := util.Delete(clusterManager.Namespace, clusterManager.Name); err != nil {
+	// 	log.Error(err, "Failed to delete cluster info from cluster_member table")
+	// 	return ctrl.Result{}, err
+	// }
 
 	key := types.NamespacedName{
 		Name:      clusterManager.Name + util.KubeconfigSuffix,
