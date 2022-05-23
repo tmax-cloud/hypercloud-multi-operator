@@ -89,10 +89,6 @@ func (r *ClusterManagerReconciler) UpdateClusterManagerStatus(ctx context.Contex
 		return ctrl.Result{}, err
 	}
 
-	// var machineList *capiV1alpha3.machineList
-	// if machineList, err =
-	// todo - shkim
-	// node list가 아닌 machine list를 불러서 ready체크를 해야 확실하지 않을까?
 	clusterManager.Spec.MasterNum = 0
 	clusterManager.Status.MasterRun = 0
 	clusterManager.Spec.WorkerNum = 0
@@ -151,11 +147,8 @@ func (r *ClusterManagerReconciler) UpdateClusterManagerStatus(ctx context.Contex
 	}
 	if string(resp) == "ok" {
 		clusterManager.Status.ControlPlaneReady = true
-		//clusterManager.Status.AgentReady = true
 		clusterManager.Status.Ready = true
 	} else {
-		// err := errors.NewBadRequest("Failed to healthcheck")
-		// log.Error(err, "Failed to healthcheck")
 		log.Info("Remote cluster is not ready... wait...")
 		return ctrl.Result{RequeueAfter: requeueAfter30Second}, nil
 	}
@@ -165,70 +158,6 @@ func (r *ClusterManagerReconciler) UpdateClusterManagerStatus(ctx context.Contex
 	clusterManager.Annotations[clusterV1alpha1.AnnotationKeyClmSuffix] = generatedSuffix
 	return ctrl.Result{}, nil
 }
-
-// defunct
-// func (r *ClusterManagerReconciler) DeployAndUpdateAgentEndpoint(ctx context.Context, clusterManager *clusterV1alpha1.ClusterManager) (ctrl.Result, error) {
-// 	log := r.Log.WithValues("clustermanager", clusterManager.GetNamespacedName())
-// 	log.Info("Start to reconcile phase for DeployAndUpdateAgentEndpoint")
-
-// 	// secret controller에서 clustermanager.status.controleplaneendpoint를 채워줄 때 까지 기다림
-// 	if !clusterManager.Status.ControlPlaneReady {
-// 		return ctrl.Result{RequeueAfter: requeueAfter1Minute}, nil
-// 	}
-
-// 	kubeconfigSecret := &coreV1.Secret{}
-// 	key := types.NamespacedName{
-// 		Name:      clusterManager.Name + util.KubeconfigSuffix,
-// 		Namespace: clusterManager.Namespace,
-// 	}
-// 	if err := r.Get(context.TODO(), key, kubeconfigSecret); errors.IsNotFound(err) {
-// 		log.Info("Wait for creating kubeconfig secret.")
-// 		return ctrl.Result{RequeueAfter: requeueAfter10Second}, nil
-// 	} else if err != nil {
-// 		log.Error(err, "Failed to get kubeconfig secret")
-// 		return ctrl.Result{}, err
-// 	}
-
-// 	remoteClientset, err := util.GetRemoteK8sClient(kubeconfigSecret)
-// 	if err != nil {
-// 		log.Error(err, "Failed to get remoteK8sClient")
-// 		return ctrl.Result{}, err
-// 	}
-
-// 	// ingress controller 존재하는지 먼저 확인하고 없으면 배포부터해.. 그전에 join되었는지도 먼저 확인해야하나...
-// 	_, err = remoteClientset.
-// 		CoreV1().
-// 		Namespaces().
-// 		Get(context.TODO(), util.IngressNginxNamespace, metav1.GetOptions{})
-// 	if errors.IsNotFound(err) {
-// 		log.Info("Cannot found ingress namespace. Ingress-nginx is creating. Requeue after 30sec")
-// 		return ctrl.Result{RequeueAfter: requeueAfter1Minute}, nil
-// 	} else if err != nil {
-// 		log.Error(err, "Failed to get ingress-nginx namespace from remote cluster")
-// 		return ctrl.Result{}, err
-// 	} else {
-// 		ingressController, err := remoteClientset.
-// 			AppsV1().
-// 			Deployments(util.IngressNginxNamespace).
-// 			Get(context.TODO(), util.IngressNginxName, metav1.GetOptions{})
-// 		if errors.IsNotFound(err) {
-// 			log.Info("Cannot found ingress controller. Ingress-nginx is creating. Requeue after 30sec")
-// 			return ctrl.Result{RequeueAfter: requeueAfter1Minute}, nil
-// 		} else if err != nil {
-// 			log.Error(err, "Failed to get ingress controller from remote cluster")
-// 			return ctrl.Result{}, err
-// 		} else {
-// 			// 하나라도 ready라면..
-// 			if ingressController.Status.ReadyReplicas == 0 {
-// 				log.Info("Ingress controller is not ready. Requeue after 60sec")
-// 				return ctrl.Result{RequeueAfter: requeueAfter1Minute}, nil
-// 			}
-// 		}
-// 	}
-
-// 	clusterManager.Status.Ready = true
-// 	return ctrl.Result{}, nil
-// }
 
 func (r *ClusterManagerReconciler) CreateServiceInstance(ctx context.Context, clusterManager *clusterV1alpha1.ClusterManager) (ctrl.Result, error) {
 	if clusterManager.Annotations[clusterV1alpha1.AnnotationKeyClmSuffix] != "" {
@@ -445,23 +374,9 @@ func (r *ClusterManagerReconciler) CreateTraefikResources(ctx context.Context, c
 		return ctrl.Result{}, err
 	}
 
-	// if err := r.CreateService(clusterManager); err != nil {
-	// 	return ctrl.Result{}, err
-	// }
-
 	if err := r.CreateMiddleware(clusterManager); err != nil {
 		return ctrl.Result{}, err
 	}
-
-	// ip address도 kube service의 externalName에 들어갈 수 있으므로 logic을 분리할 필요가 없다!
-	// if !util.IsIpAddress(clusterManager.Annotations[clusterV1alpha1.AnnotationKeyClmApiserver]) {
-	// 	clusterManager.Status.TraefikReady = true
-	// 	return ctrl.Result{}, nil
-	// }
-
-	// if err := r.CreateEndpoint(clusterManager); err != nil {
-	// 	return ctrl.Result{}, err
-	// }
 
 	log.Info("Create traefik resources successfully")
 	clusterManager.Status.TraefikReady = true
@@ -510,9 +425,7 @@ func (r *ClusterManagerReconciler) CreateArgocdClusterSecret(ctx context.Context
 			BearerToken: string(tokenSecret.Data["token"]),
 			TLSClientConfig: argocdV1alpha1.TLSClientConfig{
 				Insecure: false,
-				// CertData: kubeConfig.AuthInfos[kubeConfig.Contexts[kubeConfig.CurrentContext].AuthInfo].ClientCertificateData,
-				// KeyData:  kubeConfig.AuthInfos[kubeConfig.Contexts[kubeConfig.CurrentContext].AuthInfo].ClientKeyData,
-				CAData: kubeConfig.Clusters[kubeConfig.Contexts[kubeConfig.CurrentContext].Cluster].CertificateAuthorityData,
+				CAData:   kubeConfig.Clusters[kubeConfig.Contexts[kubeConfig.CurrentContext].Cluster].CertificateAuthorityData,
 			},
 		},
 	)

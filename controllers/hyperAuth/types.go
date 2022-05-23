@@ -21,23 +21,7 @@ type ClientConfig struct {
 	DirectAccessGrantsEnabled bool     `json:"directAccessGrantsEnabled,omitempty"`
 	ImplicitFlowEnabled       bool     `json:"implicitFlowEnabled,omitempty"`
 	RedirectUris              []string `json:"redirectUris,omitempty"`
-	// AdminUrl                  string   `json:"adminUrl,omitempty"`
-	// RootUrl                   string   `json:"rootUrl,omitempty"`
-	// WebOrigins                []string `json:"webOrigins,omitempty"`
-	// ServiceAccountsEnabled    bool     `json:"serviceAccountsEnabled,omitempty"`
 }
-
-// func (config ClientConfig) IsExist() bool {
-// 	return config.Id == ""
-// }
-
-// func (config ClientConfig) IsEmpty() bool {
-// 	return config.ClientId == ""
-// }
-
-// func (source ClientConfig) IsEqual(dest ClientConfig) bool {
-// 	return source.ClientId == dest.ClientId
-// }
 
 type ClientLevelProtocolMapperConfig struct {
 	ClientId       string
