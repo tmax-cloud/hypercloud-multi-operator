@@ -40,7 +40,7 @@ func (r *ClusterRegistration) SetupWebhookWithManager(mgr ctrl.Manager) error {
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
 
 // TODO(user): change verbs to "verbs=create;update;delete" if you want to enable deletion validation.
-// +kubebuilder:webhook:verbs=create;update,path=/validate-cluster-tmax-io-v1alpha1-clusterregistration,mutating=false,failurePolicy=fail,groups=cluster.tmax.io,resources=clusterregistrations,versions=v1alpha1,name=validation.webhook.clusterregistration
+// +kubebuilder:webhook:verbs=create;update,path=/validate-cluster-tmax-io-v1alpha1-clusterregistration,mutating=false,failurePolicy=fail,groups=cluster.tmax.io,resources=clusterregistrations,versions=v1alpha1,name=validation.webhook.clusterregistration,admissionReviewVersions=v1beta1;v1,sideEffects=NoneOnDryRun
 
 var _ webhook.Validator = &ClusterRegistration{}
 
