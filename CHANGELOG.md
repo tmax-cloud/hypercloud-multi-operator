@@ -1,6 +1,25 @@
 # HyperCloud-Multi-Operator changelog!!
 All notable changes to this project will be documented in this file.
 
+<!-------------------- v5.0.27.0 start -------------------->
+
+## HyperCloud-Multi-Operator_5.0.27.0 (2022. 05. 23. (월) 15:42:37 KST)
+
+### Added
+  - [feat] kube-v1.22용 kustomize build가 가능하도록 /config/crd/patches 하위 manifest 수정 by SISILIA
+  - [feat] kube-v1.22 에서 호환 가능하도록 crd, webhook manifest를 v1에 맞게 수정 by SISILIA
+
+### Changed
+
+### Fixed
+
+### CRD yaml
+
+### Etc
+  - [etc] 불필요한 주석 제거 by SISILIA
+
+<!--------------------- v5.0.27.0 end --------------------->
+
 <!-------------------- v5.0.26.11 start -------------------->
 
 ## HyperCloud-Multi-Operator_5.0.26.11 (2022. 05. 19. (목) 13:46:44 KST)
