@@ -21,8 +21,6 @@ spec:
         command:
         - /manager
         env:
-        - name: TZ
-          value: Asia/Seoul
         - name: HC_DOMAIN
           value: ${custom_domain}
         - name: AUTH_CLIENT_SECRET
