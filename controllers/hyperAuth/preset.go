@@ -149,6 +149,18 @@ func GetClientLevelRoleConfigPreset(prefix string) []ClientLevelRoleConfig {
 				Name: "opensearch-admin",
 			},
 		},
+		{
+			ClientId: prefix + "opensearch",
+			Role: RoleConfig{
+				Name: "opensearch-developer",
+			},
+		},
+		{
+			ClientId: prefix + "opensearch",
+			Role: RoleConfig{
+				Name: "opensearch-guest",
+			},
+		},
 	}
 
 	return configs
