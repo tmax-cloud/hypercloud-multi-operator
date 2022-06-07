@@ -17,6 +17,8 @@ package controllers
 import (
 	"context"
 	"fmt"
+	"regexp"
+	"strings"
 
 	certmanagerV1 "github.com/jetstack/cert-manager/pkg/apis/certmanager/v1"
 	certmanagermetaV1 "github.com/jetstack/cert-manager/pkg/apis/meta/v1"
@@ -525,6 +527,86 @@ func (r *ClusterManagerReconciler) CreateMiddleware(clusterManager *clusterV1alp
 		log.Info("Create Middleware successfully")
 		ctrl.SetControllerReference(clusterManager, middleware, r.Scheme)
 		return nil
+	}
+
+	return err
+}
+
+func (r *ClusterManagerReconciler) CreateServiceAccountSecret(clusterManager *clusterV1alpha1.ClusterManager) error {
+	log := r.Log.WithValues("clustermanager", clusterManager.GetNamespacedName())
+
+	re, _ := regexp.Compile("[" + regexp.QuoteMeta(`!#$%&'"*+-/=?^_{|}~().,:;<>[]\`) + "`\\s" + "]")
+	email := clusterManager.Annotations[util.AnnotationKeyOwner]
+	adminServiceAccountName := re.ReplaceAllString(strings.Replace(email, "@", "-at-", -1), "-")
+	kubeconfigSecret, err := r.GetKubeconfigSecret(clusterManager)
+	if err != nil {
+		log.Error(err, "Failed to get kubeconfig secret")
+		return err
+	}
+
+	remoteClientset, err := util.GetRemoteK8sClient(kubeconfigSecret)
+	if err != nil {
+		log.Error(err, "Failed to get remoteK8sClient")
+		return err
+	}
+
+	tokenSecret, err := remoteClientset.
+		CoreV1().
+		Secrets(util.KubeNamespace).
+		Get(context.TODO(), adminServiceAccountName+"-token", metav1.GetOptions{})
+	if errors.IsNotFound(err) {
+		log.Info("Waiting for create service account token secret [" + adminServiceAccountName + "]")
+		return err
+	} else if err != nil {
+		log.Error(err, "Failed to get service account token secret ["+adminServiceAccountName+"-token]")
+		return err
+	}
+
+	if string(tokenSecret.Data["token"]) == "" {
+		log.Info("Waiting for create service account token secret [" + adminServiceAccountName + "]")
+		return fmt.Errorf("service account token secret is not found")
+	}
+
+	jwtDecodeSecretName := adminServiceAccountName + "-" + clusterManager.Name + "-token"
+	key := types.NamespacedName{
+		Name:      jwtDecodeSecretName,
+		Namespace: clusterManager.Namespace,
+	}
+	jwtDecodeSecret := &coreV1.Secret{}
+	err = r.Get(context.TODO(), key, jwtDecodeSecret)
+	if errors.IsNotFound(err) {
+		secret := &coreV1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      jwtDecodeSecretName,
+				Namespace: clusterManager.Namespace,
+				Labels: map[string]string{
+					util.LabelKeyClmSecretType:           util.ClmSecretTypeSAToken,
+					clusterV1alpha1.LabelKeyClmName:      clusterManager.Name,
+					clusterV1alpha1.LabelKeyClmNamespace: clusterManager.Namespace,
+				},
+				Annotations: map[string]string{
+					util.AnnotationKeyOwner: clusterManager.Annotations[util.AnnotationKeyOwner],
+				},
+				Finalizers: []string{
+					clusterV1alpha1.ClusterManagerFinalizer,
+				},
+			},
+			Data: map[string][]byte{
+				"token": tokenSecret.Data["token"],
+			},
+		}
+		if err := r.Create(context.TODO(), secret); err != nil {
+			log.Error(err, "Failed to Create Secret for ServiceAccount token")
+			return err
+		}
+
+		log.Info("Create Secret for ServiceAccount token successfully")
+		ctrl.SetControllerReference(clusterManager, secret, r.Scheme)
+		return nil
+	}
+
+	if !jwtDecodeSecret.DeletionTimestamp.IsZero() {
+		err = fmt.Errorf("secret for service account token is not refreshed yet")
 	}
 
 	return err

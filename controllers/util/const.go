@@ -50,6 +50,7 @@ const (
 const (
 	ClmSecretTypeKubeconfig = "kubeconfig"
 	ClmSecretTypeArgo       = "argocd"
+	ClmSecretTypeSAToken    = "token"
 )
 
 const (

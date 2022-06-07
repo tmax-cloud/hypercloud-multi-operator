@@ -378,6 +378,10 @@ func (r *ClusterManagerReconciler) CreateTraefikResources(ctx context.Context, c
 		return ctrl.Result{}, err
 	}
 
+	if err := r.CreateServiceAccountSecret(clusterManager); err != nil {
+		return ctrl.Result{}, err
+	}
+
 	log.Info("Create traefik resources successfully")
 	clusterManager.Status.TraefikReady = true
 	return ctrl.Result{}, nil
@@ -414,8 +418,11 @@ func (r *ClusterManagerReconciler) CreateArgocdClusterSecret(ctx context.Context
 		CoreV1().
 		Secrets(util.KubeNamespace).
 		Get(context.TODO(), util.ArgoServiceAccountTokenSecret, metav1.GetOptions{})
-	if err != nil {
-		log.Error(err, "Failed to get service account token secret")
+	if errors.IsNotFound(err) {
+		log.Info("Waiting for create service account token secret [" + util.ArgoServiceAccountTokenSecret + "]")
+		return ctrl.Result{RequeueAfter: requeueAfter10Second}, nil
+	} else if err != nil {
+		log.Error(err, "Failed to get service account token secret ["+util.ArgoServiceAccountTokenSecret+"]")
 		return ctrl.Result{}, err
 	}
 

@@ -16,6 +16,7 @@ package controllers
 
 import (
 	"context"
+	"regexp"
 	"strings"
 
 	clusterV1alpha1 "github.com/tmax-cloud/hypercloud-multi-operator/apis/cluster/v1alpha1"
@@ -75,7 +76,7 @@ func (r *SecretReconciler) UpdateClusterManagerControlPlaneEndpoint(ctx context.
 	return ctrl.Result{}, nil
 }
 
-func (r *SecretReconciler) DeployRolebinding(ctx context.Context, secret *coreV1.Secret) (ctrl.Result, error) {
+func (r *SecretReconciler) DeployRBACResources(ctx context.Context, secret *coreV1.Secret) (ctrl.Result, error) {
 	log := r.Log.WithValues(
 		"secret",
 		types.NamespacedName{
@@ -101,10 +102,9 @@ func (r *SecretReconciler) DeployRolebinding(ctx context.Context, secret *coreV1
 		return ctrl.Result{}, err
 	}
 
-	clusterAdminCRBName := "cluster-owner-crb-" + clm.Annotations[util.AnnotationKeyOwner]
 	clusterAdminCRB := &rbacv1.ClusterRoleBinding{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: clusterAdminCRBName,
+			Name: "cluster-owner-crb-" + clm.Annotations[util.AnnotationKeyOwner],
 		},
 		RoleRef: rbacv1.RoleRef{
 			APIGroup: rbacv1.GroupName,
@@ -113,31 +113,16 @@ func (r *SecretReconciler) DeployRolebinding(ctx context.Context, secret *coreV1
 		},
 		Subjects: []rbacv1.Subject{
 			{
-				Kind:     rbacv1.UserKind,
 				APIGroup: rbacv1.GroupName,
+				Kind:     rbacv1.UserKind,
 				Name:     clm.Annotations[util.AnnotationKeyOwner],
 			},
 		},
 	}
-
-	targetGroup := []string{
-		"",
-		"apps",
-		"autoscaling",
-		"batch",
-		"extensions",
-		"policy",
-		"networking.k8s.io",
-		"snapshot.storage.k8s.io",
-		"storage.k8s.io",
-		"apiextensions.k8s.io",
-		"metrics.k8s.io",
-	}
-
 	_, err = remoteClientset.
 		RbacV1().
 		ClusterRoleBindings().
-		Get(context.TODO(), clusterAdminCRBName, metav1.GetOptions{})
+		Get(context.TODO(), clusterAdminCRB.Name, metav1.GetOptions{})
 	if errors.IsNotFound(err) {
 		_, err := remoteClientset.
 			RbacV1().
@@ -153,6 +138,19 @@ func (r *SecretReconciler) DeployRolebinding(ctx context.Context, secret *coreV1
 		return ctrl.Result{}, err
 	}
 
+	targetGroup := []string{
+		"",
+		"apps",
+		"autoscaling",
+		"batch",
+		"extensions",
+		"policy",
+		"networking.k8s.io",
+		"snapshot.storage.k8s.io",
+		"storage.k8s.io",
+		"apiextensions.k8s.io",
+		"metrics.k8s.io",
+	}
 	crList := []*rbacv1.ClusterRole{
 		CreateClusterRole("developer", targetGroup, []string{rbacv1.VerbAll}),
 		CreateClusterRole("guest", targetGroup, []string{"get", "list", "watch"}),
@@ -176,6 +174,97 @@ func (r *SecretReconciler) DeployRolebinding(ctx context.Context, secret *coreV1
 			log.Error(err, "Failed to get ClusterRole ["+targetCr.Name+"] from remote cluster")
 			return ctrl.Result{}, err
 		}
+	}
+
+	re, _ := regexp.Compile("[" + regexp.QuoteMeta(`!#$%&'"*+-/=?^_{|}~().,:;<>[]\`) + "`\\s" + "]")
+	email := clm.Annotations[util.AnnotationKeyOwner]
+	adminServiceAccount := &coreV1.ServiceAccount{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      re.ReplaceAllString(strings.Replace(email, "@", "-at-", -1), "-"),
+			Namespace: util.KubeNamespace,
+		},
+	}
+	_, err = remoteClientset.
+		CoreV1().
+		ServiceAccounts(util.KubeNamespace).
+		Get(context.TODO(), adminServiceAccount.Name, metav1.GetOptions{})
+	if errors.IsNotFound(err) {
+		_, err := remoteClientset.
+			CoreV1().
+			ServiceAccounts(util.KubeNamespace).
+			Create(context.TODO(), adminServiceAccount, metav1.CreateOptions{})
+		if err != nil {
+			log.Error(err, "Cannot create ServiceAccount ["+adminServiceAccount.Name+"] to remote cluster")
+			return ctrl.Result{}, err
+		}
+		log.Info("Create ServiceAccount [" + adminServiceAccount.Name + "] to remote cluster successfully")
+	} else if err != nil {
+		log.Error(err, "Failed to get ServiceAccount ["+adminServiceAccount.Name+"] from remote cluster")
+		return ctrl.Result{}, err
+	}
+
+	adminServiceAccountTokenSecret := &coreV1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Annotations: map[string]string{
+				coreV1.ServiceAccountNameKey: adminServiceAccount.Name,
+			},
+			Name: adminServiceAccount.Name + "-token",
+		},
+		Type: coreV1.SecretTypeServiceAccountToken,
+	}
+	_, err = remoteClientset.
+		CoreV1().
+		Secrets(util.KubeNamespace).
+		Get(context.TODO(), adminServiceAccountTokenSecret.Name, metav1.GetOptions{})
+	if errors.IsNotFound(err) {
+		_, err := remoteClientset.
+			CoreV1().
+			Secrets(util.KubeNamespace).
+			Create(context.TODO(), adminServiceAccountTokenSecret, metav1.CreateOptions{})
+		if err != nil {
+			log.Error(err, "Cannot create ServiceAccount token secret ["+adminServiceAccount.Name+"] to remote cluster")
+			return ctrl.Result{}, err
+		}
+		log.Info("Create ServiceAccount token secret [" + adminServiceAccount.Name + "] to remote cluster successfully")
+	} else if err != nil {
+		log.Error(err, "Failed to get ServiceAccount token secret ["+adminServiceAccount.Name+"] from remote cluster")
+		return ctrl.Result{}, err
+	}
+
+	adminServiceAccountCRB := &rbacv1.ClusterRoleBinding{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "cluster-owner-sa-crb-" + clm.Annotations[util.AnnotationKeyOwner],
+		},
+		RoleRef: rbacv1.RoleRef{
+			APIGroup: rbacv1.GroupName,
+			Kind:     "ClusterRole",
+			Name:     "cluster-admin",
+		},
+		Subjects: []rbacv1.Subject{
+			{
+				Kind:      rbacv1.ServiceAccountKind,
+				Name:      adminServiceAccount.Name,
+				Namespace: util.KubeNamespace,
+			},
+		},
+	}
+	_, err = remoteClientset.
+		RbacV1().
+		ClusterRoleBindings().
+		Get(context.TODO(), adminServiceAccountCRB.Name, metav1.GetOptions{})
+	if errors.IsNotFound(err) {
+		_, err := remoteClientset.
+			RbacV1().
+			ClusterRoleBindings().
+			Create(context.TODO(), adminServiceAccountCRB, metav1.CreateOptions{})
+		if err != nil {
+			log.Error(err, "Cannot create ClusterRoleBinding for admin service account")
+			return ctrl.Result{}, err
+		}
+		log.Info("Create ClusterRoleBinding for admin service account to remote cluster successfully")
+	} else if err != nil {
+		log.Error(err, "Failed to get ClusterRoleBinding for admin service account from remote cluster")
+		return ctrl.Result{}, err
 	}
 
 	return ctrl.Result{}, nil
@@ -229,7 +318,7 @@ func (r *SecretReconciler) DeployArgocdResources(ctx context.Context, secret *co
 	_, err = remoteClientset.
 		CoreV1().
 		Secrets(util.KubeNamespace).
-		Get(context.TODO(), util.ArgoServiceAccountTokenSecret, metav1.GetOptions{})
+		Get(context.TODO(), argocdManagerTokenSecret.Name, metav1.GetOptions{})
 	if errors.IsNotFound(err) {
 		_, err := remoteClientset.
 			CoreV1().
@@ -264,7 +353,7 @@ func (r *SecretReconciler) DeployArgocdResources(ctx context.Context, secret *co
 	_, err = remoteClientset.
 		RbacV1().
 		ClusterRoles().
-		Get(context.TODO(), util.ArgoClusterRole, metav1.GetOptions{})
+		Get(context.TODO(), argocdManagerRole.Name, metav1.GetOptions{})
 	if errors.IsNotFound(err) {
 		_, err := remoteClientset.
 			RbacV1().
@@ -285,8 +374,8 @@ func (r *SecretReconciler) DeployArgocdResources(ctx context.Context, secret *co
 			Name: util.ArgoClusterRoleBinding,
 		},
 		RoleRef: rbacv1.RoleRef{
-			Kind:     "ClusterRole",
 			APIGroup: rbacv1.GroupName,
+			Kind:     "ClusterRole",
 			Name:     util.ArgoClusterRole,
 		},
 		Subjects: []rbacv1.Subject{
@@ -300,7 +389,7 @@ func (r *SecretReconciler) DeployArgocdResources(ctx context.Context, secret *co
 	_, err = remoteClientset.
 		RbacV1().
 		ClusterRoleBindings().
-		Get(context.TODO(), util.ArgoClusterRoleBinding, metav1.GetOptions{})
+		Get(context.TODO(), argocdManagerRoleBinding.Name, metav1.GetOptions{})
 	if errors.IsNotFound(err) {
 		_, err := remoteClientset.
 			RbacV1().
@@ -318,78 +407,3 @@ func (r *SecretReconciler) DeployArgocdResources(ctx context.Context, secret *co
 
 	return ctrl.Result{}, nil
 }
-
-// deprecated
-// func (r *SecretReconciler) DeployOpensearchResources(ctx context.Context, secret *coreV1.Secret) (ctrl.Result, error) {
-// 	log := r.Log.WithValues("secret", types.NamespacedName{Name: secret.Name, Namespace: secret.Namespace})
-// 	log.Info("Start to reconcile phase for Deploy opensearch resources to remote")
-
-// 	key := types.NamespacedName{
-// 		Name:      os.Getenv("GATEWAY_TLS_SECRET"),
-// 		Namespace: util.ApiGatewayNamespace,
-// 	}
-// 	gatewaySecret := &coreV1.Secret{}
-// 	if err := r.Get(context.TODO(), key, gatewaySecret); err != nil {
-// 		log.Error(err, "Failed to get gateway tls secret")
-// 		return ctrl.Result{}, nil
-// 	}
-
-// 	remoteClientset, err := util.GetRemoteK8sClient(secret)
-// 	if err != nil {
-// 		log.Error(err, "Failed to get remoteK8sClient")
-// 		return ctrl.Result{}, err
-// 	}
-
-// 	_, err = remoteClientset.
-// 		CoreV1().
-// 		Namespaces().
-// 		Get(context.TODO(), util.OpenSearchNamespace, metav1.GetOptions{})
-// 	if errors.IsNotFound(err) {
-// 		namespace := &coreV1.Namespace{
-// 			ObjectMeta: metav1.ObjectMeta{
-// 				Name: util.OpenSearchNamespace,
-// 			},
-// 		}
-// 		_, err := remoteClientset.
-// 			CoreV1().
-// 			Namespaces().
-// 			Create(context.TODO(), namespace, metav1.CreateOptions{})
-// 		if err != nil {
-// 			log.Error(err, "Failed to create kube-logging namespace")
-// 			return ctrl.Result{}, err
-// 		}
-// 	} else if err != nil {
-// 		log.Error(err, "Failed to get kube-logging namespace")
-// 		return ctrl.Result{}, err
-// 	}
-
-// 	_, err = remoteClientset.
-// 		CoreV1().
-// 		Secrets(util.OpenSearchNamespace).
-// 		Get(context.TODO(), "hyperauth-ca", metav1.GetOptions{})
-// 	if errors.IsNotFound(err) {
-// 		openSearchSecret := &coreV1.Secret{
-// 			ObjectMeta: metav1.ObjectMeta{
-// 				Name:      "hyperauth-ca",
-// 				Namespace: util.OpenSearchNamespace,
-// 			},
-// 			Data: map[string][]byte{
-// 				"ca.crt": gatewaySecret.Data["tls.crt"],
-// 			},
-// 		}
-// 		_, err := remoteClientset.
-// 			CoreV1().
-// 			Secrets(util.OpenSearchNamespace).
-// 			Create(context.TODO(), openSearchSecret, metav1.CreateOptions{})
-// 		if err != nil {
-// 			log.Error(err, "Failed to create hyperauth-ca secret")
-// 			return ctrl.Result{}, err
-// 		}
-// 	} else if err != nil {
-// 		log.Error(err, "Failed to get hyperauth-ca secret")
-// 		return ctrl.Result{}, err
-// 	}
-
-// 	log.Info("Create secret for opensearch to single cluster successfully")
-// 	return ctrl.Result{}, nil
-// }
