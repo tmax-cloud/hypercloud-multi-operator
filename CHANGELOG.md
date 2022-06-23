@@ -8,6 +8,24 @@ All notable changes to this project will be documented in this file.
 ### Added
   - [feat] capi가 생성해주는 kubeconfig secret에 대한 관리 로직 추가 by SISILIA
   - [feat] 불필요한 reconcile 수행 및 로그를 없애기 위해 capi로 cluster생성시에 control plane이 ready되지 않으면 clm controller reconcile이 수행되지 않게 로직 추가 by SISILIA
+
+### Changed
+
+### Fixed
+  - [ims][285253] calico 버전 고정을 위한 template 수정 by SISILIA
+
+### CRD yaml
+
+### Etc
+  - [etc] golang version에 맞게 makefile 수정 by SISILIA
+
+<!--------------------- v5.0.26.12 end --------------------->
+
+<!-------------------- v5.0.26.11 start -------------------->
+
+## HyperCloud-Multi-Operator_5.0.26.11 (2022. 05. 19. (목) 13:46:44 KST)
+
+### Added
   - [feat] 클러스터 등록 삭제시 초대된 member에 대한 cluster role binding을 삭제하는 로직 추가 by sihyunglee823
   - [feat] hyperregistry를 설치 하지 않는 경우에는 oidc 설정 phase를 skip하는 로직 추가 by SISILIA
   - [feat] 클러스터 등록 삭제시 argocd-manager service account token secret 삭제 기능 추가 by SISILIA
@@ -19,12 +37,10 @@ All notable changes to this project will be documented in this file.
   - [mod] ArgoCD 연동을 위한 secret을 생성할 때, admin정보가 아닌 service account정보를 사용하도록 변경 by SISILIA
 
 ### Fixed
-  - [ims][285253] calico 버전 고정을 위한 template 수정 by SISILIA
 
 ### CRD yaml
 
 ### Etc
-  - [etc] golang version에 맞게 makefile 수정 by SISILIA
   - [etc] 주석 수정 by sihyunglee823
   - [etc] 주석 추가 by sihyunglee823
   - [etc] 주석 수정 by sihyunglee823
@@ -37,7 +53,7 @@ All notable changes to this project will be documented in this file.
   - [etc] 주석 보강 by SISILIA
   - [etc] fix changelog.md typo by SISILIA
 
-<!--------------------- v5.0.26.12 end --------------------->
+<!--------------------- v5.0.26.11 end --------------------->
 
 <!-------------------- v5.0.26.10 start -------------------->
 
