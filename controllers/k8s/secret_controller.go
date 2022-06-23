@@ -102,8 +102,15 @@ func (r *SecretReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ c
 		}
 	}()
 
+	// capi에 의해 생성된 kubeconfig secret에는 secret type에 대한 Label이 달려있지 않으므로, annotation을 생성해준다.
+	if _, ok := secret.Labels[util.LabelKeyClmSecretType]; !ok {
+		secret.Labels[util.LabelKeyClmSecretType] = util.ClmSecretTypeKubeconfig
+	}
+
+	_, isCapiKubeconfig := secret.Labels[util.LabelKeyCapiClusterName]
 	// Add finalizer first if not exist to avoid the race condition between init and delete
-	if !controllerutil.ContainsFinalizer(secret, clusterV1alpha1.ClusterManagerFinalizer) {
+	// capi에 의해 생성된 kubeconfig secret은 capi controller가 처리할 수 있도록 finalizer를 달지 않는다.
+	if !controllerutil.ContainsFinalizer(secret, clusterV1alpha1.ClusterManagerFinalizer) && !isCapiKubeconfig {
 		controllerutil.AddFinalizer(secret, clusterV1alpha1.ClusterManagerFinalizer)
 		return ctrl.Result{}, nil
 	}
@@ -412,7 +419,9 @@ func (r *SecretReconciler) SetupWithManager(mgr ctrl.Manager) error {
 				UpdateFunc: func(e event.UpdateEvent) bool {
 					oldSecret := e.ObjectOld.(*coreV1.Secret).DeepCopy()
 					newSecret := e.ObjectNew.(*coreV1.Secret).DeepCopy()
-					_, isTarget := oldSecret.Labels[util.LabelKeyClmSecretType]
+					_, oldTarget := oldSecret.Labels[util.LabelKeyClmSecretType]
+					_, newTarget := newSecret.Labels[util.LabelKeyClmSecretType]
+					isTarget := oldTarget || newTarget
 					isDelete := oldSecret.GetDeletionTimestamp().IsZero() && !newSecret.GetDeletionTimestamp().IsZero()
 					isFinalized := !controllerutil.ContainsFinalizer(oldSecret, clusterV1alpha1.ClusterManagerFinalizer) &&
 						controllerutil.ContainsFinalizer(newSecret, clusterV1alpha1.ClusterManagerFinalizer)

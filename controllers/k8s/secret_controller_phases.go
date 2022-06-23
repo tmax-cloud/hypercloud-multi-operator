@@ -185,6 +185,23 @@ func (r *SecretReconciler) DeployArgocdResources(ctx context.Context, secret *co
 	log := r.Log.WithValues("secret", types.NamespacedName{Name: secret.Name, Namespace: secret.Namespace})
 	log.Info("Start to reconcile phase for Deploy argocd resources to remote")
 
+	kubeConfig, err := clientcmd.Load(secret.Data["value"])
+	if err != nil {
+		log.Error(err, "Failed to get secret")
+		return ctrl.Result{}, err
+	}
+
+	serverURI := kubeConfig.Clusters[kubeConfig.Contexts[kubeConfig.CurrentContext].Cluster].Server
+	argoSecretName, err := util.URIToSecretName("cluster", serverURI)
+	if err != nil {
+		log.Error(err, "Failed to parse server uri")
+		return ctrl.Result{}, err
+	}
+
+	if _, ok := secret.Annotations[util.AnnotationKeyArgoClusterSecret]; !ok {
+		secret.Annotations[util.AnnotationKeyArgoClusterSecret] = argoSecretName
+	}
+
 	remoteClientset, err := util.GetRemoteK8sClient(secret)
 	if err != nil {
 		log.Error(err, "Failed to get remoteK8sClient")

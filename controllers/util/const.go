@@ -81,6 +81,8 @@ const (
 	LabelKeyClmSecretType = "cluster.tmax.io/clm-secret-type"
 
 	LabelKeyArgoSecretType = "argocd.argoproj.io/secret-type"
+
+	LabelKeyCapiClusterName = "cluster.x-k8s.io/cluster-name"
 )
 
 const (

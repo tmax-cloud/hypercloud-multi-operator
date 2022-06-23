@@ -272,7 +272,7 @@ func (r *ClusterManagerReconciler) SetEndpoint(ctx context.Context, clusterManag
 	key := clusterManager.GetNamespacedName()
 	cluster := &capiV1alpha3.Cluster{}
 	if err := r.Get(context.TODO(), key, cluster); errors.IsNotFound(err) {
-		log.Info("Failed to get cluster. Requeue after 20sec")
+		log.Info("Cluster is not found. Requeue after 20sec")
 		return ctrl.Result{RequeueAfter: requeueAfter20Second}, err
 	} else if err != nil {
 		log.Error(err, "Failed to get cluster")
@@ -360,7 +360,7 @@ func (r *ClusterManagerReconciler) machineDeploymentUpdate(ctx context.Context, 
 }
 
 func (r *ClusterManagerReconciler) CreateTraefikResources(ctx context.Context, clusterManager *clusterV1alpha1.ClusterManager) (ctrl.Result, error) {
-	if !clusterManager.Status.Ready || clusterManager.Status.TraefikReady {
+	if !clusterManager.Status.ControlPlaneReady || !clusterManager.Status.Ready || clusterManager.Status.TraefikReady {
 		return ctrl.Result{}, nil
 	}
 	log := r.Log.WithValues("clustermanager", clusterManager.GetNamespacedName())
