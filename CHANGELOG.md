@@ -20,6 +20,26 @@ All notable changes to this project will be documented in this file.
 
 <!--------------------- v5.0.27.0 end --------------------->
 
+<!-------------------- v5.0.26.12 start -------------------->
+
+## HyperCloud-Multi-Operator_5.0.26.12 (2022. 06. 23. (목) 11:14:42 KST)
+
+### Added
+  - [feat] capi가 생성해주는 kubeconfig secret에 대한 관리 로직 추가 by SISILIA
+  - [feat] 불필요한 reconcile 수행 및 로그를 없애기 위해 capi로 cluster생성시에 control plane이 ready되지 않으면 clm controller reconcile이 수행되지 않게 로직 추가 by SISILIA
+
+### Changed
+
+### Fixed
+  - [ims][285253] calico 버전 고정을 위한 template 수정 by SISILIA
+
+### CRD yaml
+
+### Etc
+  - [etc] golang version에 맞게 makefile 수정 by SISILIA
+
+<!--------------------- v5.0.26.12 end --------------------->
+
 <!-------------------- v5.0.26.11 start -------------------->
 
 ## HyperCloud-Multi-Operator_5.0.26.11 (2022. 05. 19. (목) 13:46:44 KST)
