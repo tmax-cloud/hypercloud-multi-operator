@@ -14,7 +14,10 @@ limitations under the License.
 
 package hyperAuth
 
-import "net/http"
+import (
+	"crypto/tls"
+	"net/http"
+)
 
 func IsOK(check int) bool {
 	SuccessStatusList := map[int]bool{
@@ -31,4 +34,14 @@ func IsOK(check int) bool {
 
 func IsClientExist(id string) bool {
 	return id != ""
+}
+
+func InsecureClient() *http.Client {
+	return &http.Client{
+		Transport: &http.Transport{
+			TLSClientConfig: &tls.Config{
+				InsecureSkipVerify: true,
+			},
+		},
+	}
 }
