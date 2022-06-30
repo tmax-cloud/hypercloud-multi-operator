@@ -54,7 +54,7 @@ func GetTokenAsAdmin(secret *coreV1.Secret) (string, error) {
 	req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
 
 	// Request with Client Object
-	client := &http.Client{}
+	client := InsecureClient()
 	resp, err := client.Do(req)
 	if err != nil {
 		return "", err
@@ -87,7 +87,7 @@ func GetIdByClientId(clientId string, secret *coreV1.Secret) (string, error) {
 	}
 	req.Header.Add("Authorization", "Bearer "+token)
 
-	client := &http.Client{}
+	client := InsecureClient()
 	resp, err := client.Do(req)
 	if err != nil {
 		return "", err
@@ -142,7 +142,7 @@ func CreateClient(config ClientConfig, secret *coreV1.Secret) error {
 	req.Header.Add("Content-Type", "application/json")
 	req.Header.Add("Authorization", "Bearer "+token)
 
-	client := &http.Client{}
+	client := InsecureClient()
 	resp, err := client.Do(req)
 	if err != nil {
 		return err
@@ -191,7 +191,7 @@ func CreateClient(config ClientConfig, secret *coreV1.Secret) error {
 // 	req.Header.Add("Content-Type", "application/json")
 // 	req.Header.Add("Authorization", "Bearer "+token)
 
-// 	client := &http.Client{}
+// 	client := InsecureClient()
 // 	resp, err := client.Do(req)
 // 	if err != nil {
 // 		return err
@@ -237,7 +237,7 @@ func CreateClientLevelProtocolMapper(config ClientLevelProtocolMapperConfig, sec
 	req.Header.Add("Content-Type", "application/json")
 	req.Header.Add("Authorization", "Bearer "+token)
 
-	client := &http.Client{}
+	client := InsecureClient()
 	resp, err := client.Do(req)
 	if err != nil {
 		return err
@@ -286,7 +286,7 @@ func CreateClientLevelRole(config ClientLevelRoleConfig, secret *coreV1.Secret) 
 	req.Header.Add("Content-Type", "application/json")
 	req.Header.Add("Authorization", "Bearer "+token)
 
-	client := &http.Client{}
+	client := InsecureClient()
 	resp, err := client.Do(req)
 	if err != nil {
 		return err
@@ -318,7 +318,7 @@ func GetUserIdByEmail(userEmail string, secret *coreV1.Secret) (string, error) {
 	}
 	req.Header.Add("Authorization", "Bearer "+token)
 
-	client := &http.Client{}
+	client := InsecureClient()
 	resp, err := client.Do(req)
 	if err != nil {
 		return "", err
@@ -367,7 +367,7 @@ func GetClientRoleIdByRoleName(clientId string, roleName string, secret *coreV1.
 	}
 	req.Header.Add("Authorization", "Bearer "+token)
 
-	client := &http.Client{}
+	client := InsecureClient()
 	resp, err := client.Do(req)
 	if err != nil {
 		return "", err
@@ -438,7 +438,7 @@ func AddClientLevelRolesToUserRoleMapping(config ClientLevelRoleConfig, userEmai
 	req.Header.Add("Content-Type", "application/json")
 	req.Header.Add("Authorization", "Bearer "+token)
 
-	client := &http.Client{}
+	client := InsecureClient()
 	resp, err := client.Do(req)
 	if err != nil {
 		return err
@@ -469,7 +469,7 @@ func GetRealmRoleIdByRoleName(roleName string, secret *coreV1.Secret) (string, e
 	}
 	req.Header.Add("Authorization", "Bearer "+token)
 
-	client := &http.Client{}
+	client := InsecureClient()
 	resp, err := client.Do(req)
 	if err != nil {
 		return "", err
@@ -531,7 +531,7 @@ func AddRealmLevelRolesToUserRoleMapping(roleName string, userEmail string, secr
 	req.Header.Add("Content-Type", "application/json")
 	req.Header.Add("Authorization", "Bearer "+token)
 
-	client := &http.Client{}
+	client := InsecureClient()
 	resp, err := client.Do(req)
 	if err != nil {
 		return err
@@ -559,7 +559,7 @@ func GetClientScopesIdByName(name string, secret *coreV1.Secret) (string, error)
 	}
 	req.Header.Add("Authorization", "Bearer "+token)
 
-	client := &http.Client{}
+	client := InsecureClient()
 	resp, err := client.Do(req)
 	if err != nil {
 		return "", err
@@ -616,7 +616,7 @@ func AddClientScopeToClient(config ClientScopeMappingConfig, secret *coreV1.Secr
 	}
 	req.Header.Add("Authorization", "Bearer "+token)
 
-	client := &http.Client{}
+	client := InsecureClient()
 	resp, err := client.Do(req)
 	if err != nil {
 		return err
@@ -655,7 +655,7 @@ func DeleteClient(config ClientConfig, secret *coreV1.Secret) error {
 	}
 	req.Header.Add("Authorization", "Bearer "+token)
 
-	client := &http.Client{}
+	client := InsecureClient()
 	resp, err := client.Do(req)
 	if err != nil {
 		return err
