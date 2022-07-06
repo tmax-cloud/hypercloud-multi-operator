@@ -2,7 +2,6 @@ package util
 
 import (
 	"bytes"
-	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -50,13 +49,7 @@ func SetHyperregistryOIDC(config OidcConfig, secret *coreV1.Secret, hostpath str
 	req.SetBasicAuth("admin", password)
 	req.Header.Add("Content-Type", "application/json")
 
-	client := &http.Client{
-		Transport: &http.Transport{
-			TLSClientConfig: &tls.Config{
-				InsecureSkipVerify: true,
-			},
-		},
-	}
+	client := &http.Client{}
 	resp, err := client.Do(req)
 	if err != nil {
 		return err
