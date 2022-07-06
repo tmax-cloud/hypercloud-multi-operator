@@ -3,6 +3,24 @@ All notable changes to this project will be documented in this file.
 
 <!-------------------- v5.0.26.13 start -------------------->
 
+## HyperCloud-Multi-Operator_5.0.26.13 (2022. 07. 06. (수) 16:42:06 KST)
+
+### Added
+
+### Changed
+  - [mod] ims-285744 변경사항 roll back by SISILIA
+
+### Fixed
+  - [ims][285744] self-signed 인증서를 사용해도 정상 동작하도록 hyperauth, hyperregistry에 http콜을 insecure로 날리도록 변경 by SISILIA
+
+### CRD yaml
+
+### Etc
+
+<!--------------------- v5.0.26.13 end --------------------->
+
+<!-------------------- v5.0.26.13 start -------------------->
+
 ## HyperCloud-Multi-Operator_5.0.26.13 (2022. 06. 30. (목) 18:51:13 KST)
 
 ### Added
