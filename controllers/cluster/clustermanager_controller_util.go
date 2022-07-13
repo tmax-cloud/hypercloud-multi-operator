@@ -44,7 +44,7 @@ func (r *ClusterManagerReconciler) GetKubeconfigSecret(clusterManager *clusterV1
 	}
 	kubeconfigSecret := &coreV1.Secret{}
 	if err := r.Get(context.TODO(), key, kubeconfigSecret); errors.IsNotFound(err) {
-		log.Info("Wait for creating kubeconfig secret")
+		log.Info("kubeconfig secret is not found")
 		return nil, err
 	} else if err != nil {
 		log.Error(err, "Failed to get kubeconfig secret")
@@ -849,7 +849,73 @@ func (r *ClusterManagerReconciler) DeleteDeprecatedPrometheusResources(clusterMa
 	return nil
 }
 
+func (r *ClusterManagerReconciler) DeleteLoadBalancerServices(clusterManager *clusterV1alpha1.ClusterManager) error {
+	log := r.Log.WithValues("clustermanager", clusterManager.GetNamespacedName())
+
+	kubeconfigSecret, err := r.GetKubeconfigSecret(clusterManager)
+	if errors.IsNotFound(err) {
+		log.Info("Cluster is already deleted")
+		return nil
+	} else if err != nil {
+		log.Error(err, "Failed to get kubeconfig secret")
+		return err
+	}
+
+	remoteClientset, err := util.GetRemoteK8sClient(kubeconfigSecret)
+	if err != nil {
+		log.Error(err, "Failed to get remoteK8sClient")
+		return err
+	}
+
+	if _, err := remoteClientset.CoreV1().Nodes().List(context.TODO(), metav1.ListOptions{}); err != nil {
+		log.Info("Failed to get node for remote cluster. Skip delete LoadBalancer services process")
+		return nil
+	}
+
+	nsList, err := remoteClientset.CoreV1().Namespaces().List(context.TODO(), metav1.ListOptions{})
+	if err != nil {
+		log.Error(err, "Failed to list namespaces")
+		return err
+	}
+
+	errList := []error{}
+	for _, ns := range nsList.Items {
+		if ns.Name == util.KubeNamespace {
+			continue
+		}
+
+		svcList, err := remoteClientset.CoreV1().Services(ns.Name).List(context.TODO(), metav1.ListOptions{})
+		if err != nil {
+			log.Error(err, "Failed to list services in namespace ["+ns.Name+"]")
+			errList = append(errList, err)
+		}
+
+		for _, svc := range svcList.Items {
+			if svc.Spec.Type != coreV1.ServiceTypeLoadBalancer {
+				continue
+			}
+
+			delErr := remoteClientset.CoreV1().Services(ns.Name).Delete(context.TODO(), svc.Name, metav1.DeleteOptions{})
+			if delErr != nil {
+				log.Error(err, "Failed to delete service ["+svc.Name+"]in namespace ["+ns.Name+"]")
+				errList = append(errList, delErr)
+			}
+		}
+	}
+
+	if errList != nil {
+		// todo
+		// err를 합쳐서 보내줘야하는데 어쩔까...?
+		return err
+	}
+
+	log.Info("Delete LoadBalancer services in single cluster successfully")
+	return nil
+}
+
 func (r *ClusterManagerReconciler) DeleteTraefikResources(clusterManager *clusterV1alpha1.ClusterManager) error {
+	log := r.Log.WithValues("clustermanager", clusterManager.GetNamespacedName())
+
 	if err := r.DeleteCertificate(clusterManager); err != nil {
 		return err
 	}
@@ -882,6 +948,7 @@ func (r *ClusterManagerReconciler) DeleteTraefikResources(clusterManager *cluste
 		return err
 	}
 
+	log.Info("Delete traefik resources successfully")
 	return nil
 }
 
