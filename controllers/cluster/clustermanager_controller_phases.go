@@ -499,7 +499,9 @@ func (r *ClusterManagerReconciler) CreateArgocdClusterSecret(ctx context.Context
 		CoreV1().
 		Secrets(util.KubeNamespace).
 		Get(context.TODO(), util.ArgoServiceAccountTokenSecret, metav1.GetOptions{})
-	if err != nil {
+	if errors.IsNotFound(err) {
+		log.Info("Service account token secret not found. Wait for creating")
+	} else if err != nil {
 		log.Error(err, "Failed to get service account token secret")
 		return ctrl.Result{}, err
 	}
