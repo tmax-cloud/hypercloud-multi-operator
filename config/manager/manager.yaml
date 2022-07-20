@@ -18,6 +18,7 @@ spec:
       containers:
       - args:
         - --enable-leader-election
+        - -zap-log-level=info
         command:
         - /manager
         env:
