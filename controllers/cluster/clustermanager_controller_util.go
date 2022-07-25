@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 
+	argocdV1alpha1 "github.com/argoproj/argo-cd/v2/pkg/apis/application/v1alpha1"
 	certmanagerV1 "github.com/jetstack/cert-manager/pkg/apis/certmanager/v1"
 	certmanagermetaV1 "github.com/jetstack/cert-manager/pkg/apis/meta/v1"
 	clusterV1alpha1 "github.com/tmax-cloud/hypercloud-multi-operator/apis/cluster/v1alpha1"
@@ -843,6 +844,20 @@ func (r *ClusterManagerReconciler) DeleteDeprecatedPrometheusResources(clusterMa
 		if err := r.Delete(context.TODO(), endpoint); err != nil {
 			log.Error(err, "Failed to delete: "+key.Name)
 			return err
+		}
+	}
+
+	return nil
+}
+
+func (r *ClusterManagerReconciler) CheckApplicationRemains(clusterManager *clusterV1alpha1.ClusterManager) error {
+	appList := &argocdV1alpha1.ApplicationList{}
+	if err := r.List(context.TODO(), appList); err != nil {
+		return err
+	}
+	for _, app := range appList.Items {
+		if app.Labels[util.LabelKeyArgoTargetCluster] == clusterManager.Namespace+"-"+clusterManager.Name {
+			return fmt.Errorf("application still remains")
 		}
 	}
 
