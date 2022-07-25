@@ -878,7 +878,7 @@ func (r *ClusterManagerReconciler) DeleteLoadBalancerServices(clusterManager *cl
 		return err
 	}
 
-	errList := []error{}
+	// errList := []error{}
 	for _, ns := range nsList.Items {
 		if ns.Name == util.KubeNamespace {
 			continue
@@ -887,7 +887,8 @@ func (r *ClusterManagerReconciler) DeleteLoadBalancerServices(clusterManager *cl
 		svcList, err := remoteClientset.CoreV1().Services(ns.Name).List(context.TODO(), metav1.ListOptions{})
 		if err != nil {
 			log.Error(err, "Failed to list services in namespace ["+ns.Name+"]")
-			errList = append(errList, err)
+			return err
+			// errList = append(errList, err)
 		}
 
 		for _, svc := range svcList.Items {
@@ -898,16 +899,18 @@ func (r *ClusterManagerReconciler) DeleteLoadBalancerServices(clusterManager *cl
 			delErr := remoteClientset.CoreV1().Services(ns.Name).Delete(context.TODO(), svc.Name, metav1.DeleteOptions{})
 			if delErr != nil {
 				log.Error(err, "Failed to delete service ["+svc.Name+"]in namespace ["+ns.Name+"]")
-				errList = append(errList, delErr)
+				return err
+				// errList = append(errList, delErr)
 			}
 		}
 	}
 
-	if errList != nil {
-		// todo
-		// err를 합쳐서 보내줘야하는데 어쩔까...?
-		return err
-	}
+	// if errList != nil {
+	// 	// todo
+	// 	// err를 합쳐서 보내줘야하는데 어쩔까...?
+	// 	return kerrors.NewAggregate(errList)
+	// 	// return err
+	// }
 
 	log.Info("Delete LoadBalancer services in single cluster successfully")
 	return nil
