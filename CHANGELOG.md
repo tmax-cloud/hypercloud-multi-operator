@@ -1,6 +1,26 @@
 # HyperCloud-Multi-Operator changelog!!
 All notable changes to this project will be documented in this file.
 
+<!-------------------- v5.0.26.14 start -------------------->
+
+## HyperCloud-Multi-Operator_5.0.26.14 (2022. 07. 25. (월) 09:38:00 KST)
+
+### Added
+
+### Changed
+  - [mod] traefik service가 single cluster에 아직 설치되지 않았을 경우, error가 아닌 info로 로그 레벨 변경 by SISILIA
+  - [mod] lb type의 svc를 지우는 로직에서 error 반환 로직 수정 by SISILIA
+
+### Fixed
+  - [ims][286609] capa nlb deletion error 해결을 위하여 클러스터 삭제전 lb타입의 svc를 모두 삭제하는 로직 추가 by SISILIA
+
+### CRD yaml
+
+### Etc
+  - [etc] 불필요한 에러로그 제거 by SISILIA
+
+<!--------------------- v5.0.26.14 end --------------------->
+
 <!-------------------- v5.0.26.13 start -------------------->
 
 ## HyperCloud-Multi-Operator_5.0.26.13 (2022. 07. 06. (수) 16:42:06 KST)
