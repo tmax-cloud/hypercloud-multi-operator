@@ -601,8 +601,8 @@ func (r *ClusterManagerReconciler) CreateMonitoringResources(ctx context.Context
 		Services(util.ApiGatewayNamespace).
 		Get(context.TODO(), "gateway", metav1.GetOptions{})
 	if errors.IsNotFound(err) {
-		log.Error(err, "Cannot found Service for gateway. Wait for installing api-gateway. Requeue after 1 min")
-		return ctrl.Result{Requeue: true, RequeueAfter: requeueAfter1Minute}, err
+		log.Info("Cannot found Service for gateway. Wait for installing api-gateway. Requeue after 1 min")
+		return ctrl.Result{RequeueAfter: requeueAfter1Minute}, nil
 	} else if err != nil {
 		log.Error(err, "Failed to get Service for gateway")
 		return ctrl.Result{}, err
