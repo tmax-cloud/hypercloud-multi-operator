@@ -35,17 +35,6 @@ func LowestNonZeroResult(i, j ctrl.Result) ctrl.Result {
 	}
 }
 
-// func Goid() int {
-// 	var buf [64]byte
-// 	n := runtime.Stack(buf[:], false)
-// 	idField := strings.Fields(strings.TrimPrefix(string(buf[:n]), "goroutine "))[0]
-// 	id, err := strconv.Atoi(idField)
-// 	if err != nil {
-// 		panic(fmt.Sprintf("cannot get goroutine id: %v", err))
-// 	}
-// 	return id
-// }
-
 func GetRemoteK8sClient(secret *coreV1.Secret) (*kubernetes.Clientset, error) {
 	value, ok := secret.Data["value"]
 	if !ok {
@@ -141,20 +130,14 @@ func URIToSecretName(uriType, uri string) (string, error) {
 
 func GetProviderName(provider string) (string, error) {
 	provider = strings.ToUpper(provider)
-	providerNamelogo := map[string]string{
+	providerNameLogo := map[string]string{
 		ProviderAws:     ProviderAwsLogo,
 		ProviderVsphere: ProviderVsphereLogo,
 	}
 
-	if providerNamelogo[provider] == "" {
+	if providerNameLogo[provider] == "" {
 		return ProviderUnknown, fmt.Errorf("Cannot found provider [" + provider + "]")
 	}
 
-	return providerNamelogo[provider], nil
+	return providerNameLogo[provider], nil
 }
-
-// func IsIpAddress(endPoint string) bool {
-// 	reg, _ := regexp.Compile(`^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$`)
-
-// 	return reg.MatchString(endPoint)
-// }

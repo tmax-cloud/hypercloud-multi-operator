@@ -89,10 +89,6 @@ func (r *ClusterManagerReconciler) UpdateClusterManagerStatus(ctx context.Contex
 		return ctrl.Result{}, err
 	}
 
-	// var machineList *capiV1alpha3.machineList
-	// if machineList, err =
-	// todo - shkim
-	// node list가 아닌 machine list를 불러서 ready체크를 해야 확실하지 않을까?
 	clusterManager.Spec.MasterNum = 0
 	clusterManager.Status.MasterRun = 0
 	clusterManager.Spec.WorkerNum = 0
@@ -151,7 +147,6 @@ func (r *ClusterManagerReconciler) UpdateClusterManagerStatus(ctx context.Contex
 	}
 	if string(resp) == "ok" {
 		clusterManager.Status.ControlPlaneReady = true
-		//clusterManager.Status.AgentReady = true
 		clusterManager.Status.Ready = true
 	} else {
 		// err := errors.NewBadRequest("Failed to healthcheck")
@@ -165,70 +160,6 @@ func (r *ClusterManagerReconciler) UpdateClusterManagerStatus(ctx context.Contex
 	clusterManager.Annotations[clusterV1alpha1.AnnotationKeyClmSuffix] = generatedSuffix
 	return ctrl.Result{}, nil
 }
-
-// defunct
-// func (r *ClusterManagerReconciler) DeployAndUpdateAgentEndpoint(ctx context.Context, clusterManager *clusterV1alpha1.ClusterManager) (ctrl.Result, error) {
-// 	log := r.Log.WithValues("clustermanager", clusterManager.GetNamespacedName())
-// 	log.Info("Start to reconcile phase for DeployAndUpdateAgentEndpoint")
-
-// 	// secret controller에서 clustermanager.status.controleplaneendpoint를 채워줄 때 까지 기다림
-// 	if !clusterManager.Status.ControlPlaneReady {
-// 		return ctrl.Result{RequeueAfter: requeueAfter1Minute}, nil
-// 	}
-
-// 	kubeconfigSecret := &coreV1.Secret{}
-// 	key := types.NamespacedName{
-// 		Name:      clusterManager.Name + util.KubeconfigSuffix,
-// 		Namespace: clusterManager.Namespace,
-// 	}
-// 	if err := r.Get(context.TODO(), key, kubeconfigSecret); errors.IsNotFound(err) {
-// 		log.Info("Wait for creating kubeconfig secret.")
-// 		return ctrl.Result{RequeueAfter: requeueAfter10Second}, nil
-// 	} else if err != nil {
-// 		log.Error(err, "Failed to get kubeconfig secret")
-// 		return ctrl.Result{}, err
-// 	}
-
-// 	remoteClientset, err := util.GetRemoteK8sClient(kubeconfigSecret)
-// 	if err != nil {
-// 		log.Error(err, "Failed to get remoteK8sClient")
-// 		return ctrl.Result{}, err
-// 	}
-
-// 	// ingress controller 존재하는지 먼저 확인하고 없으면 배포부터해.. 그전에 join되었는지도 먼저 확인해야하나...
-// 	_, err = remoteClientset.
-// 		CoreV1().
-// 		Namespaces().
-// 		Get(context.TODO(), util.IngressNginxNamespace, metav1.GetOptions{})
-// 	if errors.IsNotFound(err) {
-// 		log.Info("Cannot found ingress namespace. Ingress-nginx is creating. Requeue after 30sec")
-// 		return ctrl.Result{RequeueAfter: requeueAfter1Minute}, nil
-// 	} else if err != nil {
-// 		log.Error(err, "Failed to get ingress-nginx namespace from remote cluster")
-// 		return ctrl.Result{}, err
-// 	} else {
-// 		ingressController, err := remoteClientset.
-// 			AppsV1().
-// 			Deployments(util.IngressNginxNamespace).
-// 			Get(context.TODO(), util.IngressNginxName, metav1.GetOptions{})
-// 		if errors.IsNotFound(err) {
-// 			log.Info("Cannot found ingress controller. Ingress-nginx is creating. Requeue after 30sec")
-// 			return ctrl.Result{RequeueAfter: requeueAfter1Minute}, nil
-// 		} else if err != nil {
-// 			log.Error(err, "Failed to get ingress controller from remote cluster")
-// 			return ctrl.Result{}, err
-// 		} else {
-// 			// 하나라도 ready라면..
-// 			if ingressController.Status.ReadyReplicas == 0 {
-// 				log.Info("Ingress controller is not ready. Requeue after 60sec")
-// 				return ctrl.Result{RequeueAfter: requeueAfter1Minute}, nil
-// 			}
-// 		}
-// 	}
-
-// 	clusterManager.Status.Ready = true
-// 	return ctrl.Result{}, nil
-// }
 
 func (r *ClusterManagerReconciler) CreateServiceInstance(ctx context.Context, clusterManager *clusterV1alpha1.ClusterManager) (ctrl.Result, error) {
 	if clusterManager.Annotations[clusterV1alpha1.AnnotationKeyClmSuffix] != "" {
@@ -445,23 +376,13 @@ func (r *ClusterManagerReconciler) CreateTraefikResources(ctx context.Context, c
 		return ctrl.Result{}, err
 	}
 
-	// if err := r.CreateService(clusterManager); err != nil {
-	// 	return ctrl.Result{}, err
-	// }
-
 	if err := r.CreateMiddleware(clusterManager); err != nil {
 		return ctrl.Result{}, err
 	}
 
-	// ip address도 kube service의 externalName에 들어갈 수 있으므로 logic을 분리할 필요가 없다!
-	// if !util.IsIpAddress(clusterManager.Annotations[clusterV1alpha1.AnnotationKeyClmApiserver]) {
-	// 	clusterManager.Status.TraefikReady = true
-	// 	return ctrl.Result{}, nil
-	// }
-
-	// if err := r.CreateEndpoint(clusterManager); err != nil {
-	// 	return ctrl.Result{}, err
-	// }
+	if err := r.CreateServiceAccountSecret(clusterManager); err != nil {
+		return ctrl.Result{}, err
+	}
 
 	log.Info("Create traefik resources successfully")
 	clusterManager.Status.TraefikReady = true
@@ -501,6 +422,7 @@ func (r *ClusterManagerReconciler) CreateArgocdClusterSecret(ctx context.Context
 		Get(context.TODO(), util.ArgoServiceAccountTokenSecret, metav1.GetOptions{})
 	if errors.IsNotFound(err) {
 		log.Info("Service account token secret not found. Wait for creating")
+		return ctrl.Result{RequeueAfter: requeueAfter10Second}, nil
 	} else if err != nil {
 		log.Error(err, "Failed to get service account token secret")
 		return ctrl.Result{}, err
@@ -636,6 +558,9 @@ func (r *ClusterManagerReconciler) CreateMonitoringResources(ctx context.Context
 	// master cluster에 service 생성
 	// single cluster의 gateway service로 연결시켜줄 external name type의 service
 	// 앞에서 받은 annotation key를 이용하여 service의 endpoint가 설정 됨
+	// ip address의 경우 k8s 기본 정책상으로는 endpoint resource로 생성하여 연결을 하는게 일반적인데
+	// ip address도 external name type service의 external name의 value로 넣을 수 있기 때문에
+	// 리소스 관리를 최소화 하기 위해 external name type으로 동일하게 생성
 	if err := r.CreateGatewayService(clusterManager, annotationKey); err != nil {
 		return ctrl.Result{}, err
 	}
@@ -651,20 +576,6 @@ func (r *ClusterManagerReconciler) CreateMonitoringResources(ctx context.Context
 	if err := r.DeleteDeprecatedPrometheusResources(clusterManager); err != nil {
 		return ctrl.Result{}, err
 	}
-
-	// defunct
-	// ip address의 경우 k8s 기본 정책상으로는 endpoint resource로 생성하여 연결을 하는게 일반적인데
-	// ip address도 external name type service의 external name의 value로 넣을 수 있기 때문에
-	// 리소스 관리를 최소화 하기 위해 defunct 시킴
-	// if !util.IsIpAddress(clusterManager.Annotations[clusterV1alpha1.AnnotationKeyClmGateway]) {
-	// 	clusterManager.Status.MonitoringReady = true
-	// 	clusterManager.Status.PrometheusReady = true
-	// 	return ctrl.Result{}, nil
-	// }
-
-	// if err := r.CreateGatewayEndpoint(clusterManager); err != nil {
-	// 	return ctrl.Result{}, err
-	// }
 
 	log.Info("Create monitoring resources successfully")
 	clusterManager.Status.MonitoringReady = true
