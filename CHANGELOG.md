@@ -1,6 +1,24 @@
 # HyperCloud-Multi-Operator changelog!!
 All notable changes to this project will be documented in this file.
 
+<!-------------------- v5.0.26.15 start -------------------->
+
+## HyperCloud-Multi-Operator_5.0.26.15 (2022. 07. 27. (수) 11:45:47 KST)
+
+### Added
+  - [feat] opensearch-developer, opensearch-guest client role 추가 by SISILIA
+
+### Changed
+  - [mod] argocd service account token secret을 찾지 못하는 에러 수정 by SISILIA
+
+### Fixed
+
+### CRD yaml
+
+### Etc
+
+<!--------------------- v5.0.26.15 end --------------------->
+
 <!-------------------- v5.0.26.14 start -------------------->
 
 ## HyperCloud-Multi-Operator_5.0.26.14 (2022. 07. 25. (월) 09:38:00 KST)
