@@ -138,7 +138,9 @@ func (r *ClusterClaim) ValidateDelete() error {
 	logger.Info("validate delete", "name", r.Name)
 
 	// cluster가 남아있으면 cluster claim을 삭제하지 못하도록 처리
-	if r.Status.Phase != "ClusterDeleted" {
+	if r.Status.Phase != "ClusterDeleted" &&
+		r.Status.Phase != "Awaiting" &&
+		r.Status.Phase != "Rejected" {
 		return k8sErrors.NewBadRequest("Deleting cluster must precedes deleting cluster claim.")
 	}
 	// if r.Status.Phase == "Awaiting" || r.Status.Phase == "" {
