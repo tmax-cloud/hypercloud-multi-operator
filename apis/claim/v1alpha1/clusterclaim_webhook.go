@@ -71,7 +71,11 @@ func (r *ClusterClaim) ValidateCreate() error {
 	// 자세한 내용은 https://kubernetes.io/ko/docs/concepts/overview/working-with-objects/names/ 참조
 	// cluster manager 리소스는 cluster claim의 spec.clusterName을 metada.name으로 가지게 되므로
 	// spec.clusterName도 DNS-1123 룰을 따르게 해야할 필요가 있으므로 웹훅을 통해 validation
-	reg, _ := regexp.Compile(`^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$`)
+	// 22.07.28 업데이트 사항
+	// 몇몇 리소스들은 DNS-1035룰을 따르게 되어 있는데, service가 이에 해당함
+	// cluster 이름을 이용하여 service를 생성하는 로직이 있기 때문에, cluster 이름도 DNS-1123이 아닌 DNS-1035를 따라야 함
+	// reg, _ := regexp.Compile(`^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$`)
+	reg, _ := regexp.Compile(`^[a-z]([-a-z0-9]*[a-z0-9])?$`)
 	if !reg.MatchString(r.Spec.ClusterName) {
 		//return errors.NewInvalid()
 		errList := []*field.Error{
@@ -81,9 +85,12 @@ func (r *ClusterClaim) ValidateCreate() error {
 				BadValue: r.Spec.ClusterName,
 				Detail: strings.Join(
 					[]string{
-						"a DNS-1123 subdomain must consist of lower case alphanumeric characters, '-' or '.',",
-						" and must start and end with an alphanumeric character (e.g. 'example.com',",
-						" regex used for validation is '[a-z0-9]([-a-z0-9]*[a-z0-9])?(\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*')",
+						"a DNS-1035 label must consist of lower case alphanumeric characters or '-', ",
+						"start with an alphabetic character, and end with an alphanumeric character ",
+						"(e.g. 'my-name',  or 'abc-123', regex used for validation is '[a-z]([-a-z0-9]*[a-z0-9])?')",
+						// "a DNS-1123 subdomain must consist of lower case alphanumeric characters, '-' or '.',",
+						// " and must start and end with an alphanumeric character (e.g. 'example.com',",
+						// " regex used for validation is '[a-z0-9]([-a-z0-9]*[a-z0-9])?(\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*')",
 					},
 					"",
 				),
@@ -92,13 +99,15 @@ func (r *ClusterClaim) ValidateCreate() error {
 		return k8sErrors.NewInvalid(r.GroupVersionKind().GroupKind(), "InvalidSpecClusterName", errList)
 	}
 
-	if len(r.Spec.ClusterName) > 253 {
+	// if len(r.Spec.ClusterName) > 253 {
+	if len(r.Spec.ClusterName) > 63 {
 		errList := []*field.Error{
 			{
 				Type:     field.ErrorTypeInvalid,
 				Field:    "spec.clusterName",
 				BadValue: r.Spec.ClusterName,
-				Detail:   "must be no more than 253 characters",
+				Detail:   "must be no more than 63 characters",
+				// Detail:   "must be no more than 253 characters",
 			},
 		}
 		return k8sErrors.NewInvalid(r.GroupVersionKind().GroupKind(), "InvalidSpecClusterName", errList)
