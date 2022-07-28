@@ -69,7 +69,7 @@ func (r *ClusterClaim) ValidateCreate() error {
 
 	// k8s 리소스들의 이름은 기본적으로 DNS-1123의 룰을 따라야 함
 	// 자세한 내용은 https://kubernetes.io/ko/docs/concepts/overview/working-with-objects/names/ 참조
-	// cluster manager 리소스는 cluster claim의 spec.clusterName을 metada.name으로 가지게 되므로
+	// cluster manager 리소스는 cluster claim의 spec.clusterName을 metadata.name으로 가지게 되므로
 	// spec.clusterName도 DNS-1123 룰을 따르게 해야할 필요가 있으므로 웹훅을 통해 validation
 	// 22.07.28 업데이트 사항
 	// 몇몇 리소스들은 DNS-1035룰을 따르게 되어 있는데, service가 이에 해당함
