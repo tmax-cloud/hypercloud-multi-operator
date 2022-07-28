@@ -29,7 +29,7 @@ import (
 )
 
 // log is for logging in this package.
-var clusterclaimlog = logf.Log.WithName("clusterclaim-resource")
+var logger = logf.Log.WithName("clusterclaim-resource")
 
 func (r *ClusterClaim) SetupWebhookWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewWebhookManagedBy(mgr).
@@ -45,7 +45,7 @@ var _ webhook.Defaulter = &ClusterClaim{}
 
 // Default implements webhook.Defaulter so a webhook will be registered for the type
 func (r *ClusterClaim) Default() {
-	clusterclaimlog.Info("default", "name", r.Name)
+	logger.Info("default", "name", r.Name)
 	// if len(r.Name) > maxGeneratedNameLength {
 	// r.Name = r.Name[:maxGeneratedNameLength]
 	// }
@@ -65,7 +65,7 @@ var _ webhook.Validator = &ClusterClaim{}
 
 // ValidateCreate implements webhook.Validator so a webhook will be registered for the type
 func (r *ClusterClaim) ValidateCreate() error {
-	clusterclaimlog.Info("validate create", "name", r.Name)
+	logger.Info("validate create", "name", r.Name)
 
 	// k8s 리소스들의 이름은 기본적으로 DNS-1123의 룰을 따라야 함
 	// 자세한 내용은 https://kubernetes.io/ko/docs/concepts/overview/working-with-objects/names/ 참조
@@ -109,6 +109,7 @@ func (r *ClusterClaim) ValidateCreate() error {
 
 // ValidateUpdate implements webhook.Validator so a webhook will be registered for the type
 func (r *ClusterClaim) ValidateUpdate(old runtime.Object) error {
+	logger.Info("validate update", "name", r.Name)
 	oldClusterClaim := old.(*ClusterClaim).DeepCopy()
 
 	if !r.ObjectMeta.DeletionTimestamp.IsZero() {
@@ -125,8 +126,12 @@ func (r *ClusterClaim) ValidateUpdate(old runtime.Object) error {
 
 // ValidateDelete implements webhook.Validator so a webhook will be registered for the type
 func (r *ClusterClaim) ValidateDelete() error {
-	clusterclaimlog.Info("validate delete", "name", r.Name)
+	logger.Info("validate delete", "name", r.Name)
 
+	// cluster가 남아있으면 cluster claim을 삭제하지 못하도록 처리
+	if r.Status.Phase != "ClusterDeleted" {
+		return k8sErrors.NewBadRequest("Deleting cluster must precedes deleting cluster claim.")
+	}
 	// if r.Status.Phase == "Awaiting" || r.Status.Phase == "" {
 	// 	return nil
 	// }

@@ -29,7 +29,7 @@ import (
 )
 
 // log is for logging in this package.
-var clusterregistrationlog = logf.Log.WithName("clusterregistration-resource")
+var logger = logf.Log.WithName("clusterregistration-resource")
 
 func (r *ClusterRegistration) SetupWebhookWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewWebhookManagedBy(mgr).
@@ -46,7 +46,7 @@ var _ webhook.Validator = &ClusterRegistration{}
 
 // ValidateCreate implements webhook.Validator so a webhook will be registered for the type
 func (r *ClusterRegistration) ValidateCreate() error {
-	clusterregistrationlog.Info("validate create", "name", r.Name)
+	logger.Info("validate create", "name", r.Name)
 
 	// k8s 리소스들의 이름은 기본적으로 DNS-1123의 룰을 따라야 함
 	// 자세한 내용은 https://kubernetes.io/ko/docs/concepts/overview/working-with-objects/names/ 참조
@@ -89,7 +89,7 @@ func (r *ClusterRegistration) ValidateCreate() error {
 
 // ValidateUpdate implements webhook.Validator so a webhook will be registered for the type
 func (r *ClusterRegistration) ValidateUpdate(old runtime.Object) error {
-	clusterregistrationlog.Info("validate update", "name", r.Name)
+	logger.Info("validate update", "name", r.Name)
 	oldClusterRegistration := old.(*ClusterRegistration).DeepCopy()
 
 	if !r.ObjectMeta.DeletionTimestamp.IsZero() {
@@ -106,8 +106,15 @@ func (r *ClusterRegistration) ValidateUpdate(old runtime.Object) error {
 
 // ValidateDelete implements webhook.Validator so a webhook will be registered for the type
 func (r *ClusterRegistration) ValidateDelete() error {
-	clusterregistrationlog.Info("validate delete", "name", r.Name)
+	logger.Info("validate delete", "name", r.Name)
 
-	// TODO(user): fill in your validation logic upon object deletion.
+	// cluster가 남아있으면 cluster claim을 삭제하지 못하도록 처리
+	if r.Status.Phase != "ClusterDeleted" {
+		return k8sErrors.NewBadRequest("Deleting cluster must precedes deleting cluster claim.")
+	}
+	// if r.Status.Phase == "Awaiting" || r.Status.Phase == "" {
+	// 	return nil
+	// }
+	// return errors.New("Cannot modify clusterClaim after approval")
 	return nil
 }
