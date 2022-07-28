@@ -18,6 +18,7 @@ import (
 	"errors"
 	"reflect"
 	"regexp"
+	"strconv"
 	"strings"
 
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
@@ -69,13 +70,14 @@ func (r *ClusterRegistration) ValidateCreate() error {
 		return k8sErrors.NewInvalid(r.GroupVersionKind().GroupKind(), "InvalidSpecClusterName", errList)
 	}
 
-	if len(r.Spec.ClusterName) > 63 {
+	maxLength := 63 - len("-gateway-service")
+	if len(r.Spec.ClusterName) > maxLength {
 		errList := []*field.Error{
 			{
 				Type:     field.ErrorTypeInvalid,
 				Field:    "spec.clusterName",
 				BadValue: r.Spec.ClusterName,
-				Detail:   "must be no more than 63 characters",
+				Detail:   "must be no more than " + strconv.Itoa(maxLength) + " characters",
 			},
 		}
 		return k8sErrors.NewInvalid(r.GroupVersionKind().GroupKind(), "InvalidSpecClusterName", errList)

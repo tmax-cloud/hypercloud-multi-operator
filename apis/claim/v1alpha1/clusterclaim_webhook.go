@@ -18,6 +18,7 @@ import (
 	"errors"
 	"reflect"
 	"regexp"
+	"strconv"
 	"strings"
 
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
@@ -74,8 +75,9 @@ func (r *ClusterClaim) ValidateCreate() error {
 	// 22.07.28 업데이트 사항
 	// 몇몇 리소스들은 DNS-1035룰을 따르게 되어 있는데, service가 이에 해당함
 	// cluster 이름을 이용하여 service를 생성하는 로직이 있기 때문에, cluster 이름도 DNS-1123이 아닌 DNS-1035를 따라야 함
-	// reg, _ := regexp.Compile(`^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$`)
+	// service 이름은 (( cluster name ))-gateway-service로 정해지는데, 63자 이하여야 하므로 cluster name은 45자 이하여야 함
 	reg, _ := regexp.Compile(`^[a-z]([-a-z0-9]*[a-z0-9])?$`)
+	// reg, _ := regexp.Compile(`^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$`)
 	if !reg.MatchString(r.Spec.ClusterName) {
 		errList := []*field.Error{
 			{
@@ -98,15 +100,14 @@ func (r *ClusterClaim) ValidateCreate() error {
 		return k8sErrors.NewInvalid(r.GroupVersionKind().GroupKind(), "InvalidSpecClusterName", errList)
 	}
 
-	// if len(r.Spec.ClusterName) > 253 {
-	if len(r.Spec.ClusterName) > 63 {
+	maxLength := 63 - len("-gateway-service")
+	if len(r.Spec.ClusterName) > maxLength {
 		errList := []*field.Error{
 			{
 				Type:     field.ErrorTypeInvalid,
 				Field:    "spec.clusterName",
 				BadValue: r.Spec.ClusterName,
-				Detail:   "must be no more than 63 characters",
-				// Detail:   "must be no more than 253 characters",
+				Detail:   "must be no more than " + strconv.Itoa(maxLength) + " characters",
 			},
 		}
 		return k8sErrors.NewInvalid(r.GroupVersionKind().GroupKind(), "InvalidSpecClusterName", errList)
