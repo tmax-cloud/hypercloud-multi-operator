@@ -49,6 +49,7 @@ webhooks:
     apiVersions:
     - v1alpha1
     operations:
+    - CREATE
     - UPDATE
     - DELETE
     resources:
@@ -95,6 +96,7 @@ webhooks:
     operations:
     - CREATE
     - UPDATE
+    - DELETE
     resources:
     - clusterregistrations
   sideEffects: NoneOnDryRun
