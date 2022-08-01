@@ -6,7 +6,7 @@ All notable changes to this project will be documented in this file.
 ## HyperCloud-Multi-Operator_5.0.27.2 (2022. 08. 01. (월) 16:56:37 KST)
 
 ### Added
-  - [feat] jwt-decode-auth에서 사용할 service account token secret 생성 및 관리 로직 추가
+  - [feat] jwt-decode-auth에서 사용할 service account token secret 생성 및 관리 로직 추가 by SISILIA
 
 ### Changed
 
