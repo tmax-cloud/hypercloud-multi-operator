@@ -1,6 +1,29 @@
 # HyperCloud-Multi-Operator changelog!!
 All notable changes to this project will be documented in this file.
 
+<!-------------------- v5.0.27.0 start -------------------->
+
+## HyperCloud-Multi-Operator_5.0.27.0 (2022. 08. 01. (월) 17:46:44 KST)
+
+### Added
+  - [feat] jwt-decode-auth에서 사용할 service account token secret 생성 및 관리 로직 추가 by SISILIA
+  - [feat] kube-v1.22용 kustomize build가 가능하도록 /config/crd/patches 하위 manifest 수정 by SISILIA
+  - [feat] kube-v1.22 에서 호환 가능하도록 crd, webhook manifest를 v1에 맞게 수정 by SISILIA
+
+### Changed
+  - [mod] argocd-installer에서 timezone을 env가 아닌 mount로 받을 수 있도록 TZ env 제거 by SISILIA
+
+### Fixed
+
+### CRD yaml
+
+### Etc
+  - [etc] patch b5.0.26.12 manifests by SISILIA
+  - [etc] b5.0.26.x 버전 패치사항을 최신버전에도 적용될 수 있도록 코드 merge by SISILIA
+  - [etc] 불필요한 주석 제거 by SISILIA
+
+<!--------------------- v5.0.27.0 end --------------------->
+
 <!-------------------- v5.0.26.16 start -------------------->
 
 ## HyperCloud-Multi-Operator_5.0.26.16 (2022. 07. 29. (금) 12:50:35 KST)
