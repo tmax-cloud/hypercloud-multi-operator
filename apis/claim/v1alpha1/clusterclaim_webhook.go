@@ -18,6 +18,7 @@ import (
 	"errors"
 	"reflect"
 	"regexp"
+	"strconv"
 	"strings"
 
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
@@ -29,7 +30,7 @@ import (
 )
 
 // log is for logging in this package.
-var clusterclaimlog = logf.Log.WithName("clusterclaim-resource")
+var logger = logf.Log.WithName("clusterclaim-resource")
 
 func (r *ClusterClaim) SetupWebhookWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewWebhookManagedBy(mgr).
@@ -45,7 +46,7 @@ var _ webhook.Defaulter = &ClusterClaim{}
 
 // Default implements webhook.Defaulter so a webhook will be registered for the type
 func (r *ClusterClaim) Default() {
-	clusterclaimlog.Info("default", "name", r.Name)
+	logger.Info("default", "name", r.Name)
 	// if len(r.Name) > maxGeneratedNameLength {
 	// r.Name = r.Name[:maxGeneratedNameLength]
 	// }
@@ -59,21 +60,25 @@ func (r *ClusterClaim) Default() {
 }
 
 // TODO(user): change verbs to "verbs=create;update;delete" if you want to enable deletion validation.
-// +kubebuilder:webhook:verbs=update;delete,path=/validate-claim-tmax-io-v1alpha1-clusterclaim,mutating=false,failurePolicy=fail,groups=claim.tmax.io,resources=clusterclaims;clusterclaims/status,versions=v1alpha1,name=validation.webhook.clusterclaim,admissionReviewVersions=v1beta1;v1,sideEffects=NoneOnDryRun
+// +kubebuilder:webhook:verbs=create;update;delete,path=/validate-claim-tmax-io-v1alpha1-clusterclaim,mutating=false,failurePolicy=fail,groups=claim.tmax.io,resources=clusterclaims;clusterclaims/status,versions=v1alpha1,name=validation.webhook.clusterclaim,admissionReviewVersions=v1beta1;v1,sideEffects=NoneOnDryRun
 
 var _ webhook.Validator = &ClusterClaim{}
 
 // ValidateCreate implements webhook.Validator so a webhook will be registered for the type
 func (r *ClusterClaim) ValidateCreate() error {
-	clusterclaimlog.Info("validate create", "name", r.Name)
+	logger.Info("validate create", "name", r.Name)
 
 	// k8s 리소스들의 이름은 기본적으로 DNS-1123의 룰을 따라야 함
 	// 자세한 내용은 https://kubernetes.io/ko/docs/concepts/overview/working-with-objects/names/ 참조
-	// cluster manager 리소스는 cluster claim의 spec.clusterName을 metada.name으로 가지게 되므로
+	// cluster manager 리소스는 cluster claim의 spec.clusterName을 metadata.name으로 가지게 되므로
 	// spec.clusterName도 DNS-1123 룰을 따르게 해야할 필요가 있으므로 웹훅을 통해 validation
-	reg, _ := regexp.Compile(`^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$`)
+	// 22.07.28 업데이트 사항
+	// 몇몇 리소스들은 DNS-1035룰을 따르게 되어 있는데, service가 이에 해당함
+	// cluster 이름을 이용하여 service를 생성하는 로직이 있기 때문에, cluster 이름도 DNS-1123이 아닌 DNS-1035를 따라야 함
+	// service 이름은 (( cluster name ))-gateway-service로 정해지는데, 63자 이하여야 하므로 cluster name은 45자 이하여야 함
+	reg, _ := regexp.Compile(`^[a-z]([-a-z0-9]*[a-z0-9])?$`)
+	// reg, _ := regexp.Compile(`^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$`)
 	if !reg.MatchString(r.Spec.ClusterName) {
-		//return errors.NewInvalid()
 		errList := []*field.Error{
 			{
 				Type:     field.ErrorTypeInvalid,
@@ -81,24 +86,28 @@ func (r *ClusterClaim) ValidateCreate() error {
 				BadValue: r.Spec.ClusterName,
 				Detail: strings.Join(
 					[]string{
-						"a DNS-1123 subdomain must consist of lower case alphanumeric characters, '-' or '.',",
-						" and must start and end with an alphanumeric character (e.g. 'example.com',",
-						" regex used for validation is '[a-z0-9]([-a-z0-9]*[a-z0-9])?(\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*')",
+						"a DNS-1035 label must consist of lower case alphanumeric characters or '-',",
+						"start with an alphabetic character, and end with an alphanumeric character",
+						"(e.g. 'my-name',  or 'abc-123', regex used for validation is '[a-z]([-a-z0-9]*[a-z0-9])?')",
+						// "a DNS-1123 subdomain must consist of lower case alphanumeric characters, '-' or '.',",
+						// "and must start and end with an alphanumeric character (e.g. 'example.com',",
+						// "regex used for validation is '[a-z0-9]([-a-z0-9]*[a-z0-9])?(\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*')",
 					},
-					"",
+					" ",
 				),
 			},
 		}
 		return k8sErrors.NewInvalid(r.GroupVersionKind().GroupKind(), "InvalidSpecClusterName", errList)
 	}
 
-	if len(r.Spec.ClusterName) > 253 {
+	maxLength := 63 - len("-gateway-service")
+	if len(r.Spec.ClusterName) > maxLength {
 		errList := []*field.Error{
 			{
 				Type:     field.ErrorTypeInvalid,
 				Field:    "spec.clusterName",
 				BadValue: r.Spec.ClusterName,
-				Detail:   "must be no more than 253 characters",
+				Detail:   "must be no more than " + strconv.Itoa(maxLength) + " characters",
 			},
 		}
 		return k8sErrors.NewInvalid(r.GroupVersionKind().GroupKind(), "InvalidSpecClusterName", errList)
@@ -109,6 +118,7 @@ func (r *ClusterClaim) ValidateCreate() error {
 
 // ValidateUpdate implements webhook.Validator so a webhook will be registered for the type
 func (r *ClusterClaim) ValidateUpdate(old runtime.Object) error {
+	logger.Info("validate update", "name", r.Name)
 	oldClusterClaim := old.(*ClusterClaim).DeepCopy()
 
 	if !r.ObjectMeta.DeletionTimestamp.IsZero() {
@@ -125,8 +135,14 @@ func (r *ClusterClaim) ValidateUpdate(old runtime.Object) error {
 
 // ValidateDelete implements webhook.Validator so a webhook will be registered for the type
 func (r *ClusterClaim) ValidateDelete() error {
-	clusterclaimlog.Info("validate delete", "name", r.Name)
+	logger.Info("validate delete", "name", r.Name)
 
+	// cluster가 남아있으면 cluster claim을 삭제하지 못하도록 처리
+	if r.Status.Phase != "ClusterDeleted" &&
+		r.Status.Phase != "Awaiting" &&
+		r.Status.Phase != "Rejected" {
+		return k8sErrors.NewBadRequest("Deleting cluster must precedes deleting cluster claim.")
+	}
 	// if r.Status.Phase == "Awaiting" || r.Status.Phase == "" {
 	// 	return nil
 	// }

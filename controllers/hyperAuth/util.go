@@ -14,7 +14,9 @@ limitations under the License.
 
 package hyperAuth
 
-import "net/http"
+import (
+	"net/http"
+)
 
 func IsOK(check int) bool {
 	SuccessStatusList := map[int]bool{

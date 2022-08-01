@@ -272,7 +272,7 @@ func (r *ClusterManagerReconciler) SetEndpoint(ctx context.Context, clusterManag
 	key := clusterManager.GetNamespacedName()
 	cluster := &capiV1alpha3.Cluster{}
 	if err := r.Get(context.TODO(), key, cluster); errors.IsNotFound(err) {
-		log.Info("Failed to get cluster. Requeue after 20sec")
+		log.Info("Cluster is not found. Requeue after 20sec")
 		return ctrl.Result{RequeueAfter: requeueAfter20Second}, err
 	} else if err != nil {
 		log.Error(err, "Failed to get cluster")
@@ -360,7 +360,7 @@ func (r *ClusterManagerReconciler) machineDeploymentUpdate(ctx context.Context, 
 }
 
 func (r *ClusterManagerReconciler) CreateTraefikResources(ctx context.Context, clusterManager *clusterV1alpha1.ClusterManager) (ctrl.Result, error) {
-	if !clusterManager.Status.Ready || clusterManager.Status.TraefikReady {
+	if !clusterManager.Status.ControlPlaneReady || !clusterManager.Status.Ready || clusterManager.Status.TraefikReady {
 		return ctrl.Result{}, nil
 	}
 	log := r.Log.WithValues("clustermanager", clusterManager.GetNamespacedName())
@@ -414,7 +414,10 @@ func (r *ClusterManagerReconciler) CreateArgocdClusterSecret(ctx context.Context
 		CoreV1().
 		Secrets(util.KubeNamespace).
 		Get(context.TODO(), util.ArgoServiceAccountTokenSecret, metav1.GetOptions{})
-	if err != nil {
+	if errors.IsNotFound(err) {
+		log.Info("Service account token secret not found. Wait for creating")
+		return ctrl.Result{RequeueAfter: requeueAfter10Second}, nil
+	} else if err != nil {
 		log.Error(err, "Failed to get service account token secret")
 		return ctrl.Result{}, err
 	}
@@ -512,8 +515,8 @@ func (r *ClusterManagerReconciler) CreateMonitoringResources(ctx context.Context
 		Services(util.ApiGatewayNamespace).
 		Get(context.TODO(), "gateway", metav1.GetOptions{})
 	if errors.IsNotFound(err) {
-		log.Error(err, "Cannot found Service for gateway. Wait for installing api-gateway. Requeue after 1 min")
-		return ctrl.Result{Requeue: true, RequeueAfter: requeueAfter1Minute}, err
+		log.Info("Cannot found Service for gateway. Wait for installing api-gateway. Requeue after 1 min")
+		return ctrl.Result{RequeueAfter: requeueAfter1Minute}, nil
 	} else if err != nil {
 		log.Error(err, "Failed to get Service for gateway")
 		return ctrl.Result{}, err
