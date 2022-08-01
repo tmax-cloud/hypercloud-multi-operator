@@ -17,6 +17,7 @@ package controllers
 import (
 	"context"
 	"encoding/json"
+	"regexp"
 	"strings"
 	"time"
 
@@ -70,7 +71,8 @@ func (r *SecretReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ c
 	_ = context.Background()
 	secretName := req.Name
 	isArgoSecret := strings.Contains(secretName, "cluster-")
-	if !isArgoSecret && !strings.Contains(secretName, util.KubeconfigSuffix) {
+	isSATokenSecret := strings.Contains(secretName, "-token")
+	if !isArgoSecret && !isSATokenSecret && !strings.Contains(secretName, util.KubeconfigSuffix) {
 		secretName += util.KubeconfigSuffix
 	}
 	key := types.NamespacedName{
@@ -131,7 +133,7 @@ func (r *SecretReconciler) reconcile(ctx context.Context, secret *coreV1.Secret)
 		r.UpdateClusterManagerControlPlaneEndpoint,
 		// single cluster 에 admin/developer/guest 에 따른 cluster role 을 생성하고,
 		// cluster owner 에 대해 admin role 을 가지는 cluster rolebinding 을 생성한다.
-		r.DeployRolebinding,
+		r.DeployRBACResources,
 		// single cluster 에 Argocd 연동을 위한 리소스 배포작업을 진행한다.
 		// Argocd 용 service account 를 생성하고,
 		// cluster role 과 cluster rolebinding 을 생성한다.
@@ -186,7 +188,7 @@ func (r *SecretReconciler) reconcileDelete(ctx context.Context, secret *coreV1.S
 
 			clm.Status.ArgoReady = false
 			controllerutil.RemoveFinalizer(secret, clusterV1alpha1.ClusterManagerFinalizer)
-		} else {
+		} else if secret.Labels[util.LabelKeyClmSecretType] == util.ClmSecretTypeKubeconfig {
 			key = types.NamespacedName{
 				Name:      clm.Labels[clusterV1alpha1.LabelKeyClrName],
 				Namespace: secret.Labels[clusterV1alpha1.LabelKeyClmNamespace],
@@ -207,13 +209,24 @@ func (r *SecretReconciler) reconcileDelete(ctx context.Context, secret *coreV1.S
 			clr.Status.Phase = "Validated"
 			clr.Status.Reason = "kubeconfig secret is deleted"
 			controllerutil.RemoveFinalizer(secret, clusterV1alpha1.ClusterManagerFinalizer)
+		} else if secret.Labels[util.LabelKeyClmSecretType] == util.ClmSecretTypeSAToken {
+			helper, _ := patch.NewHelper(clm, r.Client)
+			defer func() {
+				if err := helper.Patch(context.TODO(), clm); err != nil {
+					r.Log.Error(err, "ClusterManager patch error")
+				}
+			}()
+
+			clm.Status.TraefikReady = false
+			controllerutil.RemoveFinalizer(secret, clusterV1alpha1.ClusterManagerFinalizer)
 		}
 
 		controllerutil.RemoveFinalizer(secret, clusterV1alpha1.ClusterManagerFinalizer)
 		return ctrl.Result{}, nil
 	}
 
-	if secret.Labels[util.LabelKeyClmSecretType] == util.ClmSecretTypeArgo {
+	if secret.Labels[util.LabelKeyClmSecretType] == util.ClmSecretTypeArgo ||
+		secret.Labels[util.LabelKeyClmSecretType] == util.ClmSecretTypeSAToken {
 		controllerutil.RemoveFinalizer(secret, clusterV1alpha1.ClusterManagerFinalizer)
 		return ctrl.Result{}, nil
 	}
@@ -224,9 +237,16 @@ func (r *SecretReconciler) reconcileDelete(ctx context.Context, secret *coreV1.S
 		return ctrl.Result{}, err
 	}
 
+	re, _ := regexp.Compile("[" + regexp.QuoteMeta(`!#$%&'"*+-/=?^_{|}~().,:;<>[]\`) + "`\\s" + "]")
+	email := clm.Annotations[util.AnnotationKeyOwner]
+	adminServiceAccountName := re.ReplaceAllString(strings.Replace(email, "@", "-at-", -1), "-")
 	saList := []types.NamespacedName{
 		{
 			Name:      util.ArgoServiceAccount,
+			Namespace: util.KubeNamespace,
+		},
+		{
+			Name:      adminServiceAccountName,
 			Namespace: util.KubeNamespace,
 		},
 	}
@@ -256,6 +276,10 @@ func (r *SecretReconciler) reconcileDelete(ctx context.Context, secret *coreV1.S
 	secretList := []types.NamespacedName{
 		{
 			Name:      util.ArgoServiceAccountTokenSecret,
+			Namespace: util.KubeNamespace,
+		},
+		{
+			Name:      adminServiceAccountName + "-token",
 			Namespace: util.KubeNamespace,
 		},
 	}
@@ -289,7 +313,11 @@ func (r *SecretReconciler) reconcileDelete(ctx context.Context, secret *coreV1.S
 		return ctrl.Result{}, err
 	}
 
-	var crbList []string
+	crbList := []string{
+		"cluster-owner-crb-" + secret.Annotations[util.AnnotationKeyOwner],
+		"cluster-owner-sa-crb-" + secret.Annotations[util.AnnotationKeyOwner],
+		util.ArgoClusterRoleBinding,
+	}
 	for _, member := range memberList {
 		if member.Status == "invited" && member.Attribute == "user" {
 			// user 로 초대 된 member crb
@@ -299,14 +327,6 @@ func (r *SecretReconciler) reconcileDelete(ctx context.Context, secret *coreV1.S
 			crbList = append(crbList, member.MemberId+"-group-rolebinding")
 		}
 	}
-	crbList = append(crbList, "cluster-owner-crb-"+secret.Annotations[util.AnnotationKeyOwner])
-	crbList = append(crbList, util.ArgoClusterRoleBinding)
-
-	// crbList := []string{
-	// 	"cluster-owner-crb-" + secret.Annotations[util.AnnotationKeyOwner],
-	// 	//"hypercloud-admin-clusterrolebinding",
-	// 	util.ArgoClusterRoleBinding,
-	// }
 	for _, targetCrb := range crbList {
 		_, err := remoteClientset.
 			RbacV1().
@@ -315,7 +335,7 @@ func (r *SecretReconciler) reconcileDelete(ctx context.Context, secret *coreV1.S
 		if errors.IsNotFound(err) {
 			log.Info("Cannot found ClusterRoleBinding [" + targetCrb + "] from remote cluster. Maybe already deleted")
 		} else if err != nil {
-			log.Error(err, "Failed to get clusterrolebinding ["+targetCrb+"] from remote cluster")
+			log.Error(err, "Failed to get ClusterRoleBinding ["+targetCrb+"] from remote cluster")
 			return ctrl.Result{}, err
 		} else {
 			err := remoteClientset.
@@ -381,28 +401,24 @@ func (r *SecretReconciler) reconcileDelete(ctx context.Context, secret *coreV1.S
 		}
 		log.Info("Delete Secret for argocd external cluster [" + argoClusterSecret.Name + "] successfully")
 	}
-	// 클러스터를 사용중이던 사용자의 crb도 지워야되나.. db에서 읽어서 지워야 하는데?
 
-	// _, err = remoteClientset.
-	// 	CoreV1().
-	// 	Secrets(util.OpenSearchNamespace).
-	// 	Get(context.TODO(), "hyperauth-ca", metav1.GetOptions{})
-	// if errors.IsNotFound(err) {
-	// 	log.Info("Cannot found Secret for opensearch. Maybe already deleted")
-	// } else if err != nil {
-	// 	log.Error(err, "Cannot found Secret for search")
-	// 	return ctrl.Result{}, err
-	// } else {
-	// 	err = remoteClientset.
-	// 		CoreV1().
-	// 		Secrets(util.OpenSearchNamespace).
-	// 		Delete(context.TODO(), "hyperauth-ca", metav1.DeleteOptions{})
-	// 	if err != nil {
-	// 		log.Error(err, "Failed to delete secret for opensearch")
-	// 		return ctrl.Result{}, err
-	// 	}
-	// 	log.Info("Delete secret for opensearch successfully")
-	// }
+	key = types.NamespacedName{
+		Name:      adminServiceAccountName + "-" + clm.Name + "-token",
+		Namespace: secret.Namespace,
+	}
+	saTokenSecret := &coreV1.Secret{}
+	if err := r.Get(context.TODO(), key, saTokenSecret); errors.IsNotFound(err) {
+		log.Info("Cannot found Secret for ServiceAccount [" + saTokenSecret.Name + "]. Maybe already deleted")
+	} else if err != nil {
+		log.Error(err, "Failed to get Secret for ServiceAccount ["+saTokenSecret.Name+"]")
+		return ctrl.Result{}, err
+	} else {
+		if err := r.Delete(context.TODO(), saTokenSecret); err != nil {
+			log.Error(err, "Cannot delete Secret for ServiceAccount ["+saTokenSecret.Name+"]")
+			return ctrl.Result{}, err
+		}
+		log.Info("Delete Secret for ServiceAccount [" + saTokenSecret.Name + "] successfully")
+	}
 
 	controllerutil.RemoveFinalizer(secret, clusterV1alpha1.ClusterManagerFinalizer)
 	return ctrl.Result{}, nil

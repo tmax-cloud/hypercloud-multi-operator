@@ -283,7 +283,11 @@ func (r *ClusterManagerReconciler) reconcile(ctx context.Context, clusterManager
 	res := ctrl.Result{}
 	errs := []error{}
 	// phases 를 돌면서, append 한 함수들을 순차적으로 수행하고,
-	// 다시 requeue 가 되어야 하는 경우, LowestNonZeroResult 함수를 통해 requeueAfter time 이 가장 짧은 함수를 찾는다.
+	// error가 있는지 체크하여 error가 있으면 무조건 requeue
+	// 이때는 가장 최초로 error가 발생한 phase의 requeue after time을 따라감
+	// 모든 error를 최종적으로 aggregate하여 반환할 수 있도록 리스트로 반환
+	// error는 없지만 다시 requeue 가 되어야 하는 phase들이 존재하는 경우
+	// LowestNonZeroResult 함수를 통해 requeueAfter time 이 가장 짧은 함수를 찾는다.
 	for _, phase := range phases {
 		// Call the inner reconciliation methods.
 		phaseResult, err := phase(ctx, clusterManager)
@@ -328,35 +332,6 @@ func (r *ClusterManagerReconciler) reconcileDelete(ctx context.Context, clusterM
 	if err := r.DeleteClientForSingleCluster(clusterManager); err != nil {
 		return ctrl.Result{}, err
 	}
-
-	// remoteClientset, err := util.GetRemoteK8sClient(kubeconfigSecret)
-	// if err != nil {
-	// 	log.Error(err, "Failed to get remoteK8sClient")
-	// 	return ctrl.Result{}, err
-	// }
-
-	// secret은 존재하는데.. 실제 instance가 없어서 에러 발생
-	// _, err = remoteClientset.
-	// 	CoreV1().
-	// 	Namespaces().
-	// 	Get(context.TODO(), util.IngressNginxNamespace, metav1.GetOptions{})
-	// if errors.IsNotFound(err) {
-	// 	log.Info("Ingress-nginx namespace is already deleted")
-	// } else if err != nil {
-	// 	log.Info(err.Error())
-	// 	log.Info("Failed to get Ingress-nginx loadbalancer service... may be instance was deleted before secret was deleted...")
-	// 	// log.Info("###################### Never executed... ############################")
-	// 	// error 처리 필요
-	// } else {
-	// 	err := remoteClientset.
-	// 		CoreV1().
-	// 		Namespaces().
-	// 		Delete(context.TODO(), util.IngressNginxNamespace, metav1.DeleteOptions{})
-	// 	if err != nil {
-	// 		log.Error(err, "Failed to delete Ingress-nginx namespace")
-	// 		return ctrl.Result{}, err
-	// 	}
-	// }
 
 	// delete serviceinstance
 	key = types.NamespacedName{
@@ -535,7 +510,6 @@ func (r *ClusterManagerReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		&certmanagerV1.Certificate{},
 		&networkingv1.Ingress{},
 		&coreV1.Service{},
-		// &coreV1.Endpoints{},
 		&traefikV1alpha1.Middleware{},
 	}
 	for _, resource := range subResources {
