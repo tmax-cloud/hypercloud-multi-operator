@@ -1,40 +1,6 @@
 # HyperCloud-Multi-Operator changelog!!
 All notable changes to this project will be documented in this file.
 
-<!-------------------- v5.0.27.2 start -------------------->
-
-## HyperCloud-Multi-Operator_5.0.27.2 (2022. 08. 01. (월) 16:56:37 KST)
-
-### Added
-  - [feat] jwt-decode-auth에서 사용할 service account token secret 생성 및 관리 로직 추가 by SISILIA
-
-### Changed
-
-### Fixed
-
-### CRD yaml
-
-### Etc
-
-<!--------------------- v5.0.27.2 end --------------------->
-
-<!-------------------- v5.0.27.1 start -------------------->
-
-## HyperCloud-Multi-Operator_5.0.27.1 (2022. 08. 01. (월) 16:31:37 KST)
-
-### Added
-  - [feat] apiextensions의 v1, v1beta1을 동시 배포하기 위한 업데이트 by SISILIA
-
-### Changed
-
-### Fixed
-
-### CRD yaml
-
-### Etc
-
-<!--------------------- v5.0.27.1 end --------------------->
-
 <!-------------------- v5.0.27.0 start -------------------->
 
 ## HyperCloud-Multi-Operator_5.0.27.0 (2022. 05. 23. (월) 15:42:37 KST)
