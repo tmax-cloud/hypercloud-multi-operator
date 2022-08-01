@@ -378,6 +378,10 @@ func (r *ClusterManagerReconciler) CreateTraefikResources(ctx context.Context, c
 		return ctrl.Result{}, err
 	}
 
+	if err := r.CreateServiceAccountSecret(clusterManager); err != nil {
+		return ctrl.Result{}, err
+	}
+
 	log.Info("Create traefik resources successfully")
 	clusterManager.Status.TraefikReady = true
 	return ctrl.Result{}, nil
@@ -550,6 +554,9 @@ func (r *ClusterManagerReconciler) CreateMonitoringResources(ctx context.Context
 	// master cluster에 service 생성
 	// single cluster의 gateway service로 연결시켜줄 external name type의 service
 	// 앞에서 받은 annotation key를 이용하여 service의 endpoint가 설정 됨
+	// ip address의 경우 k8s 기본 정책상으로는 endpoint resource로 생성하여 연결을 하는게 일반적인데
+	// ip address도 external name type service의 external name의 value로 넣을 수 있기 때문에
+	// 리소스 관리를 최소화 하기 위해 external name type으로 동일하게 생성
 	if err := r.CreateGatewayService(clusterManager, annotationKey); err != nil {
 		return ctrl.Result{}, err
 	}
@@ -565,20 +572,6 @@ func (r *ClusterManagerReconciler) CreateMonitoringResources(ctx context.Context
 	if err := r.DeleteDeprecatedPrometheusResources(clusterManager); err != nil {
 		return ctrl.Result{}, err
 	}
-
-	// defunct
-	// ip address의 경우 k8s 기본 정책상으로는 endpoint resource로 생성하여 연결을 하는게 일반적인데
-	// ip address도 external name type service의 external name의 value로 넣을 수 있기 때문에
-	// 리소스 관리를 최소화 하기 위해 defunct 시킴
-	// if !util.IsIpAddress(clusterManager.Annotations[clusterV1alpha1.AnnotationKeyClmGateway]) {
-	// 	clusterManager.Status.MonitoringReady = true
-	// 	clusterManager.Status.PrometheusReady = true
-	// 	return ctrl.Result{}, nil
-	// }
-
-	// if err := r.CreateGatewayEndpoint(clusterManager); err != nil {
-	// 	return ctrl.Result{}, err
-	// }
 
 	log.Info("Create monitoring resources successfully")
 	clusterManager.Status.MonitoringReady = true

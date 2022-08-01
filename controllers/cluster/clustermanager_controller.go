@@ -282,7 +282,11 @@ func (r *ClusterManagerReconciler) reconcile(ctx context.Context, clusterManager
 	res := ctrl.Result{}
 	errs := []error{}
 	// phases 를 돌면서, append 한 함수들을 순차적으로 수행하고,
-	// 다시 requeue 가 되어야 하는 경우, LowestNonZeroResult 함수를 통해 requeueAfter time 이 가장 짧은 함수를 찾는다.
+	// error가 있는지 체크하여 error가 있으면 무조건 requeue
+	// 이때는 가장 최초로 error가 발생한 phase의 requeue after time을 따라감
+	// 모든 error를 최종적으로 aggregate하여 반환할 수 있도록 리스트로 반환
+	// error는 없지만 다시 requeue 가 되어야 하는 phase들이 존재하는 경우
+	// LowestNonZeroResult 함수를 통해 requeueAfter time 이 가장 짧은 함수를 찾는다.
 	for _, phase := range phases {
 		// Call the inner reconciliation methods.
 		phaseResult, err := phase(ctx, clusterManager)

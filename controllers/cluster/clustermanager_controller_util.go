@@ -17,6 +17,8 @@ package controllers
 import (
 	"context"
 	"fmt"
+	"regexp"
+	"strings"
 
 	certmanagerV1 "github.com/jetstack/cert-manager/pkg/apis/certmanager/v1"
 	certmanagermetaV1 "github.com/jetstack/cert-manager/pkg/apis/meta/v1"
@@ -144,18 +146,6 @@ func (r *ClusterManagerReconciler) CreateIngress(clusterManager *clusterV1alpha1
 						IngressRuleValue: networkingv1.IngressRuleValue{
 							HTTP: &networkingv1.HTTPIngressRuleValue{
 								Paths: []networkingv1.HTTPIngressPath{
-									// {
-									// 	Path:     urlPath,
-									// 	PathType: &pathType,
-									// 	Backend: networkingv1.IngressBackend{
-									// 		Service: &networkingv1.IngressServiceBackend{
-									// 			Name: clusterManager.Name + "-service",
-									// 			Port: networkingv1.ServiceBackendPort{
-									// 				Name: "https",
-									// 			},
-									// 		},
-									// 	},
-									// },
 									{
 										Path:     urlPath + "/api/kubernetes",
 										PathType: &pathType,
@@ -207,150 +197,6 @@ func (r *ClusterManagerReconciler) CreateIngress(clusterManager *clusterV1alpha1
 	return err
 }
 
-func (r *ClusterManagerReconciler) CreateService(clusterManager *clusterV1alpha1.ClusterManager) error {
-	log := r.Log.WithValues("clustermanager", clusterManager.GetNamespacedName())
-
-	if clusterManager.Annotations[clusterV1alpha1.AnnotationKeyClmApiserver] == "" {
-		return fmt.Errorf("ApiServer is not set yet")
-	}
-
-	key := types.NamespacedName{
-		Name:      clusterManager.Name + "-service",
-		Namespace: clusterManager.Namespace,
-	}
-	err := r.Get(context.TODO(), key, &coreV1.Service{})
-	if errors.IsNotFound(err) {
-		// metadata := metav1.ObjectMeta{
-		// 	Name:      clusterManager.Name + "-service",
-		// 	Namespace: clusterManager.Namespace,
-		// 	Annotations: map[string]string{
-		// 		util.AnnotationKeyOwner:                  clusterManager.Annotations[util.AnnotationKeyCreator],
-		// 		util.AnnotationKeyCreator:                clusterManager.Annotations[util.AnnotationKeyCreator],
-		// 		util.AnnotationKeyTraefikServerTransport: "insecure@file",
-		// 	},
-		// 	Labels: map[string]string{
-		// 		clusterV1alpha1.LabelKeyClmName: clusterManager.Name,
-		// 	},
-		// }
-		// spec := coreV1.ServiceSpec{}
-		// if util.IsIpAddress(clusterManager.Annotations[clusterV1alpha1.AnnotationKeyClmApiserver]) {
-		// 	spec = coreV1.ServiceSpec{
-		// 		Ports: []coreV1.ServicePort{
-		// 			{
-		// 				Name:       "https",
-		// 				Port:       443,
-		// 				Protocol:   coreV1.ProtocolTCP,
-		// 				TargetPort: intstr.FromInt(6443),
-		// 			},
-		// 		},
-		// 	}
-		// } else {
-		// 	spec = coreV1.ServiceSpec{
-		// 		ExternalName: clusterManager.Annotations[clusterV1alpha1.AnnotationKeyClmApiserver],
-		// 		Ports: []coreV1.ServicePort{
-		// 			{
-		// 				Name:       "https",
-		// 				Port:       6443,
-		// 				Protocol:   coreV1.ProtocolTCP,
-		// 				TargetPort: intstr.FromInt(6443),
-		// 			},
-		// 		},
-		// 		Type: coreV1.ServiceTypeExternalName,
-		// 	}
-		// }
-		service := &coreV1.Service{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      clusterManager.Name + "-service",
-				Namespace: clusterManager.Namespace,
-				Annotations: map[string]string{
-					util.AnnotationKeyOwner:                  clusterManager.Annotations[util.AnnotationKeyCreator],
-					util.AnnotationKeyCreator:                clusterManager.Annotations[util.AnnotationKeyCreator],
-					util.AnnotationKeyTraefikServerTransport: "insecure@file",
-				},
-				Labels: map[string]string{
-					clusterV1alpha1.LabelKeyClmName: clusterManager.Name,
-				},
-			},
-			Spec: coreV1.ServiceSpec{
-				ExternalName: clusterManager.Annotations[clusterV1alpha1.AnnotationKeyClmApiserver],
-				Ports: []coreV1.ServicePort{
-					{
-						Name:       "https",
-						Port:       6443,
-						Protocol:   coreV1.ProtocolTCP,
-						TargetPort: intstr.FromInt(6443),
-					},
-				},
-				Type: coreV1.ServiceTypeExternalName,
-			},
-			// ObjectMeta: metadata,
-			// Spec: spec,
-		}
-		if err := r.Create(context.TODO(), service); err != nil {
-			log.Error(err, "Failed to Create Service")
-			return err
-		}
-
-		log.Info("Create Service successfully")
-		ctrl.SetControllerReference(clusterManager, service, r.Scheme)
-		return nil
-	}
-
-	return err
-}
-
-// defunct
-// func (r *ClusterManagerReconciler) CreateEndpoint(clusterManager *clusterV1alpha1.ClusterManager) error {
-// 	log := r.Log.WithValues("clustermanager", clusterManager.GetNamespacedName())
-
-// 	key := types.NamespacedName{
-// 		Name:      clusterManager.Name + "-service",
-// 		Namespace: clusterManager.Namespace,
-// 	}
-// 	err := r.Get(context.TODO(), key, &coreV1.Endpoints{})
-// 	if errors.IsNotFound(err) {
-// 		endpoint := &coreV1.Endpoints{
-// 			ObjectMeta: metav1.ObjectMeta{
-// 				Name:      clusterManager.Name + "-service",
-// 				Namespace: clusterManager.Namespace,
-// 				Annotations: map[string]string{
-// 					util.AnnotationKeyOwner:   clusterManager.Annotations[util.AnnotationKeyCreator],
-// 					util.AnnotationKeyCreator: clusterManager.Annotations[util.AnnotationKeyCreator],
-// 				},
-// 				Labels: map[string]string{
-// 					clusterV1alpha1.LabelKeyClmName: clusterManager.Name,
-// 				},
-// 			},
-// 			Subsets: []coreV1.EndpointSubset{
-// 				{
-// 					Addresses: []coreV1.EndpointAddress{
-// 						{
-// 							IP: clusterManager.Annotations[clusterV1alpha1.AnnotationKeyClmApiserver],
-// 						},
-// 					},
-// 					Ports: []coreV1.EndpointPort{
-// 						{
-// 							Name:     "https",
-// 							Port:     6443,
-// 							Protocol: coreV1.ProtocolTCP,
-// 						},
-// 					},
-// 				},
-// 			},
-// 		}
-// 		if err := r.Create(context.TODO(), endpoint); err != nil {
-// 			log.Error(err, "Failed to Create Endpoint")
-// 			return err
-// 		}
-
-// 		log.Info("Create Endpoint successfully")
-// 		ctrl.SetControllerReference(clusterManager, endpoint, r.Scheme)
-// 		return nil
-// 	}
-
-// 	return err
-// }
-
 func (r *ClusterManagerReconciler) CreateGatewayService(clusterManager *clusterV1alpha1.ClusterManager, annotationKey string) error {
 	log := r.Log.WithValues("clustermanager", clusterManager.GetNamespacedName())
 
@@ -360,43 +206,6 @@ func (r *ClusterManagerReconciler) CreateGatewayService(clusterManager *clusterV
 	}
 	err := r.Get(context.TODO(), key, &coreV1.Service{})
 	if errors.IsNotFound(err) {
-		// metadata := metav1.ObjectMeta{
-		// 	Name:      clusterManager.Name + "-gateway-service",
-		// 	Namespace: clusterManager.Namespace,
-		// 	Annotations: map[string]string{
-		// 		util.AnnotationKeyOwner:                  clusterManager.Annotations[util.AnnotationKeyCreator],
-		// 		util.AnnotationKeyCreator:                clusterManager.Annotations[util.AnnotationKeyCreator],
-		// 		util.AnnotationKeyTraefikServerScheme:    "https",
-		// 		util.AnnotationKeyTraefikServerTransport: "insecure@file",
-		// 	},
-		// 	Labels: map[string]string{
-		// 		clusterV1alpha1.LabelKeyClmName: clusterManager.Name,
-		// 	},
-		// }
-		// spec := coreV1.ServiceSpec{}
-		// if util.IsIpAddress(clusterManager.Annotations[clusterV1alpha1.AnnotationKeyClmGateway]) {
-		// 	spec = coreV1.ServiceSpec{
-		// 		Ports: []coreV1.ServicePort{
-		// 			{
-		// 				Port:       443,
-		// 				Protocol:   coreV1.ProtocolTCP,
-		// 				TargetPort: intstr.FromInt(443),
-		// 			},
-		// 		},
-		// 	}
-		// } else {
-		// 	spec = coreV1.ServiceSpec{
-		// 		ExternalName: clusterManager.Annotations[clusterV1alpha1.AnnotationKeyClmGateway],
-		// 		Ports: []coreV1.ServicePort{
-		// 			{
-		// 				Port:       443,
-		// 				Protocol:   coreV1.ProtocolTCP,
-		// 				TargetPort: intstr.FromInt(443),
-		// 			},
-		// 		},
-		// 		Type: coreV1.ServiceTypeExternalName,
-		// 	}
-		// }
 		service := &coreV1.Service{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      clusterManager.Name + "-gateway-service",
@@ -422,8 +231,6 @@ func (r *ClusterManagerReconciler) CreateGatewayService(clusterManager *clusterV
 				},
 				Type: coreV1.ServiceTypeExternalName,
 			},
-			// ObjectMeta: metadata,
-			// Spec:       spec,
 		}
 		if err := r.Create(context.TODO(), service); err != nil {
 			log.Error(err, "Failed to Create Service for gateway")
@@ -525,6 +332,86 @@ func (r *ClusterManagerReconciler) CreateMiddleware(clusterManager *clusterV1alp
 		log.Info("Create Middleware successfully")
 		ctrl.SetControllerReference(clusterManager, middleware, r.Scheme)
 		return nil
+	}
+
+	return err
+}
+
+func (r *ClusterManagerReconciler) CreateServiceAccountSecret(clusterManager *clusterV1alpha1.ClusterManager) error {
+	log := r.Log.WithValues("clustermanager", clusterManager.GetNamespacedName())
+
+	re, _ := regexp.Compile("[" + regexp.QuoteMeta(`!#$%&'"*+-/=?^_{|}~().,:;<>[]\`) + "`\\s" + "]")
+	email := clusterManager.Annotations[util.AnnotationKeyOwner]
+	adminServiceAccountName := re.ReplaceAllString(strings.Replace(email, "@", "-at-", -1), "-")
+	kubeconfigSecret, err := r.GetKubeconfigSecret(clusterManager)
+	if err != nil {
+		log.Error(err, "Failed to get kubeconfig secret")
+		return err
+	}
+
+	remoteClientset, err := util.GetRemoteK8sClient(kubeconfigSecret)
+	if err != nil {
+		log.Error(err, "Failed to get remoteK8sClient")
+		return err
+	}
+
+	tokenSecret, err := remoteClientset.
+		CoreV1().
+		Secrets(util.KubeNamespace).
+		Get(context.TODO(), adminServiceAccountName+"-token", metav1.GetOptions{})
+	if errors.IsNotFound(err) {
+		log.Info("Waiting for create service account token secret [" + adminServiceAccountName + "]")
+		return err
+	} else if err != nil {
+		log.Error(err, "Failed to get service account token secret ["+adminServiceAccountName+"-token]")
+		return err
+	}
+
+	if string(tokenSecret.Data["token"]) == "" {
+		log.Info("Waiting for create service account token secret [" + adminServiceAccountName + "]")
+		return fmt.Errorf("service account token secret is not found")
+	}
+
+	jwtDecodeSecretName := adminServiceAccountName + "-" + clusterManager.Name + "-token"
+	key := types.NamespacedName{
+		Name:      jwtDecodeSecretName,
+		Namespace: clusterManager.Namespace,
+	}
+	jwtDecodeSecret := &coreV1.Secret{}
+	err = r.Get(context.TODO(), key, jwtDecodeSecret)
+	if errors.IsNotFound(err) {
+		secret := &coreV1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      jwtDecodeSecretName,
+				Namespace: clusterManager.Namespace,
+				Labels: map[string]string{
+					util.LabelKeyClmSecretType:           util.ClmSecretTypeSAToken,
+					clusterV1alpha1.LabelKeyClmName:      clusterManager.Name,
+					clusterV1alpha1.LabelKeyClmNamespace: clusterManager.Namespace,
+				},
+				Annotations: map[string]string{
+					util.AnnotationKeyOwner: clusterManager.Annotations[util.AnnotationKeyOwner],
+				},
+				Finalizers: []string{
+					clusterV1alpha1.ClusterManagerFinalizer,
+				},
+			},
+			Data: map[string][]byte{
+				"token": tokenSecret.Data["token"],
+			},
+		}
+		if err := r.Create(context.TODO(), secret); err != nil {
+			log.Error(err, "Failed to Create Secret for ServiceAccount token")
+			return err
+		}
+
+		log.Info("Create Secret for ServiceAccount token successfully")
+		ctrl.SetControllerReference(clusterManager, secret, r.Scheme)
+		return nil
+	}
+
+	if !jwtDecodeSecret.DeletionTimestamp.IsZero() {
+		err = fmt.Errorf("secret for service account token is not refreshed yet")
 	}
 
 	return err
@@ -866,7 +753,6 @@ func (r *ClusterManagerReconciler) DeleteLoadBalancerServices(clusterManager *cl
 		return err
 	}
 
-	// errList := []error{}
 	for _, ns := range nsList.Items {
 		if ns.Name == util.KubeNamespace {
 			continue
@@ -876,7 +762,6 @@ func (r *ClusterManagerReconciler) DeleteLoadBalancerServices(clusterManager *cl
 		if err != nil {
 			log.Error(err, "Failed to list services in namespace ["+ns.Name+"]")
 			return err
-			// errList = append(errList, err)
 		}
 
 		for _, svc := range svcList.Items {
@@ -888,17 +773,9 @@ func (r *ClusterManagerReconciler) DeleteLoadBalancerServices(clusterManager *cl
 			if delErr != nil {
 				log.Error(err, "Failed to delete service ["+svc.Name+"]in namespace ["+ns.Name+"]")
 				return err
-				// errList = append(errList, delErr)
 			}
 		}
 	}
-
-	// if errList != nil {
-	// 	// todo
-	// 	// err를 합쳐서 보내줘야하는데 어쩔까...?
-	// 	return kerrors.NewAggregate(errList)
-	// 	// return err
-	// }
 
 	log.Info("Delete LoadBalancer services in single cluster successfully")
 	return nil
@@ -918,14 +795,6 @@ func (r *ClusterManagerReconciler) DeleteTraefikResources(clusterManager *cluste
 	if err := r.DeleteIngress(clusterManager); err != nil {
 		return err
 	}
-
-	// if err := r.DeleteService(clusterManager); err != nil {
-	// 	return err
-	// }
-
-	// if err := r.DeleteEndpoint(clusterManager); err != nil {
-	// 	return err
-	// }
 
 	if err := r.DeleteMiddleware(clusterManager); err != nil {
 		return err
