@@ -20,6 +20,85 @@ All notable changes to this project will be documented in this file.
 
 <!--------------------- v5.0.27.0 end --------------------->
 
+<!-------------------- v5.0.26.16 start -------------------->
+
+## HyperCloud-Multi-Operator_5.0.26.16 (2022. 07. 29. (금) 12:50:35 KST)
+
+### Added
+  - [feat] cluster가 남아있는 경우, cluster claim이나 cluster registration을 삭제하지 못하도록 웹훅추가 by SISILIA
+
+### Changed
+  - [mod] gateway service suffix를 고려하여 웹훅 로직 수정 by SISILIA
+  - [mod] webhook error 수정 by SISILIA
+  - [mod] webhook 로직 에러 수정 by SISILIA
+  - [mod] k8s service 이름이 DNS-1035룰을 따르므로 cluster name도 DNS-1123룰에서 DNS-1035룰로 변경 by SISILIA
+
+### Fixed
+
+### CRD yaml
+
+### Etc
+  - [etc] webhook error fix by SISILIA
+  - [etc] 일부 주석 제거 by SISILIA
+
+<!--------------------- v5.0.26.16 end --------------------->
+
+<!-------------------- v5.0.26.15 start -------------------->
+
+## HyperCloud-Multi-Operator_5.0.26.15 (2022. 07. 27. (수) 11:45:47 KST)
+
+### Added
+  - [feat] opensearch-developer, opensearch-guest client role 추가 by SISILIA
+
+### Changed
+  - [mod] argocd service account token secret을 찾지 못하는 에러 수정 by SISILIA
+
+### Fixed
+
+### CRD yaml
+
+### Etc
+
+<!--------------------- v5.0.26.15 end --------------------->
+
+<!-------------------- v5.0.26.14 start -------------------->
+
+## HyperCloud-Multi-Operator_5.0.26.14 (2022. 07. 25. (월) 09:38:00 KST)
+
+### Added
+
+### Changed
+  - [mod] traefik service가 single cluster에 아직 설치되지 않았을 경우, error가 아닌 info로 로그 레벨 변경 by SISILIA
+  - [mod] lb type의 svc를 지우는 로직에서 error 반환 로직 수정 by SISILIA
+
+### Fixed
+  - [ims][286609] capa nlb deletion error 해결을 위하여 클러스터 삭제전 lb타입의 svc를 모두 삭제하는 로직 추가 by SISILIA
+
+### CRD yaml
+
+### Etc
+  - [etc] 불필요한 에러로그 제거 by SISILIA
+
+<!--------------------- v5.0.26.14 end --------------------->
+
+<!-------------------- v5.0.26.13 start -------------------->
+
+## HyperCloud-Multi-Operator_5.0.26.13 (2022. 07. 06. (수) 16:42:06 KST)
+
+### Added
+
+### Changed
+  - [mod] ims-285744 변경사항 roll back by SISILIA
+
+### Fixed
+  - [ims][285744] self-signed 인증서를 사용해도 정상 동작하도록 hyperauth, hyperregistry에 http콜을 insecure로 날리도록 변경 by SISILIA
+
+### CRD yaml
+
+### Etc
+
+<!--------------------- v5.0.26.13 end --------------------->
+
 <!-------------------- v5.0.26.12 start -------------------->
 
 ## HyperCloud-Multi-Operator_5.0.26.12 (2022. 06. 23. (목) 11:14:42 KST)

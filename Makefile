@@ -17,6 +17,8 @@ BUNDLE_METADATA_OPTS ?= $(BUNDLE_CHANNELS) $(BUNDLE_DEFAULT_CHANNEL)
 # Image URL to use all building/pushing image targets
 IMG ?= controller:latest
 # Produce CRDs that work back to Kubernetes 1.11 (no version conversion)
+CRD_OPTIONS_V1 ?= "crd:crdVersions=v1"
+CRD_OPTIONS_V1BETA1 ?= "crd:crdVersions=v1beta1"
 CRD_OPTIONS ?= "crd:crdVersions=v1"
 
 # Get the currently used golang install path (in GOPATH/bin, unless GOBIN is set)
@@ -60,6 +62,12 @@ deploy: manifests kustomize
 manifests: controller-gen
 	$(CONTROLLER_GEN) $(CRD_OPTIONS) rbac:roleName=manager-role webhook paths="./..." output:crd:artifacts:config=config/crd/bases
 
+manifests_v1: controller-gen
+	$(CONTROLLER_GEN) $(CRD_OPTIONS_V1) rbac:roleName=manager-role webhook paths="./..." output:crd:artifacts:config=config/crd/bases
+
+manifests_v1beta1: controller-gen
+	$(CONTROLLER_GEN) $(CRD_OPTIONS_V1BETA1) rbac:roleName=manager-role webhook paths="./..." output:crd:artifacts:config=config/crd/bases
+
 # Run go fmt against code
 fmt:
 	go fmt ./...
@@ -83,14 +91,18 @@ docker-push:
 # find or download controller-gen
 # download controller-gen if necessary
 controller-gen:
-# shold use "go install" instead of "go get -d" after go-v1.16
+# should use "go install" instead of "go get -d" after go-v1.16
+# avaliable controller-gen versions are like below
+# v0.5.0 / v0.6.0 / v0.6.1 / v0.6.2
+# v0.4.0 or less not support crd version v1
+# v0.7.0 or more not support crd version v1beta1
 ifeq (, $(shell which controller-gen))
 	@{ \
 	set -e ;\
 	CONTROLLER_GEN_TMP_DIR=$$(mktemp -d) ;\
 	cd $$CONTROLLER_GEN_TMP_DIR ;\
 	go mod init tmp ;\
-	go install sigs.k8s.io/controller-tools/cmd/controller-gen@v0.7.0 ;\
+	go install sigs.k8s.io/controller-tools/cmd/controller-gen@v0.6.2 ;\
 	rm -rf $$CONTROLLER_GEN_TMP_DIR ;\
 	}
 CONTROLLER_GEN=$(GOBIN)/controller-gen
