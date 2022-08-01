@@ -156,7 +156,7 @@ func (r *ClusterRegistrationReconciler) SetupWithManager(mgr ctrl.Manager) error
 		WithEventFilter(
 			predicate.Funcs{
 				CreateFunc: func(e event.CreateEvent) bool {
-					// phase success 일 때 한번 들어오는데.. 왜 그러냐... controller 재기동 돼서?
+					// phase success 일 때 한번 들어오는데.. 왜 그러냐... controller 재기동 돼서? by 조상원
 					clr := e.Object.(*clusterV1alpha1.ClusterRegistration)
 					if clr.Status.Phase == "" {
 						return true
