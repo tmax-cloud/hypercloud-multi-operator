@@ -1,6 +1,24 @@
 # HyperCloud-Multi-Operator changelog!!
 All notable changes to this project will be documented in this file.
 
+<!-------------------- v5.0.30.0 start -------------------->
+
+## HyperCloud-Multi-Operator_5.0.30.0 (2022. 08. 02. (화) 13:09:21 KST)
+
+### Added
+  - [feat] claim 생성시 clustermanager 생성 기능 추가 by seung
+
+### Changed
+
+### Fixed
+
+### CRD yaml
+
+### Etc
+  - [etc] 오타수정 by seung
+
+<!--------------------- v5.0.30.0 end --------------------->
+
 <!-------------------- v5.0.29.0 start -------------------->
 
 ## HyperCloud-Multi-Operator_5.0.29.0 (2022. 08. 02. (화) 13:03:22 KST)
