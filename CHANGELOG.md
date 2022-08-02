@@ -1,6 +1,23 @@
 # HyperCloud-Multi-Operator changelog!!
 All notable changes to this project will be documented in this file.
 
+<!-------------------- v5.0.29.0 start -------------------->
+
+## HyperCloud-Multi-Operator_5.0.29.0 (2022. 08. 02. (화) 13:03:22 KST)
+
+### Added
+
+### Changed
+  - [mod] capi template에서 더이상 ingress-nginx 설치하지 않도록 수정 by SISILIA
+
+### Fixed
+
+### CRD yaml
+
+### Etc
+
+<!--------------------- v5.0.29.0 end --------------------->
+
 <!-------------------- v5.0.28.0 start -------------------->
 
 ## HyperCloud-Multi-Operator_5.0.28.0 (2022. 08. 02. (화) 12:29:00 KST)
