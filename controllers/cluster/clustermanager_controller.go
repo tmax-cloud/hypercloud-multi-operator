@@ -226,6 +226,11 @@ func (r *ClusterManagerReconciler) reconcileDeleteForRegisteredClusterManager(ct
 		log.Info("Delete kubeconfig Secret successfully")
 	}
 
+	// ArgoCD application이 모두 삭제되었는지 테스트
+	if err := r.CheckApplicationRemains(clusterManager); err != nil {
+		return ctrl.Result{}, err
+	}
+
 	if err := r.DeleteTraefikResources(clusterManager); err != nil {
 		return ctrl.Result{}, err
 	}
@@ -315,6 +320,11 @@ func (r *ClusterManagerReconciler) reconcileDelete(ctx context.Context, clusterM
 	kubeconfigSecret := &coreV1.Secret{}
 	if err := r.Get(context.TODO(), key, kubeconfigSecret); err != nil && !errors.IsNotFound(err) {
 		log.Error(err, "Failed to get kubeconfig secret")
+		return ctrl.Result{}, err
+	}
+
+	// ArgoCD application이 모두 삭제되었는지 테스트
+	if err := r.CheckApplicationRemains(clusterManager); err != nil {
 		return ctrl.Result{}, err
 	}
 

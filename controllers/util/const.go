@@ -84,6 +84,9 @@ const (
 	LabelKeyArgoSecretType = "argocd.argoproj.io/secret-type"
 
 	LabelKeyCapiClusterName = "cluster.x-k8s.io/cluster-name"
+
+	LabelKeyArgoTargetCluster = "cluster"
+	// LabelKeyArgoTargetCluster = "cluster.tmax.io/cluster"
 )
 
 const (
