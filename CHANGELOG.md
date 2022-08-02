@@ -1,6 +1,23 @@
 # HyperCloud-Multi-Operator changelog!!
 All notable changes to this project will be documented in this file.
 
+<!-------------------- v5.0.28.0 start -------------------->
+
+## HyperCloud-Multi-Operator_5.0.28.0 (2022. 08. 02. (화) 12:29:00 KST)
+
+### Added
+  - [feat] 클러스터 삭제전에 argocd application이 모두 삭제되었는지 체크하는 로직 추가 by SISILIA
+
+### Changed
+
+### Fixed
+
+### CRD yaml
+
+### Etc
+
+<!--------------------- v5.0.28.0 end --------------------->
+
 <!-------------------- v5.0.27.0 start -------------------->
 
 ## HyperCloud-Multi-Operator_5.0.27.0 (2022. 08. 01. (월) 17:46:44 KST)
