@@ -16,6 +16,7 @@ package controllers
 
 import (
 	"context"
+	"time"
 
 	"github.com/go-logr/logr"
 	claimV1alpha1 "github.com/tmax-cloud/hypercloud-multi-operator/apis/claim/v1alpha1"
@@ -34,6 +35,13 @@ import (
 )
 
 var AutoAdmit bool
+
+const (
+	requeueAfter10Second = 10 * time.Second
+	requeueAfter20Second = 20 * time.Second
+	requeueAfter30Second = 30 * time.Second
+	requeueAfter1Minute  = 1 * time.Minute
+)
 
 // ClusterClaimReconciler reconciles a ClusterClaim object
 type ClusterClaimReconciler struct {
@@ -80,6 +88,15 @@ func (r *ClusterClaimReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		} else if clusterClaim.Status.Phase == "Awaiting" {
 			return ctrl.Result{}, nil
 		}
+	}
+
+	// console로부터 approved로 변경시 clustermanager 생성  
+	if clusterClaim.Status.Phase == "Approved" {
+		if err := r.CreateClusterManager(context.TODO(), clusterClaim); err != nil {
+			log.Error(err, "Failed to Create ClusterManager")
+			return ctrl.Result{RequeueAfter: requeueAfter10Second}, nil
+		}
+		return ctrl.Result{}, nil
 	}
 
 	return ctrl.Result{}, nil

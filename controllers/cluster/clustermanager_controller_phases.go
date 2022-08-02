@@ -119,8 +119,8 @@ func (r *ClusterManagerReconciler) UpdateClusterManagerStatus(ctx context.Contex
 			clusterManager.Spec.Provider = providerID
 		}
 	}
-
 	if clusterManager.Spec.Provider == util.ProviderUnknown {
+
 		reg, _ := regexp.Compile(`cloud-provider: [a-zA-Z-_ ]+`)
 		matchString := reg.FindString(kubeadmConfig.Data["ClusterConfiguration"])
 		if matchString != "" {
@@ -280,7 +280,7 @@ func (r *ClusterManagerReconciler) SetEndpoint(ctx context.Context, clusterManag
 	}
 
 	if cluster.Spec.ControlPlaneEndpoint.Host == "" {
-		log.Info("ControlPlain endpoint is not ready yet. requeue after 20sec")
+		log.Info("ControlPlane endpoint is not ready yet. requeue after 20sec")
 		return ctrl.Result{RequeueAfter: requeueAfter20Second}, nil
 	}
 	clusterManager.Annotations[clusterV1alpha1.AnnotationKeyClmApiserver] = cluster.Spec.ControlPlaneEndpoint.Host
