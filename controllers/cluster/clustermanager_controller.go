@@ -108,6 +108,7 @@ type ClusterManagerReconciler struct {
 // +kubebuilder:rbac:groups="",resources=services;endpoints,verbs=create;delete;get;list;patch;update;watch
 // +kubebuilder:rbac:groups=traefik.containo.us,resources=middlewares,verbs=create;delete;get;list;patch;update;watch
 // +kubebuilder:rbac:groups=coordination.k8s.io,resources=leases,verbs=create;delete;get;list;patch;update;watch
+// +kubebuilder:rbac:groups=argoproj.io,resources=applications,verbs=create;delete;get;list;patch;update;watch
 
 func (r *ClusterManagerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ ctrl.Result, reterr error) {
 	_ = context.Background()
@@ -274,7 +275,7 @@ func (r *ClusterManagerReconciler) reconcile(ctx context.Context, clusterManager
 		// Traefik 을 통하기 위한 리소스인 certificate, ingress, middleware 를 생성한다.
 		r.CreateTraefikResources,
 		// Argocd 연동을 위해 필요한 정보를 kube-config 로 부터 가져와 secret 을 생성한다.
-		r.CreateArgocdClusterSecret,
+		r.CreateArgocdResources,
 		// single cluster 의 api gateway service 의 주소로 gateway service 생성
 		r.CreateMonitoringResources,
 		// Kibana, Grafana, Kiali 등 모듈과 hyperauth oidc 연동을 위한 client 생성 작업 (hyperauth 계정정보로 여러 모듈에 로그인 가능)

@@ -22,7 +22,7 @@ import (
 
 	argocdV1alpha1 "github.com/argoproj/argo-cd/v2/pkg/apis/application/v1alpha1"
 	certmanagerV1 "github.com/jetstack/cert-manager/pkg/apis/certmanager/v1"
-	certmanagermetaV1 "github.com/jetstack/cert-manager/pkg/apis/meta/v1"
+	certmanagerMetaV1 "github.com/jetstack/cert-manager/pkg/apis/meta/v1"
 	clusterV1alpha1 "github.com/tmax-cloud/hypercloud-multi-operator/apis/cluster/v1alpha1"
 	hyperauthCaller "github.com/tmax-cloud/hypercloud-multi-operator/controllers/hyperAuth"
 	util "github.com/tmax-cloud/hypercloud-multi-operator/controllers/util"
@@ -68,8 +68,8 @@ func (r *ClusterManagerReconciler) CreateCertificate(clusterManager *clusterV1al
 	if errors.IsNotFound(err) {
 		certificate := &certmanagerV1.Certificate{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      clusterManager.Name + "-certificate",
-				Namespace: clusterManager.Namespace,
+				Name:      key.Name,
+				Namespace: key.Namespace,
 				Annotations: map[string]string{
 					util.AnnotationKeyOwner:   clusterManager.Annotations[util.AnnotationKeyCreator],
 					util.AnnotationKeyCreator: clusterManager.Annotations[util.AnnotationKeyCreator],
@@ -90,7 +90,7 @@ func (r *ClusterManagerReconciler) CreateCertificate(clusterManager *clusterV1al
 				DNSNames: []string{
 					"multicluster." + clusterManager.Annotations[clusterV1alpha1.AnnotationKeyClmDomain],
 				},
-				IssuerRef: certmanagermetaV1.ObjectReference{
+				IssuerRef: certmanagerMetaV1.ObjectReference{
 					Name:  "tmaxcloud-issuer",
 					Kind:  certmanagerV1.ClusterIssuerKind,
 					Group: certmanagerV1.SchemeGroupVersion.Group,
@@ -121,13 +121,13 @@ func (r *ClusterManagerReconciler) CreateIngress(clusterManager *clusterV1alpha1
 	if errors.IsNotFound(err) {
 		provider := "tmax-cloud"
 		pathType := networkingv1.PathTypePrefix
-		prefixMiddleware := clusterManager.Namespace + "-" + clusterManager.Name + "-prefix@kubernetescrd"
+		prefixMiddleware := clusterManager.GetNamespacedPrefix() + "-prefix@kubernetescrd"
 		multiclusterDNS := "multicluster." + clusterManager.Annotations[clusterV1alpha1.AnnotationKeyClmDomain]
 		urlPath := "/api/" + clusterManager.Namespace + "/" + clusterManager.Name
 		ingress := &networkingv1.Ingress{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      clusterManager.Name + "-ingress",
-				Namespace: clusterManager.Namespace,
+				Name:      key.Name,
+				Namespace: key.Namespace,
 				Annotations: map[string]string{
 					util.AnnotationKeyTraefikEntrypoints: "websecure",
 					util.AnnotationKeyTraefikMiddlewares: "api-gateway-system-jwt-decode-auth@kubernetescrd," + prefixMiddleware,
@@ -209,8 +209,8 @@ func (r *ClusterManagerReconciler) CreateGatewayService(clusterManager *clusterV
 	if errors.IsNotFound(err) {
 		service := &coreV1.Service{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      clusterManager.Name + "-gateway-service",
-				Namespace: clusterManager.Namespace,
+				Name:      key.Name,
+				Namespace: key.Namespace,
 				Annotations: map[string]string{
 					util.AnnotationKeyOwner:                  clusterManager.Annotations[util.AnnotationKeyCreator],
 					util.AnnotationKeyCreator:                clusterManager.Annotations[util.AnnotationKeyCreator],
@@ -257,8 +257,8 @@ func (r *ClusterManagerReconciler) CreateGatewayEndpoint(clusterManager *cluster
 	if errors.IsNotFound(err) {
 		endpoint := &coreV1.Endpoints{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      clusterManager.Name + "-gateway-service",
-				Namespace: clusterManager.Namespace,
+				Name:      key.Name,
+				Namespace: key.Namespace,
 				Annotations: map[string]string{
 					util.AnnotationKeyOwner:   clusterManager.Annotations[util.AnnotationKeyCreator],
 					util.AnnotationKeyCreator: clusterManager.Annotations[util.AnnotationKeyCreator],
@@ -307,8 +307,8 @@ func (r *ClusterManagerReconciler) CreateMiddleware(clusterManager *clusterV1alp
 	if errors.IsNotFound(err) {
 		middleware := &traefikV1alpha1.Middleware{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      clusterManager.Name + "-prefix",
-				Namespace: clusterManager.Namespace,
+				Name:      key.Name,
+				Namespace: key.Namespace,
 				Annotations: map[string]string{
 					util.AnnotationKeyOwner:   clusterManager.Annotations[util.AnnotationKeyCreator],
 					util.AnnotationKeyCreator: clusterManager.Annotations[util.AnnotationKeyCreator],
@@ -383,8 +383,8 @@ func (r *ClusterManagerReconciler) CreateServiceAccountSecret(clusterManager *cl
 	if errors.IsNotFound(err) {
 		secret := &coreV1.Secret{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      jwtDecodeSecretName,
-				Namespace: clusterManager.Namespace,
+				Name:      key.Name,
+				Namespace: key.Namespace,
 				Labels: map[string]string{
 					util.LabelKeyClmSecretType:           util.ClmSecretTypeSAToken,
 					clusterV1alpha1.LabelKeyClmName:      clusterManager.Name,
@@ -413,6 +413,122 @@ func (r *ClusterManagerReconciler) CreateServiceAccountSecret(clusterManager *cl
 
 	if !jwtDecodeSecret.DeletionTimestamp.IsZero() {
 		err = fmt.Errorf("secret for service account token is not refreshed yet")
+	}
+
+	return err
+}
+
+func (r *ClusterManagerReconciler) CreateApplication(clusterManager *clusterV1alpha1.ClusterManager) error {
+	log := r.Log.WithValues("clustermanager", clusterManager.GetNamespacedName())
+
+	key := types.NamespacedName{
+		Name:      clusterManager.GetNamespacedPrefix() + "-applications",
+		Namespace: util.ArgoNamespace,
+	}
+	err := r.Get(context.TODO(), key, &argocdV1alpha1.Application{})
+	if errors.IsNotFound(err) {
+		application := &argocdV1alpha1.Application{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      key.Name,
+				Namespace: key.Namespace,
+				Labels: map[string]string{
+					util.LabelKeyArgoTargetCluster: clusterManager.GetNamespacedPrefix(),
+					util.LabelKeyArgoAppType:       util.ArgoAppTypeAppOfApp,
+				},
+			},
+			Spec: argocdV1alpha1.ApplicationSpec{
+				Destination: argocdV1alpha1.ApplicationDestination{
+					Namespace: util.ArgoNamespace,
+					Server:    argocdV1alpha1.KubernetesInternalAPIServerAddr,
+				},
+				Project: argocdV1alpha1.DefaultAppProjectName,
+				Source: argocdV1alpha1.ApplicationSource{
+					Helm: &argocdV1alpha1.ApplicationSourceHelm{
+						ValueFiles: []string{
+							"shared-values.yaml",
+							"single-values.yaml",
+						},
+						Parameters: []argocdV1alpha1.HelmParameter{
+							{
+								Name:  "global.clusterName",
+								Value: clusterManager.Name,
+							},
+							{
+								Name:  "global.clusterNamespace",
+								Value: clusterManager.Namespace,
+							},
+							{
+								Name:  "global.privateRegistry",
+								Value: util.ArgoDescriptionPrivateRegistry,
+							},
+							{
+								Name:  "global.adminUser",
+								Value: clusterManager.Annotations[util.AnnotationKeyOwner],
+							},
+							{
+								Name:  "modules.gatewayBootstrap.console.subdomain",
+								Value: util.ArgoDescriptionConsoleSubdomain,
+							},
+							{
+								Name:  "modules.hyperAuth.subdomain",
+								Value: util.ArgoDescriptionHyperAuthSubdomain,
+							},
+							{
+								Name:  "modules.efk.kibana.subdomain",
+								Value: util.ArgoDescriptionKibanaSubdomain,
+							},
+							{
+								Name:  "modules.grafana.subdomain",
+								Value: util.ArgoDescriptionGrafanaSubdomain,
+							},
+							{
+								Name:  "modules.serviceMesh.jaeger.subdomain",
+								Value: util.ArgoDescriptionJaegerSubdomain,
+							},
+							{
+								Name:  "modules.serviceMesh.kiali.subdomain",
+								Value: util.ArgoDescriptionKialiSubdomain,
+							},
+							{
+								Name:  "modules.cicd.subdomain",
+								Value: util.ArgoDescriptionCicdSubdomain,
+							},
+							{
+								Name:  "modules.opensearch.dashboard.subdomain",
+								Value: util.ArgoDescriptionOpensearchSubdomain,
+							},
+							{
+								Name:  "modules.hyperregistry.core.subdomain",
+								Value: util.ArgoDescriptionHyperregistrySubdomain,
+							},
+							{
+								Name:  "modules.hyperregistry.notary.subdomain",
+								Value: util.ArgoDescriptionHyperregistryNotarySubdomain,
+							},
+							{
+								Name:  "modules.hyperregistry.storageClass",
+								Value: util.ArgoDescriptionHyperregistryStorageClass,
+							},
+							{
+								Name:  "modules.hyperregistry.storageClassDatabase",
+								Value: util.ArgoDescriptionHyperregistryDBStorageClass,
+							},
+						},
+					},
+					Path:           "application/helm",
+					RepoURL:        util.ArgoDescriptionGitRepo,
+					TargetRevision: util.ArgoDescriptionGitRevision,
+				},
+			},
+		}
+		if err := r.Create(context.TODO(), application); err != nil {
+			log.Error(err, "Failed to Create ArgoCD Application")
+			return err
+		}
+
+		log.Info("Create ArgoCD Application successfully")
+		ctrl.SetControllerReference(clusterManager, application, r.Scheme)
+		return nil
 	}
 
 	return err
@@ -731,7 +847,7 @@ func (r *ClusterManagerReconciler) CheckApplicationRemains(clusterManager *clust
 		return err
 	}
 	for _, app := range appList.Items {
-		if app.Labels[util.LabelKeyArgoTargetCluster] == clusterManager.Namespace+"-"+clusterManager.Name {
+		if app.Labels[util.LabelKeyArgoTargetCluster] == clusterManager.GetNamespacedPrefix() {
 			return fmt.Errorf("application still remains")
 		}
 	}
@@ -842,8 +958,7 @@ func (r *ClusterManagerReconciler) DeleteClientForSingleCluster(clusterManager *
 		return err
 	}
 
-	prefix := clusterManager.Namespace + "-" + clusterManager.Name + "-"
-	clientConfigs := hyperauthCaller.GetClientConfigPreset(prefix)
+	clientConfigs := hyperauthCaller.GetClientConfigPreset(clusterManager.GetNamespacedPrefix())
 	for _, config := range clientConfigs {
 		err := hyperauthCaller.DeleteClient(config, secret)
 		if err != nil {

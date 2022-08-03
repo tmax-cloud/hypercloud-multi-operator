@@ -15,6 +15,8 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"strings"
+
 	coreV1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -222,4 +224,8 @@ func (c *ClusterManager) GetNamespacedName() types.NamespacedName {
 		Name:      c.Name,
 		Namespace: c.Namespace,
 	}
+}
+
+func (c *ClusterManager) GetNamespacedPrefix() string {
+	return strings.Join([]string{c.Namespace, c.Name}, "-")
 }
