@@ -383,20 +383,10 @@ func (r *ClusterManagerReconciler) reconcileDelete(ctx context.Context, clusterM
 func (r *ClusterManagerReconciler) reconcilePhase(_ context.Context, clusterManager *clusterV1alpha1.ClusterManager) {
 	if clusterManager.Status.Phase == "" {
 		clusterManager.Status.SetTypedPhase(clusterV1alpha1.ClusterManagerPhaseProcessing)
-		// if clusterManager.Labels[clusterV1alpha1.LabelKeyClmClusterType] == clusterV1alpha1.ClusterTypeRegistered {
-		// 	clusterManager.Status.SetTypedPhase(clusterV1alpha1.ClusterManagerPhaseRegistering)
-		// } else {
-		// 	clusterManager.Status.SetTypedPhase(clusterV1alpha1.ClusterManagerPhaseProvisioning)
-		// }
 	}
 
 	if clusterManager.Status.ArgoReady {
 		clusterManager.Status.SetTypedPhase(clusterV1alpha1.ClusterManagerPhaseSyncNeeded)
-		// if clusterManager.Labels[clusterV1alpha1.LabelKeyClmClusterType] == clusterV1alpha1.ClusterTypeRegistered {
-		// 	clusterManager.Status.SetTypedPhase(clusterV1alpha1.ClusterManagerPhaseRegistered)
-		// } else {
-		// 	clusterManager.Status.SetTypedPhase(clusterV1alpha1.ClusterManagerPhaseProvisioned)
-		// }
 	}
 
 	if clusterManager.Status.TraefikReady {

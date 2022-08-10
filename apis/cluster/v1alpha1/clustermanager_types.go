@@ -125,10 +125,15 @@ type ClusterManagerPhase string
 //type ClusterType string
 
 const (
+	// 클러스터 클레임 수락, 클러스터 등록 생성에 의해 클러스터 매니저가 생성되고
+	// infra 생성, kubeadm init/join, resource 배포등을 수행하고 있는 단계
 	ClusterManagerPhaseProcessing = ClusterManagerPhase("Processing")
+	// ArgoCD를 통해 single cluster에 traefik 배포를 기다리고 있는 상태
 	ClusterManagerPhaseSyncNeeded = ClusterManagerPhase("Sync Needed")
-	ClusterManagerPhaseReady      = ClusterManagerPhase("Ready")
-	ClusterManagerPhaseDeleting   = ClusterManagerPhase("Deleting")
+	// 모든 과정이 완료되어 클러스터가 준비된 상태
+	ClusterManagerPhaseReady = ClusterManagerPhase("Ready")
+	// 클러스터가 삭제중인 상태
+	ClusterManagerPhaseDeleting = ClusterManagerPhase("Deleting")
 )
 
 const (
