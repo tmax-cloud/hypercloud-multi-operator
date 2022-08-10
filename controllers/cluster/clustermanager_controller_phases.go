@@ -359,36 +359,8 @@ func (r *ClusterManagerReconciler) machineDeploymentUpdate(ctx context.Context, 
 	return ctrl.Result{}, nil
 }
 
-func (r *ClusterManagerReconciler) CreateTraefikResources(ctx context.Context, clusterManager *clusterV1alpha1.ClusterManager) (ctrl.Result, error) {
-	if !clusterManager.Status.ControlPlaneReady || !clusterManager.Status.Ready || clusterManager.Status.TraefikReady {
-		return ctrl.Result{}, nil
-	}
-	log := r.Log.WithValues("clustermanager", clusterManager.GetNamespacedName())
-	log.Info("Start to reconcile phase for CreateTraefikResources")
-
-	if err := r.CreateCertificate(clusterManager); err != nil {
-		return ctrl.Result{}, err
-	}
-
-	if err := r.CreateIngress(clusterManager); err != nil {
-		return ctrl.Result{}, err
-	}
-
-	if err := r.CreateMiddleware(clusterManager); err != nil {
-		return ctrl.Result{}, err
-	}
-
-	if err := r.CreateServiceAccountSecret(clusterManager); err != nil {
-		return ctrl.Result{}, err
-	}
-
-	log.Info("Create traefik resources successfully")
-	clusterManager.Status.TraefikReady = true
-	return ctrl.Result{}, nil
-}
-
 func (r *ClusterManagerReconciler) CreateArgocdClusterSecret(ctx context.Context, clusterManager *clusterV1alpha1.ClusterManager) (ctrl.Result, error) {
-	if !clusterManager.Status.TraefikReady || clusterManager.Status.ArgoReady {
+	if !clusterManager.Status.ControlPlaneReady || !clusterManager.Status.Ready || clusterManager.Status.ArgoReady {
 		return ctrl.Result{}, nil
 	}
 	log := r.Log.WithValues("ClusterManager", clusterManager.GetNamespacedName())
@@ -722,5 +694,33 @@ func (r *ClusterManagerReconciler) SetHyperregistryOidcConfig(ctx context.Contex
 
 	log.Info("Set oidc config for hyperregistry successfully")
 	clusterManager.Status.HyperregistryOidcReady = true
+	return ctrl.Result{}, nil
+}
+
+func (r *ClusterManagerReconciler) CreateTraefikResources(ctx context.Context, clusterManager *clusterV1alpha1.ClusterManager) (ctrl.Result, error) {
+	if !clusterManager.Status.HyperregistryOidcReady || clusterManager.Status.TraefikReady {
+		return ctrl.Result{}, nil
+	}
+	log := r.Log.WithValues("clustermanager", clusterManager.GetNamespacedName())
+	log.Info("Start to reconcile phase for CreateTraefikResources")
+
+	if err := r.CreateCertificate(clusterManager); err != nil {
+		return ctrl.Result{}, err
+	}
+
+	if err := r.CreateMiddleware(clusterManager); err != nil {
+		return ctrl.Result{}, err
+	}
+
+	if err := r.CreateServiceAccountSecret(clusterManager); err != nil {
+		return ctrl.Result{}, err
+	}
+
+	if err := r.CreateIngress(clusterManager); err != nil {
+		return ctrl.Result{}, err
+	}
+
+	log.Info("Create traefik resources successfully")
+	clusterManager.Status.TraefikReady = true
 	return ctrl.Result{}, nil
 }

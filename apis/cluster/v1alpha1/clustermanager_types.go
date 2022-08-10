@@ -125,35 +125,42 @@ type ClusterManagerPhase string
 //type ClusterType string
 
 const (
-	// ClusterManagerPhasePending is the first state a Cluster is assigned by
-	// Cluster API Cluster controller after being created.
-	ClusterManagerPhasePending = ClusterManagerPhase("Pending")
+	ClusterManagerPhaseProcessing = ClusterManagerPhase("Processing")
+	ClusterManagerPhaseSyncNeeded = ClusterManagerPhase("Sync Needed")
+	ClusterManagerPhaseReady      = ClusterManagerPhase("Ready")
+	ClusterManagerPhaseDeleting   = ClusterManagerPhase("Deleting")
+)
 
-	// ClusterManagerPhaseProvisioning is the state when the Cluster has a provider infrastructure
-	// object associated and can start provisioning.
-	ClusterManagerPhaseProvisioning = ClusterManagerPhase("Provisioning")
+const (
+	// // ClusterManagerPhasePending is the first state a Cluster is assigned by
+	// // Cluster API Cluster controller after being created.
+	// ClusterManagerPhasePending = ClusterManagerPhase("Pending")
 
-	// object associated and can start provisioning.
-	ClusterManagerPhaseRegistering = ClusterManagerPhase("Registering")
+	// // ClusterManagerPhaseProvisioning is the state when the Cluster has a provider infrastructure
+	// // object associated and can start provisioning.
+	// ClusterManagerPhaseProvisioning = ClusterManagerPhase("Provisioning")
 
-	// ClusterManagerPhaseProvisioned is the state when its
-	// infrastructure has been created and configured.
-	ClusterManagerPhaseProvisioned = ClusterManagerPhase("Provisioned")
+	// // object associated and can start provisioning.
+	// ClusterManagerPhaseRegistering = ClusterManagerPhase("Registering")
 
-	// infrastructure has been created and configured.
-	ClusterManagerPhaseRegistered = ClusterManagerPhase("Registered")
+	// // ClusterManagerPhaseProvisioned is the state when its
+	// // infrastructure has been created and configured.
+	// ClusterManagerPhaseProvisioned = ClusterManagerPhase("Provisioned")
 
-	// ClusterManagerPhaseDeleting is the Cluster state when a delete
-	// request has been sent to the API Server,
-	// but its infrastructure has not yet been fully deleted.
-	ClusterManagerPhaseDeleting = ClusterManagerPhase("Deleting")
+	// // infrastructure has been created and configured.
+	// ClusterManagerPhaseRegistered = ClusterManagerPhase("Registered")
 
-	// ClusterManagerPhaseFailed is the Cluster state when the system
-	// might require user intervention.
-	ClusterManagerPhaseFailed = ClusterManagerPhase("Failed")
+	// // ClusterManagerPhaseDeleting is the Cluster state when a delete
+	// // request has been sent to the API Server,
+	// // but its infrastructure has not yet been fully deleted.
+	// ClusterManagerPhaseDeleting = ClusterManagerPhase("Deleting")
 
-	// ClusterManagerPhaseUnknown is returned if the Cluster state cannot be determined.
-	ClusterManagerPhaseUnknown = ClusterManagerPhase("Unknown")
+	// // ClusterManagerPhaseFailed is the Cluster state when the system
+	// // might require user intervention.
+	// ClusterManagerPhaseFailed = ClusterManagerPhase("Failed")
+
+	// // ClusterManagerPhaseUnknown is returned if the Cluster state cannot be determined.
+	// ClusterManagerPhaseUnknown = ClusterManagerPhase("Unknown")
 
 	ClusterManagerFinalizer = "clustermanager.cluster.tmax.io/finalizer"
 

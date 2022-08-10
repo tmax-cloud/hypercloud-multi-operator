@@ -271,8 +271,6 @@ func (r *ClusterManagerReconciler) reconcile(ctx context.Context, clusterManager
 	// 공통적으로 수행
 	phases = append(
 		phases,
-		// Traefik 을 통하기 위한 리소스인 certificate, ingress, middleware 를 생성한다.
-		r.CreateTraefikResources,
 		// Argocd 연동을 위해 필요한 정보를 kube-config 로 부터 가져와 secret 을 생성한다.
 		r.CreateArgocdClusterSecret,
 		// single cluster 의 api gateway service 의 주소로 gateway service 생성
@@ -282,6 +280,10 @@ func (r *ClusterManagerReconciler) reconcile(ctx context.Context, clusterManager
 		r.CreateHyperauthClient,
 		// hyperregistry domain 을 single cluster 의 ingress 로 부터 가져와 oidc 연동설정
 		r.SetHyperregistryOidcConfig,
+		// Traefik 을 통하기 위한 리소스인 certificate, ingress, middleware 를 생성한다.
+		// 콘솔에서 ingress를 조회하여 LNB에 cluster를 listing 해주므로 cluster가 완전히 join되고 나서
+		// 리스팅 될 수 있게 해당 프로세스를 가장 마지막에 수행한다.
+		r.CreateTraefikResources,
 	)
 
 	res := ctrl.Result{}
@@ -380,19 +382,25 @@ func (r *ClusterManagerReconciler) reconcileDelete(ctx context.Context, clusterM
 
 func (r *ClusterManagerReconciler) reconcilePhase(_ context.Context, clusterManager *clusterV1alpha1.ClusterManager) {
 	if clusterManager.Status.Phase == "" {
-		if clusterManager.Labels[clusterV1alpha1.LabelKeyClmClusterType] == clusterV1alpha1.ClusterTypeRegistered {
-			clusterManager.Status.SetTypedPhase(clusterV1alpha1.ClusterManagerPhaseRegistering)
-		} else {
-			clusterManager.Status.SetTypedPhase(clusterV1alpha1.ClusterManagerPhaseProvisioning)
-		}
+		clusterManager.Status.SetTypedPhase(clusterV1alpha1.ClusterManagerPhaseProcessing)
+		// if clusterManager.Labels[clusterV1alpha1.LabelKeyClmClusterType] == clusterV1alpha1.ClusterTypeRegistered {
+		// 	clusterManager.Status.SetTypedPhase(clusterV1alpha1.ClusterManagerPhaseRegistering)
+		// } else {
+		// 	clusterManager.Status.SetTypedPhase(clusterV1alpha1.ClusterManagerPhaseProvisioning)
+		// }
 	}
 
-	if clusterManager.Status.Ready {
-		if clusterManager.Labels[clusterV1alpha1.LabelKeyClmClusterType] == clusterV1alpha1.ClusterTypeRegistered {
-			clusterManager.Status.SetTypedPhase(clusterV1alpha1.ClusterManagerPhaseRegistered)
-		} else {
-			clusterManager.Status.SetTypedPhase(clusterV1alpha1.ClusterManagerPhaseProvisioned)
-		}
+	if clusterManager.Status.ArgoReady {
+		clusterManager.Status.SetTypedPhase(clusterV1alpha1.ClusterManagerPhaseSyncNeeded)
+		// if clusterManager.Labels[clusterV1alpha1.LabelKeyClmClusterType] == clusterV1alpha1.ClusterTypeRegistered {
+		// 	clusterManager.Status.SetTypedPhase(clusterV1alpha1.ClusterManagerPhaseRegistered)
+		// } else {
+		// 	clusterManager.Status.SetTypedPhase(clusterV1alpha1.ClusterManagerPhaseProvisioned)
+		// }
+	}
+
+	if clusterManager.Status.TraefikReady {
+		clusterManager.Status.SetTypedPhase(clusterV1alpha1.ClusterManagerPhaseReady)
 	}
 
 	if !clusterManager.DeletionTimestamp.IsZero() {
