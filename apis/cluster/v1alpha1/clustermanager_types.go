@@ -101,23 +101,33 @@ type ProviderVsphereSpec struct {
 
 // ClusterManagerStatus defines the observed state of ClusterManager
 type ClusterManagerStatus struct {
-	Provider               string                  `json:"provider,omitempty"`
-	Version                string                  `json:"version,omitempty"`
-	Ready                  bool                    `json:"ready,omitempty"`
-	ControlPlaneReady      bool                    `json:"controlPlaneReady,omitempty"`
-	MasterRun              int                     `json:"masterRun,omitempty"`
-	WorkerRun              int                     `json:"workerRun,omitempty"`
-	NodeInfo               []coreV1.NodeSystemInfo `json:"nodeInfo,omitempty"`
-	Phase                  string                  `json:"phase,omitempty"`
-	ControlPlaneEndpoint   string                  `json:"controlPlaneEndpoint,omitempty"`
-	ArgoReady              bool                    `json:"argoReady,omitempty"`
-	TraefikReady           bool                    `json:"traefikReady,omitempty"`
-	MonitoringReady        bool                    `json:"gatewayReady,omitempty"`
-	AuthClientReady        bool                    `json:"authClientReady,omitempty"`
-	HyperregistryOidcReady bool                    `json:"hyperregistryOidcReady,omitempty"`
-	OpenSearchReady        bool                    `json:"openSearchReady,omitempty"`
+	Provider               string                     `json:"provider,omitempty"`
+	Version                string                     `json:"version,omitempty"`
+	Ready                  bool                       `json:"ready,omitempty"`
+	ControlPlaneReady      bool                       `json:"controlPlaneReady,omitempty"`
+	MasterRun              int                        `json:"masterRun,omitempty"`
+	WorkerRun              int                        `json:"workerRun,omitempty"`
+	NodeInfo               []coreV1.NodeSystemInfo    `json:"nodeInfo,omitempty"`
+	Phase                  ClusterManagerPhase        `json:"phase,omitempty"`
+	ControlPlaneEndpoint   string                     `json:"controlPlaneEndpoint,omitempty"`
+	ArgoReady              bool                       `json:"argoReady,omitempty"`
+	TraefikReady           bool                       `json:"traefikReady,omitempty"`
+	MonitoringReady        bool                       `json:"gatewayReady,omitempty"`
+	AuthClientReady        bool                       `json:"authClientReady,omitempty"`
+	HyperregistryOidcReady bool                       `json:"hyperregistryOidcReady,omitempty"`
+	OpenSearchReady        bool                       `json:"openSearchReady,omitempty"`
+	ApplicationLink        bool                       `json:"applicationLink,omitempty"`
+	MigrationStatus        map[string]MigrationStatus `json:"migrationStatus,omitempty"`
+	// Version31Migration     bool                    `json:"version31Migration,omitempty"`
 	// will be deprecated
 	PrometheusReady bool `json:"prometheusReady,omitempty"`
+}
+
+type MigrationStatus struct {
+	Name    string `json:"name,omitempty"`
+	Version string `json:"version,omitempty"`
+	Ready   string `json:"ready,omitempty"`
+	Detail  string `json:"detail,omitempty"`
 }
 
 type ClusterManagerPhase string
@@ -192,7 +202,8 @@ const (
 )
 
 func (c *ClusterManagerStatus) SetTypedPhase(p ClusterManagerPhase) {
-	c.Phase = string(p)
+	// c.Phase = string(p)
+	c.Phase = p
 }
 
 // +kubebuilder:object:root=true

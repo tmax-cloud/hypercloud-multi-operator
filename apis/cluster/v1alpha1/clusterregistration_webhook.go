@@ -30,7 +30,7 @@ import (
 )
 
 // log is for logging in this package.
-var logger = logf.Log.WithName("clusterregistration-resource")
+var ClusterRegistrationWebhookLogger = logf.Log.WithName("clusterregistration-resource")
 
 func (r *ClusterRegistration) SetupWebhookWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewWebhookManagedBy(mgr).
@@ -47,7 +47,7 @@ var _ webhook.Validator = &ClusterRegistration{}
 
 // ValidateCreate implements webhook.Validator so a webhook will be registered for the type
 func (r *ClusterRegistration) ValidateCreate() error {
-	logger.Info("validate create", "name", r.Name)
+	ClusterRegistrationWebhookLogger.Info("validate create", "name", r.Name)
 
 	// clusterclaim_webhook.go의 주석내용 참조
 	reg, _ := regexp.Compile(`^[a-z]([-a-z0-9]*[a-z0-9])?$`)
@@ -88,14 +88,15 @@ func (r *ClusterRegistration) ValidateCreate() error {
 
 // ValidateUpdate implements webhook.Validator so a webhook will be registered for the type
 func (r *ClusterRegistration) ValidateUpdate(old runtime.Object) error {
-	logger.Info("validate update", "name", r.Name)
+	ClusterRegistrationWebhookLogger.Info("validate update", "name", r.Name)
 	oldClusterRegistration := old.(*ClusterRegistration).DeepCopy()
 
 	if !r.ObjectMeta.DeletionTimestamp.IsZero() {
 		return nil
 	}
 
-	if oldClusterRegistration.Status.Phase == "Success" || oldClusterRegistration.Status.Phase == "Deleted" {
+	if oldClusterRegistration.Status.Phase == ClusterRegistrationPhaseRegistered ||
+		oldClusterRegistration.Status.Phase == ClusterRegistrationPhaseClusterDeleted {
 		if !reflect.DeepEqual(oldClusterRegistration.Spec, r.Spec) {
 			return errors.New("cannot modify ClusterRegistration after approval")
 		}
@@ -105,17 +106,12 @@ func (r *ClusterRegistration) ValidateUpdate(old runtime.Object) error {
 
 // ValidateDelete implements webhook.Validator so a webhook will be registered for the type
 func (r *ClusterRegistration) ValidateDelete() error {
-	logger.Info("validate delete", "name", r.Name)
+	ClusterRegistrationWebhookLogger.Info("validate delete", "name", r.Name)
 
 	// cluster가 남아있으면 cluster claim을 삭제하지 못하도록 처리
-	if r.Status.Phase != "ClusterDeleted" &&
-		r.Status.Phase != "Awaiting" &&
-		r.Status.Phase != "Rejected" {
+	if r.Status.Phase == ClusterRegistrationPhaseRegistered {
 		return k8sErrors.NewBadRequest("Deleting cluster must precedes deleting cluster registration.")
 	}
-	// if r.Status.Phase == "Awaiting" || r.Status.Phase == "" {
-	// 	return nil
-	// }
-	// return errors.New("Cannot modify clusterClaim after approval")
+
 	return nil
 }

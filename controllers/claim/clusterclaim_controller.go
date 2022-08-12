@@ -75,9 +75,9 @@ func (r *ClusterClaimReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		return ctrl.Result{}, err
 	}
 
-	if AutoAdmit == false {
+	if !AutoAdmit {
 		if clusterClaim.Status.Phase == "" {
-			clusterClaim.Status.Phase = "Awaiting"
+			clusterClaim.Status.SetTypedPhase(claimV1alpha1.ClusterClaimPhaseAwaiting)
 			clusterClaim.Status.Reason = "Waiting for admin approval"
 			err := r.Status().Update(context.TODO(), clusterClaim)
 			if err != nil {
@@ -85,13 +85,13 @@ func (r *ClusterClaimReconciler) Reconcile(ctx context.Context, req ctrl.Request
 				return ctrl.Result{}, err
 			}
 			return ctrl.Result{}, nil
-		} else if clusterClaim.Status.Phase == "Awaiting" {
+		} else if clusterClaim.Status.Phase == claimV1alpha1.ClusterClaimPhaseAwaiting {
 			return ctrl.Result{}, nil
 		}
 	}
 
-	// console로부터 approved로 변경시 clustermanager 생성  
-	if clusterClaim.Status.Phase == "Approved" {
+	// console로부터 approved로 변경시 clustermanager 생성
+	if clusterClaim.Status.Phase == claimV1alpha1.ClusterClaimPhaseApproved {
 		if err := r.CreateClusterManager(context.TODO(), clusterClaim); err != nil {
 			log.Error(err, "Failed to Create ClusterManager")
 			return ctrl.Result{RequeueAfter: requeueAfter10Second}, nil
@@ -121,12 +121,12 @@ func (r *ClusterClaimReconciler) requeueClusterClaimsForClusterManager(o client.
 		return nil
 	}
 
-	if cc.Status.Phase != "Approved" {
+	if cc.Status.Phase != claimV1alpha1.ClusterClaimPhaseApproved {
 		log.Info("ClusterClaims for ClusterManager [" + cc.Spec.ClusterName + "] is already delete... Do not update cc status to delete ")
 		return nil
 	}
 
-	cc.Status.Phase = "ClusterDeleted"
+	cc.Status.SetTypedPhase(claimV1alpha1.ClusterClaimPhaseClusterDeleted)
 	cc.Status.Reason = "cluster is deleted"
 	err := r.Status().Update(context.TODO(), cc)
 	if err != nil {

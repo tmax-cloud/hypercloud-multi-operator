@@ -39,7 +39,7 @@ func (r *SecretReconciler) UpdateClusterManagerControlPlaneEndpoint(ctx context.
 		Namespace: secret.Namespace,
 	}
 	log := r.Log.WithValues("secret", key)
-	log.Info("Start to reconcile phase for UpdateClusterManagerControleplaneEndpoint... ")
+	log.Info("Start to reconcile phase for UpdateClusterManagerControlPlaneEndpoint... ")
 
 	kubeConfig, err := clientcmd.Load(secret.Data["value"])
 	if err != nil {
@@ -62,7 +62,7 @@ func (r *SecretReconciler) UpdateClusterManagerControlPlaneEndpoint(ctx context.
 	} else {
 		server := kubeConfig.Clusters[kubeConfig.Contexts[kubeConfig.CurrentContext].Cluster].Server
 		if !strings.EqualFold(clm.Status.ControlPlaneEndpoint, server) {
-			log.Info("Update clustermanager status. add controleplane endpoint")
+			log.Info("Update clustermanager status. add ControlPlane endpoint")
 			helper, _ := patch.NewHelper(clm, r.Client)
 			defer func() {
 				if err := helper.Patch(context.TODO(), clm); err != nil {

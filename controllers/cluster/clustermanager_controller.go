@@ -330,7 +330,7 @@ func (r *ClusterManagerReconciler) reconcileDelete(ctx context.Context, clusterM
 		return ctrl.Result{}, err
 	}
 
-	// capa의 경우, lb type의 svc가 남아있으면 infra nlb deletion이 stuck걸리면서 클러스터가 지워지지 않는 버그가 있음
+	// ClusterAPI-provider-aws의 경우, lb type의 svc가 남아있으면 infra nlb deletion이 stuck걸리면서 클러스터가 지워지지 않는 버그가 있음
 	// 이를 해결하기 위해 클러스터를 삭제하기 전에 lb type의 svc를 전체 삭제한 후 클러스터를 삭제
 	if err := r.DeleteLoadBalancerServices(clusterManager); err != nil {
 		return ctrl.Result{}, err
@@ -376,7 +376,7 @@ func (r *ClusterManagerReconciler) reconcileDelete(ctx context.Context, clusterM
 		return ctrl.Result{}, err
 	}
 
-	log.Info("Cluster is deleteing. Requeue after 1min")
+	log.Info("Cluster is deleting. Requeue after 1min")
 	return ctrl.Result{RequeueAfter: requeueAfter1Minute}, nil
 }
 
@@ -408,7 +408,7 @@ func (r *ClusterManagerReconciler) SetupWithManager(mgr ctrl.Manager) error {
 				},
 				UpdateFunc: func(e event.UpdateEvent) bool {
 					// created clm은 update 필요가 있지만 registered는 clm update가 필요 없다
-					// 다만 registered인 경우 deletiontimestamp가 있는경우 delete 수행을 위해 reconcile을 수행하긴 해야한다.
+					// 다만 registered인 경우 deletionTimestamp가 있는경우 delete 수행을 위해 reconcile을 수행하긴 해야한다.
 					oldclm := e.ObjectOld.(*clusterV1alpha1.ClusterManager)
 					newclm := e.ObjectNew.(*clusterV1alpha1.ClusterManager)
 
