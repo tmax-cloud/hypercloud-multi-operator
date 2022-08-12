@@ -398,7 +398,6 @@ func (r *SecretReconciler) DeployArgocdResources(ctx context.Context, secret *co
 		},
 		Subjects: []rbacv1.Subject{
 			{
-				APIGroup:  rbacv1.GroupName,
 				Kind:      rbacv1.ServiceAccountKind,
 				Name:      util.ArgoServiceAccount,
 				Namespace: util.KubeNamespace,
