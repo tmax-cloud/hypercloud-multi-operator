@@ -138,7 +138,8 @@ All notable changes to this project will be documented in this file.
 ## HyperCloud-Multi-Operator_5.0.26.14 (2022. 07. 25. (월) 09:38:00 KST)
 
 ### Added
-
+  - [feat] log level설정할 수 있도록 코드 추가 및 yaml 수정 by seung
+  - 
 ### Changed
   - [mod] traefik service가 single cluster에 아직 설치되지 않았을 경우, error가 아닌 info로 로그 레벨 변경 by SISILIA
   - [mod] lb type의 svc를 지우는 로직에서 error 반환 로직 수정 by SISILIA
