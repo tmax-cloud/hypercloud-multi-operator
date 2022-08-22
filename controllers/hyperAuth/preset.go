@@ -14,47 +14,50 @@ limitations under the License.
 
 package hyperAuth
 
-import "os"
+import (
+	"os"
+	"strings"
+)
 
 func GetClientConfigPreset(prefix string) []ClientConfig {
 	configs := []ClientConfig{
 		{
-			ClientId:                  prefix + "kibana",
+			ClientId:                  strings.Join([]string{prefix, "kibana"}, "-"),
 			Secret:                    os.Getenv("AUTH_CLIENT_SECRET"),
 			DirectAccessGrantsEnabled: true,
 			ImplicitFlowEnabled:       false,
 			RedirectUris:              []string{"*"},
 		},
 		{
-			ClientId:                  prefix + "grafana",
+			ClientId:                  strings.Join([]string{prefix, "grafana"}, "-"),
 			Secret:                    os.Getenv("AUTH_CLIENT_SECRET"),
 			DirectAccessGrantsEnabled: true,
 			ImplicitFlowEnabled:       false,
 			RedirectUris:              []string{"*"},
 		},
 		{
-			ClientId:                  prefix + "kiali",
+			ClientId:                  strings.Join([]string{prefix, "kiali"}, "-"),
 			Secret:                    os.Getenv("AUTH_CLIENT_SECRET"),
 			DirectAccessGrantsEnabled: true,
 			ImplicitFlowEnabled:       true,
 			RedirectUris:              []string{"*"},
 		},
 		{
-			ClientId:                  prefix + "jaeger",
+			ClientId:                  strings.Join([]string{prefix, "jaeger"}, "-"),
 			Secret:                    os.Getenv("AUTH_CLIENT_SECRET"),
 			DirectAccessGrantsEnabled: true,
 			ImplicitFlowEnabled:       false,
 			RedirectUris:              []string{"*"},
 		},
 		{
-			ClientId:                  prefix + "hyperregistry",
+			ClientId:                  strings.Join([]string{prefix, "hyperregistry"}, "-"),
 			Secret:                    os.Getenv("AUTH_CLIENT_SECRET"),
 			DirectAccessGrantsEnabled: true,
 			ImplicitFlowEnabled:       false,
 			RedirectUris:              []string{"*"},
 		},
 		{
-			ClientId:                  prefix + "opensearch",
+			ClientId:                  strings.Join([]string{prefix, "opensearch"}, "-"),
 			Secret:                    os.Getenv("AUTH_CLIENT_SECRET"),
 			DirectAccessGrantsEnabled: true,
 			ImplicitFlowEnabled:       false,
@@ -68,33 +71,33 @@ func GetClientConfigPreset(prefix string) []ClientConfig {
 func GetMappingProtocolMapperToClientConfigPreset(prefix string) []ClientLevelProtocolMapperConfig {
 	configs := []ClientLevelProtocolMapperConfig{
 		{
-			ClientId: prefix + "kibana",
+			ClientId: strings.Join([]string{prefix, "kibana"}, "-"),
 			ProtocolMapper: ProtocolMapperConfig{
 				Name:           "kibana",
 				Protocol:       PROTOCOL_MAPPER_CONFIG_PROTOCOL_OPENID_CONNECT,
 				ProtocolMapper: PROTOCOL_MAPPER_CONFIG_PROTOCOL_NAME_AUDIENCE,
 				Config: MapperConfig{
-					IncludedClientAudience: prefix + "kibana",
+					IncludedClientAudience: strings.Join([]string{prefix, "kibana"}, "-"),
 					IdTokenClaim:           false,
 					AccessTokenClaim:       true,
 				},
 			},
 		},
 		{
-			ClientId: prefix + "jaeger",
+			ClientId: strings.Join([]string{prefix, "jaeger"}, "-"),
 			ProtocolMapper: ProtocolMapperConfig{
 				Name:           "jaeger",
 				Protocol:       PROTOCOL_MAPPER_CONFIG_PROTOCOL_OPENID_CONNECT,
 				ProtocolMapper: PROTOCOL_MAPPER_CONFIG_PROTOCOL_NAME_AUDIENCE,
 				Config: MapperConfig{
-					IncludedClientAudience: prefix + "jaeger",
+					IncludedClientAudience: strings.Join([]string{prefix, "jaeger"}, "-"),
 					IdTokenClaim:           false,
 					AccessTokenClaim:       true,
 				},
 			},
 		},
 		{
-			ClientId: prefix + "hyperregistry",
+			ClientId: strings.Join([]string{prefix, "hyperregistry"}, "-"),
 			ProtocolMapper: ProtocolMapperConfig{
 				Name:           "group",
 				Protocol:       PROTOCOL_MAPPER_CONFIG_PROTOCOL_OPENID_CONNECT,
@@ -109,7 +112,7 @@ func GetMappingProtocolMapperToClientConfigPreset(prefix string) []ClientLevelPr
 			},
 		},
 		{
-			ClientId: prefix + "opensearch",
+			ClientId: strings.Join([]string{prefix, "opensearch"}, "-"),
 			ProtocolMapper: ProtocolMapperConfig{
 				Name:           "client roles",
 				Protocol:       PROTOCOL_MAPPER_CONFIG_PROTOCOL_OPENID_CONNECT,
@@ -132,31 +135,31 @@ func GetMappingProtocolMapperToClientConfigPreset(prefix string) []ClientLevelPr
 func GetClientLevelRoleConfigPreset(prefix string) []ClientLevelRoleConfig {
 	configs := []ClientLevelRoleConfig{
 		{
-			ClientId: prefix + "kibana",
+			ClientId: strings.Join([]string{prefix, "kibana"}, "-"),
 			Role: RoleConfig{
 				Name: "kibana-manager",
 			},
 		},
 		{
-			ClientId: prefix + "jaeger",
+			ClientId: strings.Join([]string{prefix, "jaeger"}, "-"),
 			Role: RoleConfig{
 				Name: "jaeger-manager",
 			},
 		},
 		{
-			ClientId: prefix + "opensearch",
+			ClientId: strings.Join([]string{prefix, "opensearch"}, "-"),
 			Role: RoleConfig{
 				Name: "opensearch-admin",
 			},
 		},
 		{
-			ClientId: prefix + "opensearch",
+			ClientId: strings.Join([]string{prefix, "opensearch"}, "-"),
 			Role: RoleConfig{
 				Name: "opensearch-developer",
 			},
 		},
 		{
-			ClientId: prefix + "opensearch",
+			ClientId: strings.Join([]string{prefix, "opensearch"}, "-"),
 			Role: RoleConfig{
 				Name: "opensearch-guest",
 			},
@@ -169,7 +172,7 @@ func GetClientLevelRoleConfigPreset(prefix string) []ClientLevelRoleConfig {
 func GetClientScopeMappingPreset(prefix string) []ClientScopeMappingConfig {
 	configs := []ClientScopeMappingConfig{
 		{
-			ClientId: prefix + "kiali",
+			ClientId: strings.Join([]string{prefix, "kiali"}, "-"),
 			ClientScope: ClientScopeConfig{
 				Name: "kubernetes",
 			},

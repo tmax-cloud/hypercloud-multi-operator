@@ -61,6 +61,7 @@ const (
 	ArgoClusterRoleBinding        = "argocd-manager-role-binding"
 	ArgoSecretTypeCluster         = "cluster"
 	ArgoSecretTypeGit             = "repo"
+	ArgoAppTypeAppOfApp           = "app-of-apps"
 )
 
 const (
@@ -81,14 +82,32 @@ const (
 
 	LabelKeyClmSecretType = "cluster.tmax.io/clm-secret-type"
 
-	LabelKeyArgoSecretType = "argocd.argoproj.io/secret-type"
-
+	LabelKeyArgoSecretType  = "argocd.argoproj.io/secret-type"
 	LabelKeyCapiClusterName = "cluster.x-k8s.io/cluster-name"
 
-	LabelKeyArgoTargetCluster = "cluster"
 	// LabelKeyArgoTargetCluster = "cluster.tmax.io/cluster"
+	LabelKeyArgoTargetCluster = "cluster"
+	LabelKeyArgoAppType       = "appType"
 )
 
 const (
 	HARBOR_SERVICE_SET_OIDC_CONFIG = "/api/v2.0/configurations"
+)
+
+const (
+	ArgoDescriptionPrivateRegistry              = "target registry 주소로 변경"
+	ArgoDescriptionConsoleSubdomain             = "Console의 Subdomain으로 변경"
+	ArgoDescriptionHyperAuthSubdomain           = "HyperAuth의 Subdomain으로 변경"
+	ArgoDescriptionKibanaSubdomain              = "Kibana의 Subdomain으로 변경"
+	ArgoDescriptionGrafanaSubdomain             = "Grafana의 Subdomain으로 변경"
+	ArgoDescriptionJaegerSubdomain              = "Jaeger의 Subdomain으로 변경"
+	ArgoDescriptionKialiSubdomain               = "Kiali의 Subdomain으로 변경"
+	ArgoDescriptionCicdSubdomain                = "Cicd webhook의 Subdomain으로 변경"
+	ArgoDescriptionOpensearchSubdomain          = "Opensearch dashboard의 Subdomain으로 변경"
+	ArgoDescriptionHyperregistrySubdomain       = "Hyperregistry-core의 Subdomain으로 변경"
+	ArgoDescriptionHyperregistryNotarySubdomain = "Hyperregistry-notary의 Subdomain으로 변경"
+	ArgoDescriptionHyperregistryStorageClass    = "Hyperregistry가 사용할 StorageClass로 변경(aws의 경우 efs-sc-0, 그외에는 nfs)"
+	ArgoDescriptionHyperregistryDBStorageClass  = "Hyperregistry의 DB가 사용할 StorageClass로 변경(aws의 경우 efs-sc-999, 그외에는 nfs)"
+	ArgoDescriptionGitRepo                      = "Git repo 주소를 입력(gitlab의 경우 주소맨뒤에 .git을 입력)"
+	ArgoDescriptionGitRevision                  = "Git target revision(branch, tag)를 입력"
 )

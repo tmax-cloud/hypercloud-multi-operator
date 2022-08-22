@@ -919,18 +919,6 @@ rules:
   - patch
   - update
   - watch
-- apiGroups:
-  - argoproj.io
-  resources:
-  - applications
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
@@ -1069,7 +1057,7 @@ spec:
           value: ${auth_subdomain}
         - name: HYPERREGISTRY_ENABLED
           value: ${hyperregistry_enabled}
-        image: tmaxcloudck/hypercloud-multi-operator:b5.0.30.0
+        image: tmaxcloudck/hypercloud-multi-operator:b5.0.31.0
         name: manager
         ports:
         - containerPort: 9443

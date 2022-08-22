@@ -359,12 +359,12 @@ func (r *ClusterManagerReconciler) machineDeploymentUpdate(ctx context.Context, 
 	return ctrl.Result{}, nil
 }
 
-func (r *ClusterManagerReconciler) CreateArgocdClusterSecret(ctx context.Context, clusterManager *clusterV1alpha1.ClusterManager) (ctrl.Result, error) {
-	if !clusterManager.Status.ControlPlaneReady || !clusterManager.Status.Ready || clusterManager.Status.ArgoReady {
+func (r *ClusterManagerReconciler) CreateArgocdResources(ctx context.Context, clusterManager *clusterV1alpha1.ClusterManager) (ctrl.Result, error) {
+	if !clusterManager.Status.TraefikReady || clusterManager.Status.ArgoReady {
 		return ctrl.Result{}, nil
 	}
 	log := r.Log.WithValues("ClusterManager", clusterManager.GetNamespacedName())
-	log.Info("Start to reconcile phase for CreateArgocdClusterSecret")
+	log.Info("Start to reconcile phase for CreateArgocdResources")
 
 	kubeconfigSecret, err := r.GetKubeconfigSecret(clusterManager)
 	if err != nil {
@@ -424,8 +424,8 @@ func (r *ClusterManagerReconciler) CreateArgocdClusterSecret(ctx context.Context
 	if err := r.Get(context.TODO(), key, argocdClusterSecret); errors.IsNotFound(err) {
 		argocdClusterSecret = &coreV1.Secret{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      kubeconfigSecret.Annotations[util.AnnotationKeyArgoClusterSecret],
-				Namespace: util.ArgoNamespace,
+				Name:      key.Name,
+				Namespace: key.Namespace,
 				Annotations: map[string]string{
 					util.AnnotationKeyOwner:         kubeconfigSecret.Annotations[util.AnnotationKeyOwner],
 					util.AnnotationKeyCreator:       kubeconfigSecret.Annotations[util.AnnotationKeyCreator],
@@ -457,6 +457,10 @@ func (r *ClusterManagerReconciler) CreateArgocdClusterSecret(ctx context.Context
 		return ctrl.Result{}, err
 	} else if !argocdClusterSecret.GetDeletionTimestamp().IsZero() {
 		return ctrl.Result{Requeue: true}, nil
+	}
+
+	if err := r.CreateApplication(clusterManager); err != nil {
+		return ctrl.Result{}, err
 	}
 
 	log.Info("Create argocd cluster secret successfully")
@@ -575,9 +579,8 @@ func (r *ClusterManagerReconciler) CreateHyperauthClient(ctx context.Context, cl
 	// Hyperauth와 연동해야 하는 module 리스트는 정해져 있으므로, preset.go에서 관리
 	// cluster마다 client 이름이 달라야 해서 {namespace}-{cluster name} 를 prefix로
 	// 붙여주기로 했기 때문에, preset을 기본토대로 prefix를 추가하여 리턴하도록 구성
-	prefix := clusterManager.Namespace + "-" + clusterManager.Name + "-"
 	// client 생성 (kibana, grafana, kiali, jaeger, hyperregistry, opensearch)
-	clientConfigs := hyperauthCaller.GetClientConfigPreset(prefix)
+	clientConfigs := hyperauthCaller.GetClientConfigPreset(clusterManager.GetNamespacedPrefix())
 	for _, config := range clientConfigs {
 		if err := hyperauthCaller.CreateClient(config, secret); err != nil {
 			log.Error(err, "Failed to create hyperauth client ["+config.ClientId+"] for single cluster")
@@ -586,7 +589,7 @@ func (r *ClusterManagerReconciler) CreateHyperauthClient(ctx context.Context, cl
 	}
 
 	// protocol mapper 생성 (kibana, jaeger, hyperregistry, opensearch)
-	protocolMapperMappingConfigs := hyperauthCaller.GetMappingProtocolMapperToClientConfigPreset(prefix)
+	protocolMapperMappingConfigs := hyperauthCaller.GetMappingProtocolMapperToClientConfigPreset(clusterManager.GetNamespacedPrefix())
 	for _, config := range protocolMapperMappingConfigs {
 		if err := hyperauthCaller.CreateClientLevelProtocolMapper(config, secret); err != nil {
 			log.Error(err, "Failed to create hyperauth protocol mapper ["+config.ClientId+"] for single cluster")
@@ -595,7 +598,7 @@ func (r *ClusterManagerReconciler) CreateHyperauthClient(ctx context.Context, cl
 	}
 
 	// client-level role을 생성하고 role에 cluster admin 계정을 mapping (kibana, jaeger, opensearch)
-	clientLevelRoleConfigs := hyperauthCaller.GetClientLevelRoleConfigPreset(prefix)
+	clientLevelRoleConfigs := hyperauthCaller.GetClientLevelRoleConfigPreset(clusterManager.GetNamespacedPrefix())
 	for _, config := range clientLevelRoleConfigs {
 		if err := hyperauthCaller.CreateClientLevelRole(config, secret); err != nil {
 			log.Error(err, "Failed to create hyperauth client-level role ["+config.ClientId+"] for single cluster")
@@ -610,7 +613,7 @@ func (r *ClusterManagerReconciler) CreateHyperauthClient(ctx context.Context, cl
 	}
 
 	// client와 client scope를 매핑 (kiali)
-	clientScopeMappingConfig := hyperauthCaller.GetClientScopeMappingPreset(prefix)
+	clientScopeMappingConfig := hyperauthCaller.GetClientScopeMappingPreset(clusterManager.GetNamespacedPrefix())
 	for _, config := range clientScopeMappingConfig {
 		err := hyperauthCaller.AddClientScopeToClient(config, secret)
 		if err != nil {
@@ -671,13 +674,12 @@ func (r *ClusterManagerReconciler) SetHyperregistryOidcConfig(ctx context.Contex
 
 	// hyperregistry의 경우 configmap이나 deploy의 env로 oidc 정보를 줄 수 없게 되어 있어서
 	// http request를 생성하여 oidc 정보를 put 할 수 있도록 구현
-	prefix := clusterManager.Namespace + "-" + clusterManager.Name + "-"
 	hyperauthDomain := "https://" + os.Getenv("AUTH_SUBDOMAIN") + "." + os.Getenv("HC_DOMAIN") + "/auth/realms/tmax"
 	config := util.OidcConfig{
 		AuthMode:         "oidc_auth",
 		OidcAdminGroup:   "admin",
 		OidcAutoOnBoard:  true,
-		OidcClientId:     prefix + "hyperregistry",
+		OidcClientId:     clusterManager.GetNamespacedPrefix() + "-hyperregistry",
 		OidcClientSecret: os.Getenv("AUTH_CLIENT_SECRET"),
 		OidcEndpoint:     hyperauthDomain,
 		OidcGroupsClaim:  "group",
