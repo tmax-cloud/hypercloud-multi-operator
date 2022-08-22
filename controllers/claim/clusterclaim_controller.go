@@ -90,7 +90,7 @@ func (r *ClusterClaimReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		}
 	}
 
-	// console로부터 approved로 변경시 clustermanager 생성  
+	// console로부터 approved로 변경시 clustermanager 생성
 	if clusterClaim.Status.Phase == "Approved" {
 		if err := r.CreateClusterManager(context.TODO(), clusterClaim); err != nil {
 			log.Error(err, "Failed to Create ClusterManager")
