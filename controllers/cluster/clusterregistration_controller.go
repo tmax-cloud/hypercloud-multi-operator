@@ -112,8 +112,8 @@ func (r *ClusterRegistrationReconciler) reconcile(ctx context.Context, ClusterRe
 }
 
 func (r *ClusterRegistrationReconciler) reconcilePhase(_ context.Context, ClusterRegistration *clusterV1alpha1.ClusterRegistration) {
-	if ClusterRegistration.Status.Phase == "validated" {
-		ClusterRegistration.Status.SetTypedPhase(clusterV1alpha1.ClusterRegistrationPhaseSuccess)
+	if ClusterRegistration.Status.ClusterValidated {
+		ClusterRegistration.Status.SetTypedPhase(clusterV1alpha1.ClusterRegistrationPhaseRegistered)
 	}
 }
 
@@ -140,7 +140,7 @@ func (r *ClusterRegistrationReconciler) requeueClusterRegistrationsForClusterMan
 		return nil
 	}
 
-	clr.Status.Phase = "Deleted"
+	clr.Status.Phase = clusterV1alpha1.ClusterRegistrationPhaseClusterDeleted
 	clr.Status.Reason = "cluster is deleted"
 	err := r.Status().Update(context.TODO(), clr)
 	if err != nil {
@@ -167,9 +167,12 @@ func (r *ClusterRegistrationReconciler) SetupWithManager(mgr ctrl.Manager) error
 				UpdateFunc: func(e event.UpdateEvent) bool {
 					oldClr := e.ObjectOld.(*clusterV1alpha1.ClusterRegistration)
 					newClr := e.ObjectNew.(*clusterV1alpha1.ClusterRegistration)
-					if oldClr.Status.Phase == "Success" && newClr.Status.Phase == "Validated" {
+					if oldClr.DeletionTimestamp.IsZero() && !newClr.DeletionTimestamp.IsZero() {
 						return true
 					}
+					// if oldClr.Status.Phase == "Success" && newClr.Status.Phase == "Validated" {
+					// 	return true
+					// }
 					return false
 				},
 				DeleteFunc: func(e event.DeleteEvent) bool {

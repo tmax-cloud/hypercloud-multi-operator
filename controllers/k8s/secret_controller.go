@@ -206,7 +206,8 @@ func (r *SecretReconciler) reconcileDelete(ctx context.Context, secret *coreV1.S
 				}
 			}()
 
-			clr.Status.Phase = "Validated"
+			// clr.Status.Phase = "Validated"
+			// clr.Status.ClusterValidated = true
 			clr.Status.Reason = "kubeconfig secret is deleted"
 			controllerutil.RemoveFinalizer(secret, clusterV1alpha1.ClusterManagerFinalizer)
 		} else if secret.Labels[util.LabelKeyClmSecretType] == util.ClmSecretTypeSAToken {

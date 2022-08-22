@@ -24,7 +24,7 @@ import (
 )
 
 // log is for logging in this package.
-var clustermanagerlog = logf.Log.WithName("clustermanager-resource")
+var ClusterManagerWebhookLogger = logf.Log.WithName("clustermanager-resource")
 
 func (r *ClusterManager) SetupWebhookWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewWebhookManagedBy(mgr).
@@ -40,7 +40,7 @@ func (r *ClusterManager) SetupWebhookWithManager(mgr ctrl.Manager) error {
 
 // // Default implements webhook.Defaulter so a webhook will be registered for the type
 // func (r *ClusterManager) Default() {
-// 	clustermanagerlog.Info("default", "name", r.Name)
+// 	ClusterManagerWebhookLogger.Info("default", "name", r.Name)
 
 // 	// TODO(user): fill in your defaulting logic.
 // }
@@ -52,7 +52,7 @@ var _ webhook.Validator = &ClusterManager{}
 
 // ValidateCreate implements webhook.Validator so a webhook will be registered for the type
 func (r *ClusterManager) ValidateCreate() error {
-	clustermanagerlog.Info("validate create", "name", r.Name)
+	ClusterManagerWebhookLogger.Info("validate create", "name", r.Name)
 
 	// TODO(user): fill in your validation logic upon object creation.
 	return nil
@@ -61,7 +61,7 @@ func (r *ClusterManager) ValidateCreate() error {
 // ValidateUpdate implements webhook.Validator so a webhook will be registered for the type
 func (r *ClusterManager) ValidateUpdate(old runtime.Object) error {
 
-	clustermanagerlog.Info("validate update", "name", r.Name)
+	ClusterManagerWebhookLogger.Info("validate update", "name", r.Name)
 	oldClusterManager := old.(*ClusterManager).DeepCopy()
 
 	if r.Annotations["owner"] != oldClusterManager.Annotations["owner"] {
@@ -83,7 +83,7 @@ func (r *ClusterManager) ValidateUpdate(old runtime.Object) error {
 // ValidateDelete implements webhook.Validator so a webhook will be registered for the type
 func (r *ClusterManager) ValidateDelete() error {
 
-	clustermanagerlog.Info("validate delete", "name", r.Name)
+	ClusterManagerWebhookLogger.Info("validate delete", "name", r.Name)
 
 	return nil
 }

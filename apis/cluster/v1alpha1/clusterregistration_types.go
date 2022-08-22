@@ -34,16 +34,18 @@ type ClusterRegistrationSpec struct {
 
 // ClusterRegistrationStatus defines the observed state of ClusterRegistration
 type ClusterRegistrationStatus struct {
-	Provider  string                    `json:"provider,omitempty"`
-	Version   string                    `json:"version,omitempty"`
-	Ready     bool                      `json:"ready,omitempty"`
-	MasterNum int                       `json:"masterNum,omitempty"`
-	MasterRun int                       `json:"masterRun,omitempty"`
-	WorkerNum int                       `json:"workerNum,omitempty"`
-	WorkerRun int                       `json:"workerRun,omitempty"`
-	NodeInfo  []coreV1.NodeSystemInfo   `json:"nodeInfo,omitempty"`
-	Phase     ClusterRegistrationPhase  `json:"phase,omitempty"`
-	Reason    ClusterRegistrationReason `json:"reason,omitempty"`
+	Provider         string                    `json:"provider,omitempty"`
+	Version          string                    `json:"version,omitempty"`
+	Ready            bool                      `json:"ready,omitempty"`
+	MasterNum        int                       `json:"masterNum,omitempty"`
+	MasterRun        int                       `json:"masterRun,omitempty"`
+	WorkerNum        int                       `json:"workerNum,omitempty"`
+	WorkerRun        int                       `json:"workerRun,omitempty"`
+	NodeInfo         []coreV1.NodeSystemInfo   `json:"nodeInfo,omitempty"`
+	Phase            ClusterRegistrationPhase  `json:"phase,omitempty"`
+	Reason           ClusterRegistrationReason `json:"reason,omitempty"`
+	ClusterValidated bool                      `json:"clusterValidated,omitempty"`
+	SecretReady      bool                      `json:"secretReady,omitempty"`
 }
 
 type ClusterRegistrationPhase string
@@ -51,28 +53,41 @@ type ClusterRegistrationPhase string
 type ClusterRegistrationReason string
 
 const (
-	// ClusterRegistrationPhaseSuccess is the state when cluster is registered successfully
-	ClusterRegistrationPhaseSuccess = ClusterRegistrationPhase("Success")
+	// 클러스터가 등록된 상태
+	ClusterRegistrationPhaseRegistered = ClusterRegistrationPhase("Registered")
+	// 에러가 발생하여 클러스터가 등록되지 못한 상태
+	// 세가지 종류가 존재함
+	// 1. kubeconfig 파일이 invalid한 경우(yaml파일이 아니거나 yaml형식이 맞지 않는 등)
+	// 2. cluster가 invalid한 경우(network call이 가지 않는 경우)
+	// 3. 동일한 이름의 클러스터가 이미 존재하는 경우
+	ClusterRegistrationPhaseError = ClusterRegistrationPhase("Error")
+	// 클러스터가 삭제된 상태
+	ClusterRegistrationPhaseClusterDeleted = ClusterRegistrationPhase("Cluster Deleted")
+)
 
-	// ClusterRegistrationPhaseFailed is the when failed to register cluster
-	// Cluster registration failure can occur in following cases
-	// 1. kubeconfig is invalid
-	// 2. cluster is invalid
-	ClusterRegistrationPhaseFailed = ClusterRegistrationPhase("Failed")
+const (
+	// // ClusterRegistrationPhaseSuccess is the state when cluster is registered successfully
+	// ClusterRegistrationPhaseSuccess = ClusterRegistrationPhase("Success")
 
-	// ClusterRegistrationPhaseSecretCreated
-	ClusterRegistrationPhaseSecretCreated = ClusterRegistrationPhase("SecretCreated")
+	// // ClusterRegistrationPhaseFailed is the when failed to register cluster
+	// // Cluster registration failure can occur in following cases
+	// // 1. kubeconfig is invalid
+	// // 2. cluster is invalid
+	// ClusterRegistrationPhaseFailed = ClusterRegistrationPhase("Failed")
 
-	// ClusterRegistrationPhaseValidated
-	ClusterRegistrationPhaseValidated = ClusterRegistrationPhase("Validated")
+	// // ClusterRegistrationPhaseSecretCreated
+	// ClusterRegistrationPhaseSecretCreated = ClusterRegistrationPhase("SecretCreated")
 
-	// ClusterRegistrationPhaseDeleting is the Cluster state when a delete
-	// request has been sent to the API Server,
-	// but its infrastructure has not yet been fully deleted.
-	ClusterRegistrationPhaseDeleting = ClusterRegistrationPhase("Deleting")
+	// // ClusterRegistrationPhaseValidated
+	// ClusterRegistrationPhaseValidated = ClusterRegistrationPhase("Validated")
 
-	// ClusterRegistrationPhaseUnknown is returned if the Cluster state cannot be determined.
-	ClusterRegistrationPhaseUnknown = ClusterRegistrationPhase("Unknown")
+	// // ClusterRegistrationPhaseDeleting is the Cluster state when a delete
+	// // request has been sent to the API Server,
+	// // but its infrastructure has not yet been fully deleted.
+	// ClusterRegistrationPhaseDeleting = ClusterRegistrationPhase("Deleting")
+
+	// // ClusterRegistrationPhaseUnknown is returned if the Cluster state cannot be determined.
+	// ClusterRegistrationPhaseUnknown = ClusterRegistrationPhase("Unknown")
 
 	// ClusterRegistrationReasonClusterNotFound is returned if the Cluster not found
 	ClusterRegistrationReasonClusterNotFound = ClusterRegistrationReason("ClusterNotFound")

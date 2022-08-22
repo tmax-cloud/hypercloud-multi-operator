@@ -43,7 +43,7 @@ func (r *ClusterRegistrationReconciler) CheckValidation(ctx context.Context, Clu
 	encodedKubeConfig, err := b64.StdEncoding.DecodeString(ClusterRegistration.Spec.KubeConfig)
 	if err != nil {
 		log.Error(err, "Failed to decode ClusterRegistration.Spec.KubeConfig, maybe wrong kubeconfig file")
-		ClusterRegistration.Status.SetTypedPhase(clusterV1alpha1.ClusterRegistrationPhaseFailed)
+		ClusterRegistration.Status.SetTypedPhase(clusterV1alpha1.ClusterRegistrationPhaseError)
 		ClusterRegistration.Status.SetTypedReason(clusterV1alpha1.ClusterRegistrationReasonInvalidKubeconfig)
 		return ctrl.Result{Requeue: false}, err
 	}
@@ -52,7 +52,7 @@ func (r *ClusterRegistrationReconciler) CheckValidation(ctx context.Context, Clu
 	remoteClientset, err := util.GetRemoteK8sClientByKubeConfig(encodedKubeConfig)
 	if err != nil {
 		log.Error(err, "Failed to get client for remote cluster")
-		ClusterRegistration.Status.SetTypedPhase(clusterV1alpha1.ClusterRegistrationPhaseFailed)
+		ClusterRegistration.Status.SetTypedPhase(clusterV1alpha1.ClusterRegistrationPhaseError)
 		ClusterRegistration.Status.SetTypedReason(clusterV1alpha1.ClusterRegistrationReasonInvalidKubeconfig)
 		return ctrl.Result{}, err
 	}
@@ -63,7 +63,7 @@ func (r *ClusterRegistrationReconciler) CheckValidation(ctx context.Context, Clu
 		List(context.TODO(), metav1.ListOptions{})
 	if err != nil {
 		log.Info("Failed to get nodes for [" + ClusterRegistration.Spec.ClusterName + "]")
-		ClusterRegistration.Status.SetTypedPhase(clusterV1alpha1.ClusterRegistrationPhaseFailed)
+		ClusterRegistration.Status.SetTypedPhase(clusterV1alpha1.ClusterRegistrationPhaseError)
 		ClusterRegistration.Status.SetTypedReason(clusterV1alpha1.ClusterRegistrationReasonClusterNotFound)
 		return ctrl.Result{}, nil
 	}
@@ -78,17 +78,18 @@ func (r *ClusterRegistrationReconciler) CheckValidation(ctx context.Context, Clu
 		return ctrl.Result{}, err
 	} else if err == nil {
 		log.Info("ClusterManager is already existed")
-		ClusterRegistration.Status.SetTypedPhase(clusterV1alpha1.ClusterRegistrationPhaseFailed)
+		ClusterRegistration.Status.SetTypedPhase(clusterV1alpha1.ClusterRegistrationPhaseError)
 		ClusterRegistration.Status.SetTypedReason(clusterV1alpha1.ClusterRegistrationReasonClusterNameDuplicated)
 		return ctrl.Result{Requeue: false}, err
 	}
 
-	ClusterRegistration.Status.SetTypedPhase(clusterV1alpha1.ClusterRegistrationPhaseValidated)
+	// ClusterRegistration.Status.SetTypedPhase(clusterV1alpha1.ClusterRegistrationPhaseValidated)
+	ClusterRegistration.Status.ClusterValidated = true
 	return ctrl.Result{}, nil
 }
 
 func (r *ClusterRegistrationReconciler) CreateKubeconfigSecret(ctx context.Context, ClusterRegistration *clusterV1alpha1.ClusterRegistration) (ctrl.Result, error) {
-	if ClusterRegistration.Status.Phase != clusterV1alpha1.ClusterRegistrationPhaseValidated {
+	if !ClusterRegistration.Status.ClusterValidated || ClusterRegistration.Status.SecretReady {
 		return ctrl.Result{}, nil
 	}
 	log := r.Log.WithValues("ClusterRegistration", ClusterRegistration.GetNamespacedName())
@@ -147,12 +148,14 @@ func (r *ClusterRegistrationReconciler) CreateKubeconfigSecret(ctx context.Conte
 		return ctrl.Result{Requeue: true}, nil
 	}
 
-	ClusterRegistration.Status.SetTypedPhase(clusterV1alpha1.ClusterRegistrationPhaseSecretCreated)
+	// ClusterRegistration.Status.SetTypedPhase(clusterV1alpha1.ClusterRegistrationPhaseSecretCreated)
+	ClusterRegistration.Status.SecretReady = true
 	return ctrl.Result{}, nil
 }
 
 func (r *ClusterRegistrationReconciler) CreateClusterManager(ctx context.Context, ClusterRegistration *clusterV1alpha1.ClusterRegistration) (ctrl.Result, error) {
-	if ClusterRegistration.Status.Phase != clusterV1alpha1.ClusterRegistrationPhaseSecretCreated {
+	if !ClusterRegistration.Status.SecretReady ||
+		ClusterRegistration.Status.Phase == clusterV1alpha1.ClusterRegistrationPhaseRegistered {
 		return ctrl.Result{}, nil
 	}
 	log := r.Log.WithValues("ClusterRegistration", ClusterRegistration.GetNamespacedName())
@@ -198,6 +201,6 @@ func (r *ClusterRegistrationReconciler) CreateClusterManager(ctx context.Context
 		return ctrl.Result{}, err
 	}
 
-	ClusterRegistration.Status.SetTypedPhase(clusterV1alpha1.ClusterRegistrationPhaseSuccess)
+	ClusterRegistration.Status.SetTypedPhase(clusterV1alpha1.ClusterRegistrationPhaseRegistered)
 	return ctrl.Result{}, nil
 }

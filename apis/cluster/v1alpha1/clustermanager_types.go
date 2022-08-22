@@ -110,7 +110,7 @@ type ClusterManagerStatus struct {
 	MasterRun              int                     `json:"masterRun,omitempty"`
 	WorkerRun              int                     `json:"workerRun,omitempty"`
 	NodeInfo               []coreV1.NodeSystemInfo `json:"nodeInfo,omitempty"`
-	Phase                  string                  `json:"phase,omitempty"`
+	Phase                  ClusterManagerPhase     `json:"phase,omitempty"`
 	ControlPlaneEndpoint   string                  `json:"controlPlaneEndpoint,omitempty"`
 	ArgoReady              bool                    `json:"argoReady,omitempty"`
 	TraefikReady           bool                    `json:"traefikReady,omitempty"`
@@ -118,44 +118,55 @@ type ClusterManagerStatus struct {
 	AuthClientReady        bool                    `json:"authClientReady,omitempty"`
 	HyperregistryOidcReady bool                    `json:"hyperregistryOidcReady,omitempty"`
 	OpenSearchReady        bool                    `json:"openSearchReady,omitempty"`
+	ApplicationLink        bool                    `json:"applicationLink,omitempty"`
 	// will be deprecated
 	PrometheusReady bool `json:"prometheusReady,omitempty"`
 }
 
 type ClusterManagerPhase string
 
-//type ClusterType string
+const (
+	// 클러스터 클레임 수락, 클러스터 등록 생성에 의해 클러스터 매니저가 생성되고
+	// infra 생성, kubeadm init/join, resource 배포등을 수행하고 있는 단계
+	ClusterManagerPhaseProcessing = ClusterManagerPhase("Processing")
+	// ArgoCD를 통해 single cluster에 traefik 배포를 기다리고 있는 상태
+	ClusterManagerPhaseSyncNeeded = ClusterManagerPhase("Sync Needed")
+	// 모든 과정이 완료되어 클러스터가 준비된 상태
+	ClusterManagerPhaseReady = ClusterManagerPhase("Ready")
+	// 클러스터가 삭제중인 상태
+	ClusterManagerPhaseDeleting = ClusterManagerPhase("Deleting")
+)
 
 const (
-	// ClusterManagerPhasePending is the first state a Cluster is assigned by
-	// Cluster API Cluster controller after being created.
-	ClusterManagerPhasePending = ClusterManagerPhase("Pending")
+	// // ClusterManagerPhasePending is the first state a Cluster is assigned by
+	// // Cluster API Cluster controller after being created.
+	// ClusterManagerPhasePending = ClusterManagerPhase("Pending")
 
-	// ClusterManagerPhaseProvisioning is the state when the Cluster has a provider infrastructure
-	// object associated and can start provisioning.
-	ClusterManagerPhaseProvisioning = ClusterManagerPhase("Provisioning")
+	// // ClusterManagerPhaseProvisioning is the state when the Cluster has a provider infrastructure
+	// // object associated and can start provisioning.
+	// ClusterManagerPhaseProvisioning = ClusterManagerPhase("Provisioning")
 
-	// object associated and can start provisioning.
-	ClusterManagerPhaseRegistering = ClusterManagerPhase("Registering")
+	// // object associated and can start provisioning.
+	// ClusterManagerPhaseRegistering = ClusterManagerPhase("Registering")
 
-	// ClusterManagerPhaseProvisioned is the state when its
-	// infrastructure has been created and configured.
-	ClusterManagerPhaseProvisioned = ClusterManagerPhase("Provisioned")
+	// // ClusterManagerPhaseProvisioned is the state when its
+	// // infrastructure has been created and configured.
+	// ClusterManagerPhaseProvisioned = ClusterManagerPhase("Provisioned")
 
-	// infrastructure has been created and configured.
-	ClusterManagerPhaseRegistered = ClusterManagerPhase("Registered")
+	// // infrastructure has been created and configured.
+	// ClusterManagerPhaseRegistered = ClusterManagerPhase("Registered")
 
-	// ClusterManagerPhaseDeleting is the Cluster state when a delete
-	// request has been sent to the API Server,
-	// but its infrastructure has not yet been fully deleted.
-	ClusterManagerPhaseDeleting = ClusterManagerPhase("Deleting")
+	// // ClusterManagerPhaseDeleting is the Cluster state when a delete
+	// // request has been sent to the API Server,
+	// // but its infrastructure has not yet been fully deleted.
+	// ClusterManagerPhaseDeleting = ClusterManagerPhase("Deleting")
 
-	// ClusterManagerPhaseFailed is the Cluster state when the system
-	// might require user intervention.
-	ClusterManagerPhaseFailed = ClusterManagerPhase("Failed")
+	// // ClusterManagerPhaseFailed is the Cluster state when the system
+	// // might require user intervention.
+	// ClusterManagerPhaseFailed = ClusterManagerPhase("Failed")
 
-	// ClusterManagerPhaseUnknown is returned if the Cluster state cannot be determined.
-	ClusterManagerPhaseUnknown = ClusterManagerPhase("Unknown")
+	// // ClusterManagerPhaseUnknown is returned if the Cluster state cannot be determined.
+	// ClusterManagerPhaseUnknown = ClusterManagerPhase("Unknown")
 
 	ClusterManagerFinalizer = "clustermanager.cluster.tmax.io/finalizer"
 
@@ -182,7 +193,8 @@ const (
 )
 
 func (c *ClusterManagerStatus) SetTypedPhase(p ClusterManagerPhase) {
-	c.Phase = string(p)
+	// c.Phase = string(p)
+	c.Phase = p
 }
 
 // +kubebuilder:object:root=true

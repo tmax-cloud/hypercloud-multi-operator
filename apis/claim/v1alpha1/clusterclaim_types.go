@@ -21,6 +21,21 @@ import (
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
 // NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
 
+type ClusterClaimPhase string
+
+const (
+	// 클러스터 클레임이 생성되고, 관리자의 승인/거절을 기다리는 상태
+	ClusterClaimPhaseAwaiting = ClusterClaimPhase("Awaiting")
+	// 관리자에 의해 클레임이 승인된 상태
+	ClusterClaimPhaseApproved = ClusterClaimPhase("Approved")
+	// 관리자에 의헤 클레임이 거절된 상태
+	ClusterClaimPhaseRejected = ClusterClaimPhase("Rejected")
+	// 클러스터가 삭제된 상태
+	ClusterClaimPhaseClusterDeleted = ClusterClaimPhase("Cluster Deleted")
+	// 클러스터 생성과정에서 에러가 발생한 상태
+	ClusterClaimPhaseError = ClusterClaimPhase("Error")
+)
+
 // ClusterClaimSpec defines the desired state of ClusterClaim
 type ClusterClaimSpec struct {
 	// +kubebuilder:validation:Required
@@ -96,7 +111,11 @@ type ClusterClaimStatus struct {
 	Reason  string `json:"reason,omitempty" protobuf:"bytes,3,opt,name=reason"`
 
 	// +kubebuilder:validation:Enum=Awaiting;Admitted;Approved;Rejected;Error;ClusterDeleted;
-	Phase string `json:"phase,omitempty" protobuf:"bytes,4,opt,name=phase"`
+	Phase ClusterClaimPhase `json:"phase,omitempty" protobuf:"bytes,4,opt,name=phase"`
+}
+
+func (c *ClusterClaimStatus) SetTypedPhase(p ClusterClaimPhase) {
+	c.Phase = p
 }
 
 // +kubebuilder:object:root=true
