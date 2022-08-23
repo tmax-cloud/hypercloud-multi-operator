@@ -8,7 +8,6 @@ metadata:
   creationTimestamp: null
   name: clusterregistrations.cluster.tmax.io
 spec:
-  preserveUnknownFields: false
   group: cluster.tmax.io
   names:
     kind: ClusterRegistration
