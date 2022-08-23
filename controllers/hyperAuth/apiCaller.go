@@ -71,7 +71,7 @@ func GetTokenAsAdmin(secret *coreV1.Secret) (string, error) {
 	}
 	accessToken := resultJson["access_token"].(string)
 
-	return accessToken, nil
+	return strings.Join([]string{"Bearer", accessToken}, " "), nil
 }
 
 func GetIdByClientId(clientId string, secret *coreV1.Secret) (string, error) {
@@ -85,7 +85,7 @@ func GetIdByClientId(clientId string, secret *coreV1.Secret) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	req.Header.Add("Authorization", "Bearer "+token)
+	req.Header.Add("Authorization", token)
 
 	client := &http.Client{}
 	resp, err := client.Do(req)
@@ -111,21 +111,13 @@ func GetIdByClientId(clientId string, secret *coreV1.Secret) (string, error) {
 		}
 	}
 
-	return "", nil
+	return "", HyperAuthError{NotFound: true, Type: RESOURCE_TYPE_CLIENT, Name: clientId}
 }
 
 func CreateClient(config ClientConfig, secret *coreV1.Secret) error {
 	token, err := GetTokenAsAdmin(secret)
 	if err != nil {
 		return err
-	}
-
-	id, err := GetIdByClientId(config.ClientId, secret)
-	if err != nil {
-		return err
-	}
-	if IsClientExist(id) {
-		return nil
 	}
 
 	jsonData, err := json.Marshal(config)
@@ -140,7 +132,7 @@ func CreateClient(config ClientConfig, secret *coreV1.Secret) error {
 		return err
 	}
 	req.Header.Add("Content-Type", "application/json")
-	req.Header.Add("Authorization", "Bearer "+token)
+	req.Header.Add("Authorization", token)
 
 	client := &http.Client{}
 	resp, err := client.Do(req)
@@ -167,9 +159,6 @@ func CreateClientLevelProtocolMapper(config ClientLevelProtocolMapperConfig, sec
 	if err != nil {
 		return err
 	}
-	if !IsClientExist(id) {
-		return fmt.Errorf("client not found")
-	}
 
 	jsonData, err := json.Marshal(config.ProtocolMapper)
 	if err != nil {
@@ -186,7 +175,7 @@ func CreateClientLevelProtocolMapper(config ClientLevelProtocolMapperConfig, sec
 		return err
 	}
 	req.Header.Add("Content-Type", "application/json")
-	req.Header.Add("Authorization", "Bearer "+token)
+	req.Header.Add("Authorization", token)
 
 	client := &http.Client{}
 	resp, err := client.Do(req)
@@ -213,9 +202,6 @@ func CreateClientLevelRole(config ClientLevelRoleConfig, secret *coreV1.Secret) 
 	if err != nil {
 		return err
 	}
-	if !IsClientExist(id) {
-		return fmt.Errorf("client not found")
-	}
 
 	data := RoleConfig{
 		Name: config.Role.Name,
@@ -235,7 +221,7 @@ func CreateClientLevelRole(config ClientLevelRoleConfig, secret *coreV1.Secret) 
 		return err
 	}
 	req.Header.Add("Content-Type", "application/json")
-	req.Header.Add("Authorization", "Bearer "+token)
+	req.Header.Add("Authorization", token)
 
 	client := &http.Client{}
 	resp, err := client.Do(req)
@@ -267,7 +253,7 @@ func GetUserIdByEmail(userEmail string, secret *coreV1.Secret) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	req.Header.Add("Authorization", "Bearer "+token)
+	req.Header.Add("Authorization", token)
 
 	client := &http.Client{}
 	resp, err := client.Do(req)
@@ -287,7 +273,7 @@ func GetUserIdByEmail(userEmail string, secret *coreV1.Secret) (string, error) {
 		return "", err
 	}
 	if respJson == nil {
-		return "", fmt.Errorf("user not found")
+		return "", HyperAuthError{NotFound: true, Type: RESOURCE_TYPE_USER_EMAIL, Name: userEmail}
 	}
 
 	return respJson.Id, nil
@@ -303,9 +289,6 @@ func GetClientRoleIdByRoleName(clientId string, roleName string, secret *coreV1.
 	if err != nil {
 		return "", err
 	}
-	if !IsClientExist(id) {
-		return "", fmt.Errorf("client not found")
-	}
 
 	params := map[string]string{
 		"id":       id,
@@ -316,7 +299,7 @@ func GetClientRoleIdByRoleName(clientId string, roleName string, secret *coreV1.
 	if err != nil {
 		return "", err
 	}
-	req.Header.Add("Authorization", "Bearer "+token)
+	req.Header.Add("Authorization", token)
 
 	client := &http.Client{}
 	resp, err := client.Do(req)
@@ -336,7 +319,7 @@ func GetClientRoleIdByRoleName(clientId string, roleName string, secret *coreV1.
 		return "", err
 	}
 	if respJson == nil {
-		return "", fmt.Errorf("role not found")
+		return "", HyperAuthError{NotFound: true, Type: RESOURCE_TYPE_CLIENT_ROLE, Name: roleName}
 	}
 
 	return respJson.Id, nil
@@ -351,9 +334,6 @@ func AddClientLevelRolesToUserRoleMapping(config ClientLevelRoleConfig, userEmai
 	id, err := GetIdByClientId(config.ClientId, secret)
 	if err != nil {
 		return err
-	}
-	if !IsClientExist(id) {
-		return fmt.Errorf("client not found")
 	}
 
 	userId, err := GetUserIdByEmail(userEmail, secret)
@@ -387,7 +367,7 @@ func AddClientLevelRolesToUserRoleMapping(config ClientLevelRoleConfig, userEmai
 		return err
 	}
 	req.Header.Add("Content-Type", "application/json")
-	req.Header.Add("Authorization", "Bearer "+token)
+	req.Header.Add("Authorization", token)
 
 	client := &http.Client{}
 	resp, err := client.Do(req)
@@ -418,7 +398,7 @@ func GetRealmRoleIdByRoleName(roleName string, secret *coreV1.Secret) (string, e
 	if err != nil {
 		return "", err
 	}
-	req.Header.Add("Authorization", "Bearer "+token)
+	req.Header.Add("Authorization", token)
 
 	client := &http.Client{}
 	resp, err := client.Do(req)
@@ -438,7 +418,7 @@ func GetRealmRoleIdByRoleName(roleName string, secret *coreV1.Secret) (string, e
 		return "", err
 	}
 	if respJson == nil {
-		return "", fmt.Errorf("role not found")
+		return "", HyperAuthError{NotFound: true, Type: RESOURCE_TYPE_REALM_ROLE, Name: roleName}
 	}
 
 	return respJson.Id, nil
@@ -480,7 +460,7 @@ func AddRealmLevelRolesToUserRoleMapping(roleName string, userEmail string, secr
 		return err
 	}
 	req.Header.Add("Content-Type", "application/json")
-	req.Header.Add("Authorization", "Bearer "+token)
+	req.Header.Add("Authorization", token)
 
 	client := &http.Client{}
 	resp, err := client.Do(req)
@@ -508,7 +488,7 @@ func GetClientScopesIdByName(name string, secret *coreV1.Secret) (string, error)
 	if err != nil {
 		return "", err
 	}
-	req.Header.Add("Authorization", "Bearer "+token)
+	req.Header.Add("Authorization", token)
 
 	client := &http.Client{}
 	resp, err := client.Do(req)
@@ -534,7 +514,7 @@ func GetClientScopesIdByName(name string, secret *coreV1.Secret) (string, error)
 		}
 	}
 
-	return "", fmt.Errorf("client scope not found")
+	return "", HyperAuthError{NotFound: true, Type: RESOURCE_TYPE_CLIENT_SCOPE, Name: name}
 }
 
 func AddClientScopeToClient(config ClientScopeMappingConfig, secret *coreV1.Secret) error {
@@ -546,9 +526,6 @@ func AddClientScopeToClient(config ClientScopeMappingConfig, secret *coreV1.Secr
 	id, err := GetIdByClientId(config.ClientId, secret)
 	if err != nil {
 		return err
-	}
-	if !IsClientExist(id) {
-		return nil
 	}
 
 	clientScopeId, err := GetClientScopesIdByName(config.ClientScope.Name, secret)
@@ -565,7 +542,7 @@ func AddClientScopeToClient(config ClientScopeMappingConfig, secret *coreV1.Secr
 	if err != nil {
 		return err
 	}
-	req.Header.Add("Authorization", "Bearer "+token)
+	req.Header.Add("Authorization", token)
 
 	client := &http.Client{}
 	resp, err := client.Do(req)
@@ -582,6 +559,122 @@ func AddClientScopeToClient(config ClientScopeMappingConfig, secret *coreV1.Secr
 	return nil
 }
 
+func CreateGroup(config GroupConfig, secret *coreV1.Secret) error {
+	token, err := GetTokenAsAdmin(secret)
+	if err != nil {
+		return err
+	}
+
+	jsonData, err := json.Marshal(config)
+	if err != nil {
+		return err
+	}
+	playload := bytes.NewBuffer(jsonData)
+
+	url := SetServiceDomainURI(KEYCLOAK_ADMIN_SERVICE_CREATE_GROUP, nil)
+	req, err := http.NewRequest(http.MethodPost, url, playload)
+	if err != nil {
+		return err
+	}
+	req.Header.Add("Authorization", token)
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	if !IsOK(resp.StatusCode) {
+		reqDump, _ := httputil.DumpRequest(req, true)
+		return fmt.Errorf("failed to create group: " + string(reqDump) + "\n" + resp.Status)
+	}
+
+	return nil
+}
+
+func GetGroupIdByName(name string, secret *coreV1.Secret) (string, error) {
+	token, err := GetTokenAsAdmin(secret)
+	if err != nil {
+		return "", err
+	}
+
+	url := SetServiceDomainURI(KEYCLOAK_ADMIN_SERVICE_GET_GROUP, nil)
+	req, err := http.NewRequest(http.MethodGet, url, nil)
+	if err != nil {
+		return "", err
+	}
+	req.Header.Add("Authorization", token)
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+
+	reqDump, _ := httputil.DumpRequest(req, true)
+	if !IsOK(resp.StatusCode) {
+		return "", fmt.Errorf("failed to get group: " + string(reqDump) + "\n" + resp.Status)
+	}
+
+	respJson := &[]GroupConfig{}
+	err = json.NewDecoder(resp.Body).Decode(respJson)
+	if err != nil {
+		return "", err
+	}
+
+	for _, data := range *respJson {
+		if data.Name == name {
+			return data.Id, nil
+		}
+	}
+
+	return "", HyperAuthError{NotFound: true, Type: RESOURCE_TYPE_GROUP, Name: name}
+}
+
+func AddGroupToUser(userEmail string, config GroupConfig, secret *coreV1.Secret) error {
+	token, err := GetTokenAsAdmin(secret)
+	if err != nil {
+		return err
+	}
+
+	userId, err := GetUserIdByEmail(userEmail, secret)
+	if err != nil {
+		return err
+	}
+
+	groupId, err := GetGroupIdByName(config.Name, secret)
+	if err != nil {
+		return err
+	}
+
+	params := map[string]string{
+		"userId":  userId,
+		"groupId": groupId,
+	}
+	url := SetServiceDomainURI(KEYCLOAK_ADMIN_SERVICE_ADD_GROUP_TO_USER, params)
+	req, err := http.NewRequest(http.MethodPut, url, nil)
+	if err != nil {
+		return err
+	}
+	req.Header.Add("Authorization", token)
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	if !IsOK(resp.StatusCode) {
+		reqDump, _ := httputil.DumpRequest(req, true)
+		return fmt.Errorf("failed to add group to user: " + string(reqDump) + "\n" + resp.Status)
+	}
+
+	return nil
+}
+
 func DeleteClient(config ClientConfig, secret *coreV1.Secret) error {
 	token, err := GetTokenAsAdmin(secret)
 	if err != nil {
@@ -589,11 +682,10 @@ func DeleteClient(config ClientConfig, secret *coreV1.Secret) error {
 	}
 
 	id, err := GetIdByClientId(config.ClientId, secret)
-	if err != nil {
-		return err
-	}
-	if !IsClientExist(id) {
+	if IsNotFound(err) {
 		return nil
+	} else if err != nil {
+		return err
 	}
 
 	params := map[string]string{
@@ -604,7 +696,45 @@ func DeleteClient(config ClientConfig, secret *coreV1.Secret) error {
 	if err != nil {
 		return err
 	}
-	req.Header.Add("Authorization", "Bearer "+token)
+	req.Header.Add("Authorization", token)
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	if !IsOK(resp.StatusCode) {
+		reqDump, _ := httputil.DumpRequest(req, true)
+		return fmt.Errorf("failed to delete client: " + string(reqDump) + "\n" + resp.Status)
+	}
+
+	return nil
+}
+
+func DeleteGroup(config GroupConfig, secret *coreV1.Secret) error {
+	token, err := GetTokenAsAdmin(secret)
+	if err != nil {
+		return err
+	}
+
+	groupId, err := GetGroupIdByName(config.Name, secret)
+	if IsNotFound(err) {
+		return nil
+	} else if err != nil {
+		return err
+	}
+
+	params := map[string]string{
+		"groupId": groupId,
+	}
+	url := SetServiceDomainURI(KEYCLOAK_ADMIN_SERVICE_DELETE_GROUP, params)
+	req, err := http.NewRequest(http.MethodDelete, url, nil)
+	if err != nil {
+		return err
+	}
+	req.Header.Add("Authorization", token)
 
 	client := &http.Client{}
 	resp, err := client.Do(req)

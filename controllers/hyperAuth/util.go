@@ -30,7 +30,3 @@ func IsOK(check int) bool {
 	_, ok := SuccessStatusList[check]
 	return ok
 }
-
-func IsClientExist(id string) bool {
-	return id != ""
-}

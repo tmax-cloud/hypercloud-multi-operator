@@ -18,7 +18,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"os"
 	"regexp"
 	"strings"
 
@@ -119,8 +118,8 @@ func (r *ClusterManagerReconciler) UpdateClusterManagerStatus(ctx context.Contex
 			clusterManager.Spec.Provider = providerID
 		}
 	}
-	if clusterManager.Spec.Provider == util.ProviderUnknown {
 
+	if clusterManager.Spec.Provider == util.ProviderUnknown {
 		reg, _ := regexp.Compile(`cloud-provider: [a-zA-Z-_ ]+`)
 		matchString := reg.FindString(kubeadmConfig.Data["ClusterConfiguration"])
 		if matchString != "" {
@@ -360,7 +359,7 @@ func (r *ClusterManagerReconciler) machineDeploymentUpdate(ctx context.Context, 
 }
 
 func (r *ClusterManagerReconciler) CreateArgocdResources(ctx context.Context, clusterManager *clusterV1alpha1.ClusterManager) (ctrl.Result, error) {
-	if !clusterManager.Status.TraefikReady || clusterManager.Status.ArgoReady {
+	if !clusterManager.Status.ControlPlaneReady || !clusterManager.Status.Ready || clusterManager.Status.ArgoReady {
 		return ctrl.Result{}, nil
 	}
 	log := r.Log.WithValues("ClusterManager", clusterManager.GetNamespacedName())
@@ -468,9 +467,8 @@ func (r *ClusterManagerReconciler) CreateArgocdResources(ctx context.Context, cl
 	return ctrl.Result{}, nil
 }
 
-func (r *ClusterManagerReconciler) CreateMonitoringResources(ctx context.Context, clusterManager *clusterV1alpha1.ClusterManager) (reconcile.Result, error) {
-	if !clusterManager.Status.ArgoReady ||
-		(clusterManager.Status.MonitoringReady && clusterManager.Status.PrometheusReady) {
+func (r *ClusterManagerReconciler) CreateGatewayResources(ctx context.Context, clusterManager *clusterV1alpha1.ClusterManager) (reconcile.Result, error) {
+	if !clusterManager.Status.ArgoReady || clusterManager.Status.GatewayReady {
 		return ctrl.Result{}, nil
 	}
 	log := r.Log.WithValues("clustermanager", clusterManager.GetNamespacedName())
@@ -550,13 +548,12 @@ func (r *ClusterManagerReconciler) CreateMonitoringResources(ctx context.Context
 	}
 
 	log.Info("Create monitoring resources successfully")
-	clusterManager.Status.MonitoringReady = true
-	clusterManager.Status.PrometheusReady = true
+	clusterManager.Status.GatewayReady = true
 	return ctrl.Result{}, nil
 }
 
-func (r *ClusterManagerReconciler) CreateHyperauthClient(ctx context.Context, clusterManager *clusterV1alpha1.ClusterManager) (reconcile.Result, error) {
-	if !clusterManager.Status.MonitoringReady || clusterManager.Status.AuthClientReady {
+func (r *ClusterManagerReconciler) CreateHyperAuthResources(ctx context.Context, clusterManager *clusterV1alpha1.ClusterManager) (reconcile.Result, error) {
+	if !clusterManager.Status.GatewayReady || clusterManager.Status.AuthClientReady {
 		return ctrl.Result{}, nil
 	}
 	log := r.Log.WithValues("clustermanager", clusterManager.GetNamespacedName())
@@ -622,85 +619,101 @@ func (r *ClusterManagerReconciler) CreateHyperauthClient(ctx context.Context, cl
 		}
 	}
 
+	// group을 생성하고 cluster owner에게 group을 mapping
+	groupConfig := hyperauthCaller.GetGroupConfigPreset(clusterManager.GetNamespacedPrefix())
+	for _, config := range groupConfig {
+		err := hyperauthCaller.CreateGroup(config, secret)
+		if err != nil {
+			log.Error(err, "Failed to create group ["+config.Name+"] for single cluster")
+			return ctrl.Result{RequeueAfter: requeueAfter10Second}, err
+		}
+
+		err = hyperauthCaller.AddGroupToUser(clusterManager.Annotations[util.AnnotationKeyOwner], config, secret)
+		if err != nil {
+			log.Error(err, "Failed to add group to user ["+config.Name+"] for single cluster")
+			return ctrl.Result{RequeueAfter: requeueAfter10Second}, err
+		}
+	}
+
 	log.Info("Create clients for single cluster successfully")
 	clusterManager.Status.AuthClientReady = true
 	return ctrl.Result{}, nil
 }
 
-func (r *ClusterManagerReconciler) SetHyperregistryOidcConfig(ctx context.Context, clusterManager *clusterV1alpha1.ClusterManager) (reconcile.Result, error) {
-	if !clusterManager.Status.AuthClientReady || clusterManager.Status.HyperregistryOidcReady {
-		return ctrl.Result{}, nil
-	}
-	log := r.Log.WithValues("clustermanager", clusterManager.GetNamespacedName())
+// func (r *ClusterManagerReconciler) SetHyperregistryOidcConfig(ctx context.Context, clusterManager *clusterV1alpha1.ClusterManager) (reconcile.Result, error) {
+// 	if !clusterManager.Status.AuthClientReady || clusterManager.Status.HyperregistryOidcReady {
+// 		return ctrl.Result{}, nil
+// 	}
+// 	log := r.Log.WithValues("clustermanager", clusterManager.GetNamespacedName())
 
-	if os.Getenv("HYPERREGISTRY_ENABLED") == "false" {
-		log.Info("Skip oidc config for hyperregistry")
-		clusterManager.Status.HyperregistryOidcReady = true
-		return ctrl.Result{}, nil
-	}
-	log.Info("Start to reconcile phase for SetHyperregistryOidcConfig")
+// 	if os.Getenv("HYPERREGISTRY_ENABLED") == "false" {
+// 		log.Info("Skip oidc config for hyperregistry")
+// 		clusterManager.Status.HyperregistryOidcReady = true
+// 		return ctrl.Result{}, nil
+// 	}
+// 	log.Info("Start to reconcile phase for SetHyperregistryOidcConfig")
 
-	kubeconfigSecret, err := r.GetKubeconfigSecret(clusterManager)
-	if err != nil {
-		log.Error(err, "Failed to get kubeconfig secret")
-		return ctrl.Result{RequeueAfter: requeueAfter10Second}, nil
-	}
+// 	kubeconfigSecret, err := r.GetKubeconfigSecret(clusterManager)
+// 	if err != nil {
+// 		log.Error(err, "Failed to get kubeconfig secret")
+// 		return ctrl.Result{RequeueAfter: requeueAfter10Second}, nil
+// 	}
 
-	remoteClientset, err := util.GetRemoteK8sClient(kubeconfigSecret)
-	if err != nil {
-		log.Error(err, "Failed to get remoteK8sClient")
-		return ctrl.Result{}, err
-	}
+// 	remoteClientset, err := util.GetRemoteK8sClient(kubeconfigSecret)
+// 	if err != nil {
+// 		log.Error(err, "Failed to get remoteK8sClient")
+// 		return ctrl.Result{}, err
+// 	}
 
-	// single cluster의 hyperregistry 계정정보를 조회하기 위해 secret을 조회
-	secret, err := remoteClientset.
-		CoreV1().
-		Secrets(util.HyperregistryNamespace).
-		Get(context.TODO(), "hyperregistry-harbor-core", metav1.GetOptions{})
-	if err != nil {
-		log.Error(err, "Failed to get Secret \"hyperregistry-harbor-core\"")
-		return ctrl.Result{}, err
-	}
+// 	// single cluster의 hyperregistry 계정정보를 조회하기 위해 secret을 조회
+// 	secret, err := remoteClientset.
+// 		CoreV1().
+// 		Secrets(util.HyperregistryNamespace).
+// 		Get(context.TODO(), "hyperregistry-harbor-core", metav1.GetOptions{})
+// 	if err != nil {
+// 		log.Error(err, "Failed to get Secret \"hyperregistry-harbor-core\"")
+// 		return ctrl.Result{}, err
+// 	}
 
-	// single cluster의 hyperregistry 접속 주소를 조회하기 위해 ingress를 조회
-	ingress, err := remoteClientset.
-		NetworkingV1().
-		Ingresses(util.HyperregistryNamespace).
-		Get(context.TODO(), "hyperregistry-harbor-ingress", metav1.GetOptions{})
-	if err != nil {
-		log.Error(err, "Failed to get Ingress \"hyperregistry-harbor-ingress\"")
-		return ctrl.Result{}, err
-	}
+// 	// single cluster의 hyperregistry 접속 주소를 조회하기 위해 ingress를 조회
+// 	ingress, err := remoteClientset.
+// 		NetworkingV1().
+// 		Ingresses(util.HyperregistryNamespace).
+// 		Get(context.TODO(), "hyperregistry-harbor-ingress", metav1.GetOptions{})
+// 	if err != nil {
+// 		log.Error(err, "Failed to get Ingress \"hyperregistry-harbor-ingress\"")
+// 		return ctrl.Result{}, err
+// 	}
 
-	// hyperregistry의 경우 configmap이나 deploy의 env로 oidc 정보를 줄 수 없게 되어 있어서
-	// http request를 생성하여 oidc 정보를 put 할 수 있도록 구현
-	hyperauthDomain := "https://" + os.Getenv("AUTH_SUBDOMAIN") + "." + os.Getenv("HC_DOMAIN") + "/auth/realms/tmax"
-	config := util.OidcConfig{
-		AuthMode:         "oidc_auth",
-		OidcAdminGroup:   "admin",
-		OidcAutoOnBoard:  true,
-		OidcClientId:     clusterManager.GetNamespacedPrefix() + "-hyperregistry",
-		OidcClientSecret: os.Getenv("AUTH_CLIENT_SECRET"),
-		OidcEndpoint:     hyperauthDomain,
-		OidcGroupsClaim:  "group",
-		OidcName:         "hyperregistry",
-		OidcScope:        "openid",
-		OidcUserClaim:    "preferred_username",
-		OidcVerifyCert:   false,
-	}
-	hostpath := ingress.Spec.Rules[0].Host
-	if err := util.SetHyperregistryOIDC(config, secret, hostpath); err != nil {
-		log.Error(err, "Failed to set oidc configuration for hyperregistry")
-		return ctrl.Result{}, err
-	}
+// 	// hyperregistry의 경우 configmap이나 deploy의 env로 oidc 정보를 줄 수 없게 되어 있어서
+// 	// http request를 생성하여 oidc 정보를 put 할 수 있도록 구현
+// 	hyperauthDomain := "https://" + os.Getenv("AUTH_SUBDOMAIN") + "." + os.Getenv("HC_DOMAIN") + "/auth/realms/tmax"
+// 	config := util.OidcConfig{
+// 		AuthMode:         "oidc_auth",
+// 		OidcAdminGroup:   "admin",
+// 		OidcAutoOnBoard:  true,
+// 		OidcClientId:     clusterManager.GetNamespacedPrefix() + "-hyperregistry",
+// 		OidcClientSecret: os.Getenv("AUTH_CLIENT_SECRET"),
+// 		OidcEndpoint:     hyperauthDomain,
+// 		OidcGroupsClaim:  "group",
+// 		OidcName:         "hyperregistry",
+// 		OidcScope:        "openid",
+// 		OidcUserClaim:    "preferred_username",
+// 		OidcVerifyCert:   false,
+// 	}
+// 	hostpath := ingress.Spec.Rules[0].Host
+// 	if err := util.SetHyperregistryOIDC(config, secret, hostpath); err != nil {
+// 		log.Error(err, "Failed to set oidc configuration for hyperregistry")
+// 		return ctrl.Result{}, err
+// 	}
 
-	log.Info("Set oidc config for hyperregistry successfully")
-	clusterManager.Status.HyperregistryOidcReady = true
-	return ctrl.Result{}, nil
-}
+// 	log.Info("Set oidc config for hyperregistry successfully")
+// 	clusterManager.Status.HyperregistryOidcReady = true
+// 	return ctrl.Result{}, nil
+// }
 
 func (r *ClusterManagerReconciler) CreateTraefikResources(ctx context.Context, clusterManager *clusterV1alpha1.ClusterManager) (ctrl.Result, error) {
-	if !clusterManager.Status.HyperregistryOidcReady || clusterManager.Status.TraefikReady {
+	if !clusterManager.Status.AuthClientReady || clusterManager.Status.TraefikReady {
 		return ctrl.Result{}, nil
 	}
 	log := r.Log.WithValues("clustermanager", clusterManager.GetNamespacedName())

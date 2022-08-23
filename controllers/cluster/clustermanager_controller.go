@@ -153,6 +153,12 @@ func (r *ClusterManagerReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 			clusterManager.Labels[clusterV1alpha1.LabelKeyClmClusterTypeDefunct]
 	}
 
+	// Status migration for old version
+	if !clusterManager.Status.GatewayReadyMigration {
+		clusterManager.Status.GatewayReady = clusterManager.Status.PrometheusReady
+		clusterManager.Status.GatewayReadyMigration = true
+	}
+
 	if clusterManager.Labels[clusterV1alpha1.LabelKeyClmClusterType] == clusterV1alpha1.ClusterTypeRegistered {
 		// Handle deletion reconciliation loop.
 		if !clusterManager.ObjectMeta.DeletionTimestamp.IsZero() {
@@ -236,7 +242,7 @@ func (r *ClusterManagerReconciler) reconcileDeleteForRegisteredClusterManager(ct
 		return ctrl.Result{}, err
 	}
 
-	if err := r.DeleteClientForSingleCluster(clusterManager); err != nil {
+	if err := r.DeleteHyperAuthResourcesForSingleCluster(clusterManager); err != nil {
 		return ctrl.Result{}, err
 	}
 
@@ -272,18 +278,19 @@ func (r *ClusterManagerReconciler) reconcile(ctx context.Context, clusterManager
 	// 공통적으로 수행
 	phases = append(
 		phases,
-		// Argocd 연동을 위해 필요한 정보를 kube-config 로 부터 가져와 secret 을 생성한다.
+		// Argocd 연동을 위해 필요한 정보를 kube-config 로 부터 가져와 secret을 생성한다.
 		r.CreateArgocdResources,
 		// single cluster 의 api gateway service 의 주소로 gateway service 생성
-		r.CreateMonitoringResources,
-		// Kibana, Grafana, Kiali 등 모듈과 hyperauth oidc 연동을 위한 client 생성 작업 (hyperauth 계정정보로 여러 모듈에 로그인 가능)
-		// hyperauth caller 를 통해 admin token 을 가져와 각 모듈 마다 hyperauth client 를 생성후, 모듈에 따른 role 을 추가한다.
-		r.CreateHyperauthClient,
-		// hyperregistry domain 을 single cluster 의 ingress 로 부터 가져와 oidc 연동설정
-		r.SetHyperregistryOidcConfig,
-		// Traefik 을 통하기 위한 리소스인 certificate, ingress, middleware 를 생성한다.
+		r.CreateGatewayResources,
+		// Kibana, Grafana, Kiali 등 모듈과 HyperAuth oidc 연동을 위한 resource 생성 작업 (HyperAuth 계정정보로 여러 모듈에 로그인 가능)
+		// HyperAuth caller 를 통해 admin token 을 가져와 각 모듈 마다 HyperAuth client 를 생성후, 모듈에 따른 resource들을 추가한다.
+		// HyperRegistry를 위한 admin group 또한 생성해준다.
+		r.CreateHyperAuthResources,
+		// // hyperregistry domain 을 single cluster 의 ingress 로 부터 가져와 oidc 연동설정
+		// r.SetHyperregistryOidcConfig,
+		// Traefik 을 통하기 위한 리소스인 certificate, ingress, middleware를 생성한다.
 		// 콘솔에서 ingress를 조회하여 LNB에 cluster를 listing 해주므로 cluster가 완전히 join되고 나서
-		// 리스팅 될 수 있게 해당 프로세스를 가장 마지막에 수행한다.
+		// LNB에 리스팅 될 수 있게 해당 프로세스를 가장 마지막에 수행한다.
 		r.CreateTraefikResources,
 	)
 
@@ -341,7 +348,7 @@ func (r *ClusterManagerReconciler) reconcileDelete(ctx context.Context, clusterM
 		return ctrl.Result{}, err
 	}
 
-	if err := r.DeleteClientForSingleCluster(clusterManager); err != nil {
+	if err := r.DeleteHyperAuthResourcesForSingleCluster(clusterManager); err != nil {
 		return ctrl.Result{}, err
 	}
 
@@ -419,9 +426,7 @@ func (r *ClusterManagerReconciler) SetupWithManager(mgr ctrl.Manager) error {
 						!newclm.DeletionTimestamp.IsZero()
 					isControlPlaneEndpointUpdate := oldclm.Status.ControlPlaneEndpoint == "" &&
 						newclm.Status.ControlPlaneEndpoint != ""
-					isSubResourceNotReady := !newclm.Status.ArgoReady ||
-						!newclm.Status.TraefikReady ||
-						(!newclm.Status.MonitoringReady || !newclm.Status.PrometheusReady)
+					isSubResourceNotReady := !newclm.Status.ArgoReady || !newclm.Status.TraefikReady || !newclm.Status.GatewayReady
 					if isDelete || isControlPlaneEndpointUpdate || isFinalized {
 						return true
 					} else {

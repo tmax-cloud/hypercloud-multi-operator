@@ -14,6 +14,24 @@ limitations under the License.
 
 package hyperAuth
 
+type HyperAuthError struct {
+	NotFound bool
+	Type     string
+	Name     string
+}
+
+func (e HyperAuthError) Error() string {
+	return "Resource not found"
+}
+
+func IsNotFound(e error) bool {
+	return e.(HyperAuthError).NotFound
+}
+
+func New() HyperAuthError {
+	return HyperAuthError{}
+}
+
 type ClientConfig struct {
 	Id                        string   `json:"id,omitempty"`
 	ClientId                  string   `json:"clientId,omitempty"`
@@ -21,6 +39,14 @@ type ClientConfig struct {
 	DirectAccessGrantsEnabled bool     `json:"directAccessGrantsEnabled,omitempty"`
 	ImplicitFlowEnabled       bool     `json:"implicitFlowEnabled,omitempty"`
 	RedirectUris              []string `json:"redirectUris,omitempty"`
+}
+
+func (c *ClientConfig) IsNotFound() bool {
+	if c == nil || c.Id == "" {
+		return true
+	}
+
+	return false
 }
 
 type ClientLevelProtocolMapperConfig struct {
@@ -70,3 +96,14 @@ type ClientScopeConfig struct {
 	Id   string `json:"id,omitempty"`
 	Name string `json:"name,omitempty"`
 }
+
+type GroupConfig struct {
+	Id        string   `json:"id,omitempty"`
+	Name      string   `json:"name,omitempty"`
+	Path      string   `json:"path,omitempty"`
+	SubGroups []string `json:"subGroups,omitempty"`
+}
+
+// type UserCroupConfig struct {
+// 	UserName string `json:"name,omitempty"`
+// }
