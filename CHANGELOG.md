@@ -1,6 +1,33 @@
 # HyperCloud-Multi-Operator changelog!!
 All notable changes to this project will be documented in this file.
 
+<!-------------------- v5.0.32.0 start -------------------->
+
+## HyperCloud-Multi-Operator_5.0.32.0 (2022. 08. 24. (수) 12:51:49 KST)
+
+### Added
+  - [feat] cluster tab status 기획 수정에 따른 코드 수정 by SISILIA
+  - [feat] 멀티클러스터 스테이터스 기획수정에 따른 상태 추가 및 로직 수정 by SISILIA
+  - [feat] single application을 multi-operator에서 생성해주는 로직 추가 by SISILIA
+
+### Changed
+  - [mod] v1beta1을 위해 preserveUnknownFields를 넣는 방식을 Makefile option으로 변경 by SISILIA
+  - [mod] log level 적용안된 부분 추가 by seung
+  - [mod] cluster claim이 rejected일때는 spec수정이 가능하도록 웹훅로직 수정 by SISILIA
+
+### Fixed
+
+### CRD yaml
+
+### Etc
+  - [etc] 불필요한 코드 제거 by SISILIA
+  - [etc] cluster role binding spec error 수정 by SISILIA
+  - [etc] 주석 작업 by SISILIA
+  - [etc] 오타수정 by SISILIA
+  - [etc] crd v1beta1 explain을 위한 spec 추가 by SISILIA
+
+<!--------------------- v5.0.32.0 end --------------------->
+
 <!-------------------- v5.0.31.0 start -------------------->
 
 ## HyperCloud-Multi-Operator_5.0.31.0 (2022. 08. 12. (금) 10:38:29 KST)
