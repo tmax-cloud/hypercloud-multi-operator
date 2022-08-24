@@ -118,7 +118,7 @@ type ClusterManagerStatus struct {
 	AuthClientReady        bool                    `json:"authClientReady,omitempty"`
 	HyperregistryOidcReady bool                    `json:"hyperregistryOidcReady,omitempty"`
 	OpenSearchReady        bool                    `json:"openSearchReady,omitempty"`
-	ApplicationLink        bool                    `json:"applicationLink,omitempty"`
+	ApplicationLink        string                  `json:"applicationLink,omitempty"`
 	// will be deprecated
 	PrometheusReady bool `json:"prometheusReady,omitempty"`
 }
