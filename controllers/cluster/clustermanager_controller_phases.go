@@ -62,13 +62,13 @@ func (r *ClusterManagerReconciler) UpdateClusterManagerStatus(ctx context.Contex
 	}
 
 	// cluster registration의 경우에는 k8s version을 parameter로 받지 않기 때문에,
-	// k8s version을 single cluster의 kube-system 네임스페이스의 kubeadm-config comfigmap로 부터 조회
+	// k8s version을 single cluster의 kube-system 네임스페이스의 kubeadm-config ConfigMap으로 부터 조회
 	kubeadmConfig, err := remoteClientset.
 		CoreV1().
 		ConfigMaps(util.KubeNamespace).
 		Get(context.TODO(), "kubeadm-config", metav1.GetOptions{})
 	if err != nil {
-		log.Error(err, "Failed to get kubeadm-config configmap from remote cluster")
+		log.Error(err, "Failed to get kubeadm-config ConfigMap from remote cluster")
 		return ctrl.Result{}, err
 	}
 
@@ -500,8 +500,8 @@ func (r *ClusterManagerReconciler) CreateGatewayResources(ctx context.Context, c
 		return ctrl.Result{}, err
 	}
 
-	// single cluster의 gateway service가 loadbalancer가 아닐 경우에는(시나리오상 nodeport일 경우)
-	// k8s api-server의 endpoint도 nodeport로 되어있을 것이므로
+	// single cluster의 gateway service가 LoadBalancer가 아닐 경우에는(시나리오상 NodePort일 경우)
+	// k8s api-server의 endpoint도 NodePort로 되어있을 것이므로
 	// k8s api-server의 domain host를 gateway service의 endpoint로 사용
 	// single cluster의 k8s api-server domain과 gateway service의 domain중
 	// 어떤 것을 이용해야 할지 앞의 로직에서 annotation key를 통해 전달

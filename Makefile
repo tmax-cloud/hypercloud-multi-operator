@@ -18,7 +18,7 @@ BUNDLE_METADATA_OPTS ?= $(BUNDLE_CHANNELS) $(BUNDLE_DEFAULT_CHANNEL)
 IMG ?= controller:latest
 # Produce CRDs that work back to Kubernetes 1.11 (no version conversion)
 CRD_OPTIONS_V1 ?= "crd:crdVersions=v1"
-CRD_OPTIONS_V1BETA1 ?= "crd:crdVersions=v1beta1"
+CRD_OPTIONS_V1BETA1 ?= "crd:crdVersions=v1beta1,preserveUnknownFields=false"
 CRD_OPTIONS ?= "crd:crdVersions=v1"
 
 # Get the currently used golang install path (in GOPATH/bin, unless GOBIN is set)
