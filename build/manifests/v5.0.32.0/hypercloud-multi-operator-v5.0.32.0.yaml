@@ -296,7 +296,7 @@ spec:
             description: ClusterManagerStatus defines the observed state of ClusterManager
             properties:
               applicationLink:
-                type: boolean
+                type: string
               argoReady:
                 type: boolean
               authClientReady:
