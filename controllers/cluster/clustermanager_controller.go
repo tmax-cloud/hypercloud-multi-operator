@@ -153,6 +153,12 @@ func (r *ClusterManagerReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 			clusterManager.Labels[clusterV1alpha1.LabelKeyClmClusterTypeDefunct]
 	}
 
+	// Status migration for old version
+	if !clusterManager.Status.GatewayReadyMigration {
+		clusterManager.Status.GatewayReady = clusterManager.Status.PrometheusReady
+		clusterManager.Status.GatewayReadyMigration = true
+	}
+
 	if clusterManager.Labels[clusterV1alpha1.LabelKeyClmClusterType] == clusterV1alpha1.ClusterTypeRegistered {
 		// Handle deletion reconciliation loop.
 		if !clusterManager.ObjectMeta.DeletionTimestamp.IsZero() {
@@ -397,6 +403,25 @@ func (r *ClusterManagerReconciler) reconcilePhase(_ context.Context, clusterMana
 	if !clusterManager.DeletionTimestamp.IsZero() {
 		clusterManager.Status.SetTypedPhase(clusterV1alpha1.ClusterManagerPhaseDeleting)
 	}
+
+	// for migration
+	if clusterManager.Status.Phase == clusterV1alpha1.ClusterManagerPhaseProvisioning ||
+		clusterManager.Status.Phase == clusterV1alpha1.ClusterManagerPhaseRegistering {
+		if clusterManager.Status.GatewayReady {
+			clusterManager.Status.SetTypedPhase(clusterV1alpha1.ClusterManagerPhaseProcessing)
+		} else {
+			clusterManager.Status.SetTypedPhase(clusterV1alpha1.ClusterManagerPhaseSyncNeeded)
+		}
+	}
+
+	if clusterManager.Status.Phase == clusterV1alpha1.ClusterManagerPhaseProvisioned ||
+		clusterManager.Status.Phase == clusterV1alpha1.ClusterManagerPhaseRegistered {
+		if clusterManager.Status.GatewayReady {
+			clusterManager.Status.SetTypedPhase(clusterV1alpha1.ClusterManagerPhaseProcessing)
+		} else {
+			clusterManager.Status.SetTypedPhase(clusterV1alpha1.ClusterManagerPhaseReady)
+		}
+	}
 }
 
 func (r *ClusterManagerReconciler) SetupWithManager(mgr ctrl.Manager) error {
@@ -419,9 +444,7 @@ func (r *ClusterManagerReconciler) SetupWithManager(mgr ctrl.Manager) error {
 						!newclm.DeletionTimestamp.IsZero()
 					isControlPlaneEndpointUpdate := oldclm.Status.ControlPlaneEndpoint == "" &&
 						newclm.Status.ControlPlaneEndpoint != ""
-					isSubResourceNotReady := !newclm.Status.ArgoReady ||
-						!newclm.Status.TraefikReady ||
-						(!newclm.Status.MonitoringReady || !newclm.Status.PrometheusReady)
+					isSubResourceNotReady := !newclm.Status.ArgoReady || !newclm.Status.TraefikReady || !newclm.Status.GatewayReady
 					if isDelete || isControlPlaneEndpointUpdate || isFinalized {
 						return true
 					} else {

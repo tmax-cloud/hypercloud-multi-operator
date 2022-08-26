@@ -15,6 +15,7 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"os"
 	"strings"
 
 	coreV1 "k8s.io/api/core/v1"
@@ -114,7 +115,8 @@ type ClusterManagerStatus struct {
 	ControlPlaneEndpoint   string                  `json:"controlPlaneEndpoint,omitempty"`
 	ArgoReady              bool                    `json:"argoReady,omitempty"`
 	TraefikReady           bool                    `json:"traefikReady,omitempty"`
-	MonitoringReady        bool                    `json:"gatewayReady,omitempty"`
+	GatewayReady           bool                    `json:"gatewayReady,omitempty"`
+	GatewayReadyMigration  bool                    `json:"gatewayReadyMigration,omitempty"`
 	AuthClientReady        bool                    `json:"authClientReady,omitempty"`
 	HyperregistryOidcReady bool                    `json:"hyperregistryOidcReady,omitempty"`
 	OpenSearchReady        bool                    `json:"openSearchReady,omitempty"`
@@ -135,6 +137,17 @@ const (
 	ClusterManagerPhaseReady = ClusterManagerPhase("Ready")
 	// 클러스터가 삭제중인 상태
 	ClusterManagerPhaseDeleting = ClusterManagerPhase("Deleting")
+)
+
+// deprecated phases
+const (
+	ClusterManagerPhasePending      = ClusterManagerPhase("Pending")
+	ClusterManagerPhaseProvisioning = ClusterManagerPhase("Provisioning")
+	ClusterManagerPhaseRegistering  = ClusterManagerPhase("Registering")
+	ClusterManagerPhaseProvisioned  = ClusterManagerPhase("Provisioned")
+	ClusterManagerPhaseRegistered   = ClusterManagerPhase("Registered")
+	ClusterManagerPhaseFailed       = ClusterManagerPhase("Failed")
+	ClusterManagerPhaseUnknown      = ClusterManagerPhase("Unknown")
 )
 
 const (
@@ -240,4 +253,22 @@ func (c *ClusterManager) GetNamespacedName() types.NamespacedName {
 
 func (c *ClusterManager) GetNamespacedPrefix() string {
 	return strings.Join([]string{c.Namespace, c.Name}, "-")
+}
+
+func (c *ClusterManager) SetApplicationLink(subdomain string) {
+	c.Status.ApplicationLink = strings.Join(
+		[]string{
+			"https://",
+			subdomain,
+			".",
+			os.Getenv("HC_DOMAIN"),
+			"/applications/",
+			c.GetNamespacedPrefix(),
+			"-applications?node=argoproj.io/Application/argocd/",
+			c.GetNamespacedPrefix(),
+			"-applications/0&resource=",
+			"",
+		},
+		"",
+	)
 }

@@ -62,6 +62,7 @@ const (
 	ArgoSecretTypeCluster         = "cluster"
 	ArgoSecretTypeGit             = "repo"
 	ArgoAppTypeAppOfApp           = "app-of-apps"
+	ArgoIngressName               = "argocd-server-ingress"
 )
 
 const (
