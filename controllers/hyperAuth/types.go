@@ -25,11 +25,14 @@ func (e HyperAuthError) Error() string {
 }
 
 func IsNotFound(e error) bool {
-	return e.(HyperAuthError).NotFound
-}
+	if e == nil {
+		return false
+	}
+	if _, ok := e.(HyperAuthError); !ok {
+		return false
+	}
 
-func New() HyperAuthError {
-	return HyperAuthError{}
+	return e.(HyperAuthError).NotFound
 }
 
 type ClientConfig struct {
