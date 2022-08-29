@@ -171,6 +171,7 @@ spec:
                 - Rejected
                 - Error
                 - ClusterDeleted
+                - Cluster Deleted
                 type: string
               reason:
                 type: string

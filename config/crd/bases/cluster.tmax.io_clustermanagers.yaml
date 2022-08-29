@@ -120,6 +120,8 @@ spec:
                 type: boolean
               gatewayReady:
                 type: boolean
+              gatewayReadyMigration:
+                type: boolean
               hyperregistryOidcReady:
                 type: boolean
               masterRun:

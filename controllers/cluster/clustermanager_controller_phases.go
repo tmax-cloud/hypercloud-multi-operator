@@ -29,6 +29,7 @@ import (
 	util "github.com/tmax-cloud/hypercloud-multi-operator/controllers/util"
 
 	coreV1 "k8s.io/api/core/v1"
+	networkingV1 "k8s.io/api/networking/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -360,7 +361,7 @@ func (r *ClusterManagerReconciler) machineDeploymentUpdate(ctx context.Context, 
 }
 
 func (r *ClusterManagerReconciler) CreateArgocdResources(ctx context.Context, clusterManager *clusterV1alpha1.ClusterManager) (ctrl.Result, error) {
-	if !clusterManager.Status.TraefikReady || clusterManager.Status.ArgoReady {
+	if !clusterManager.Status.ControlPlaneReady || !clusterManager.Status.Ready || clusterManager.Status.ArgoReady {
 		return ctrl.Result{}, nil
 	}
 	log := r.Log.WithValues("ClusterManager", clusterManager.GetNamespacedName())
@@ -463,18 +464,30 @@ func (r *ClusterManagerReconciler) CreateArgocdResources(ctx context.Context, cl
 		return ctrl.Result{}, err
 	}
 
+	argoIngress := &networkingV1.Ingress{}
+	key = types.NamespacedName{
+		Name:      util.ArgoIngressName,
+		Namespace: util.ArgoNamespace,
+	}
+	if err := r.Get(context.TODO(), key, argoIngress); err != nil {
+		log.Error(err, "Can not get argocd ingress information.")
+	} else {
+		subdomain := strings.Split(argoIngress.Spec.Rules[0].Host, ".")[0]
+		clusterManager.SetApplicationLink(subdomain)
+	}
+
 	log.Info("Create argocd cluster secret successfully")
 	clusterManager.Status.ArgoReady = true
+
 	return ctrl.Result{}, nil
 }
 
-func (r *ClusterManagerReconciler) CreateMonitoringResources(ctx context.Context, clusterManager *clusterV1alpha1.ClusterManager) (reconcile.Result, error) {
-	if !clusterManager.Status.ArgoReady ||
-		(clusterManager.Status.MonitoringReady && clusterManager.Status.PrometheusReady) {
+func (r *ClusterManagerReconciler) CreateGatewayResources(ctx context.Context, clusterManager *clusterV1alpha1.ClusterManager) (reconcile.Result, error) {
+	if !clusterManager.Status.ArgoReady || clusterManager.Status.GatewayReady {
 		return ctrl.Result{}, nil
 	}
 	log := r.Log.WithValues("clustermanager", clusterManager.GetNamespacedName())
-	log.Info("Start to reconcile phase for CreateMonitoringResources")
+	log.Info("Start to reconcile phase for CreateGatewayResources")
 
 	kubeconfigSecret, err := r.GetKubeconfigSecret(clusterManager)
 	if err != nil {
@@ -549,14 +562,13 @@ func (r *ClusterManagerReconciler) CreateMonitoringResources(ctx context.Context
 		return ctrl.Result{}, err
 	}
 
-	log.Info("Create monitoring resources successfully")
-	clusterManager.Status.MonitoringReady = true
-	clusterManager.Status.PrometheusReady = true
+	log.Info("Create gateway resources successfully")
+	clusterManager.Status.GatewayReady = true
 	return ctrl.Result{}, nil
 }
 
 func (r *ClusterManagerReconciler) CreateHyperauthClient(ctx context.Context, clusterManager *clusterV1alpha1.ClusterManager) (reconcile.Result, error) {
-	if !clusterManager.Status.MonitoringReady || clusterManager.Status.AuthClientReady {
+	if !clusterManager.Status.GatewayReady || clusterManager.Status.AuthClientReady {
 		return ctrl.Result{}, nil
 	}
 	log := r.Log.WithValues("clustermanager", clusterManager.GetNamespacedName())

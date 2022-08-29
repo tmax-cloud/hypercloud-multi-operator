@@ -16,6 +16,7 @@ package controllers
 
 import (
 	"context"
+	"strings"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -153,6 +154,27 @@ func (r *ClusterManagerReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 			clusterManager.Labels[clusterV1alpha1.LabelKeyClmClusterTypeDefunct]
 	}
 
+	// Status migration for old version
+	if !clusterManager.Status.GatewayReadyMigration {
+		clusterManager.Status.GatewayReady = clusterManager.Status.PrometheusReady
+		clusterManager.Status.GatewayReadyMigration = true
+	}
+
+	// ApplicationLink migration for old version
+	if clusterManager.Status.ApplicationLink == "" {
+		argoIngress := &networkingv1.Ingress{}
+		key := types.NamespacedName{
+			Name:      util.ArgoIngressName,
+			Namespace: util.ArgoNamespace,
+		}
+		if err := r.Get(context.TODO(), key, argoIngress); err != nil {
+			log.Error(err, "Can not get argocd ingress information.")
+		} else {
+			subdomain := strings.Split(argoIngress.Spec.Rules[0].Host, ".")[0]
+			clusterManager.SetApplicationLink(subdomain)
+		}
+	}
+
 	if clusterManager.Labels[clusterV1alpha1.LabelKeyClmClusterType] == clusterV1alpha1.ClusterTypeRegistered {
 		// Handle deletion reconciliation loop.
 		if !clusterManager.ObjectMeta.DeletionTimestamp.IsZero() {
@@ -275,7 +297,7 @@ func (r *ClusterManagerReconciler) reconcile(ctx context.Context, clusterManager
 		// Argocd 연동을 위해 필요한 정보를 kube-config 로 부터 가져와 secret 을 생성한다.
 		r.CreateArgocdResources,
 		// single cluster 의 api gateway service 의 주소로 gateway service 생성
-		r.CreateMonitoringResources,
+		r.CreateGatewayResources,
 		// Kibana, Grafana, Kiali 등 모듈과 hyperauth oidc 연동을 위한 client 생성 작업 (hyperauth 계정정보로 여러 모듈에 로그인 가능)
 		// hyperauth caller 를 통해 admin token 을 가져와 각 모듈 마다 hyperauth client 를 생성후, 모듈에 따른 role 을 추가한다.
 		r.CreateHyperauthClient,
@@ -390,12 +412,35 @@ func (r *ClusterManagerReconciler) reconcilePhase(_ context.Context, clusterMana
 		clusterManager.Status.SetTypedPhase(clusterV1alpha1.ClusterManagerPhaseSyncNeeded)
 	}
 
+	if clusterManager.Status.GatewayReady {
+		clusterManager.Status.SetTypedPhase(clusterV1alpha1.ClusterManagerPhaseProcessing)
+	}
+
 	if clusterManager.Status.TraefikReady {
 		clusterManager.Status.SetTypedPhase(clusterV1alpha1.ClusterManagerPhaseReady)
 	}
 
 	if !clusterManager.DeletionTimestamp.IsZero() {
 		clusterManager.Status.SetTypedPhase(clusterV1alpha1.ClusterManagerPhaseDeleting)
+	}
+
+	// for migration
+	if clusterManager.Status.Phase == clusterV1alpha1.ClusterManagerDeprecatedPhaseProvisioning ||
+		clusterManager.Status.Phase == clusterV1alpha1.ClusterManagerDeprecatedPhaseRegistering {
+		if clusterManager.Status.GatewayReady {
+			clusterManager.Status.SetTypedPhase(clusterV1alpha1.ClusterManagerPhaseProcessing)
+		} else {
+			clusterManager.Status.SetTypedPhase(clusterV1alpha1.ClusterManagerPhaseSyncNeeded)
+		}
+	}
+
+	if clusterManager.Status.Phase == clusterV1alpha1.ClusterManagerDeprecatedPhaseProvisioned ||
+		clusterManager.Status.Phase == clusterV1alpha1.ClusterManagerDeprecatedPhaseRegistered {
+		if clusterManager.Status.GatewayReady {
+			clusterManager.Status.SetTypedPhase(clusterV1alpha1.ClusterManagerPhaseReady)
+		} else {
+			clusterManager.Status.SetTypedPhase(clusterV1alpha1.ClusterManagerPhaseSyncNeeded)
+		}
 	}
 }
 
@@ -419,9 +464,7 @@ func (r *ClusterManagerReconciler) SetupWithManager(mgr ctrl.Manager) error {
 						!newclm.DeletionTimestamp.IsZero()
 					isControlPlaneEndpointUpdate := oldclm.Status.ControlPlaneEndpoint == "" &&
 						newclm.Status.ControlPlaneEndpoint != ""
-					isSubResourceNotReady := !newclm.Status.ArgoReady ||
-						!newclm.Status.TraefikReady ||
-						(!newclm.Status.MonitoringReady || !newclm.Status.PrometheusReady)
+					isSubResourceNotReady := !newclm.Status.ArgoReady || !newclm.Status.TraefikReady || !newclm.Status.GatewayReady
 					if isDelete || isControlPlaneEndpointUpdate || isFinalized {
 						return true
 					} else {
