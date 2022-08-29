@@ -28,6 +28,7 @@ import (
 	util "github.com/tmax-cloud/hypercloud-multi-operator/controllers/util"
 
 	coreV1 "k8s.io/api/core/v1"
+	networkingV1 "k8s.io/api/networking/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -462,8 +463,21 @@ func (r *ClusterManagerReconciler) CreateArgocdResources(ctx context.Context, cl
 		return ctrl.Result{}, err
 	}
 
+	argoIngress := &networkingV1.Ingress{}
+	key = types.NamespacedName{
+		Name:      util.ArgoIngressName,
+		Namespace: util.ArgoNamespace,
+	}
+	if err := r.Get(context.TODO(), key, argoIngress); err != nil {
+		log.Error(err, "Can not get argocd ingress information.")
+	} else {
+		subdomain := strings.Split(argoIngress.Spec.Rules[0].Host, ".")[0]
+		clusterManager.SetApplicationLink(subdomain)
+	}
+
 	log.Info("Create argocd cluster secret successfully")
 	clusterManager.Status.ArgoReady = true
+
 	return ctrl.Result{}, nil
 }
 
@@ -472,7 +486,7 @@ func (r *ClusterManagerReconciler) CreateGatewayResources(ctx context.Context, c
 		return ctrl.Result{}, nil
 	}
 	log := r.Log.WithValues("clustermanager", clusterManager.GetNamespacedName())
-	log.Info("Start to reconcile phase for CreateMonitoringResources")
+	log.Info("Start to reconcile phase for CreateGatewayResources")
 
 	kubeconfigSecret, err := r.GetKubeconfigSecret(clusterManager)
 	if err != nil {
@@ -547,7 +561,7 @@ func (r *ClusterManagerReconciler) CreateGatewayResources(ctx context.Context, c
 		return ctrl.Result{}, err
 	}
 
-	log.Info("Create monitoring resources successfully")
+	log.Info("Create gateway resources successfully")
 	clusterManager.Status.GatewayReady = true
 	return ctrl.Result{}, nil
 }

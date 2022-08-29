@@ -66,6 +66,11 @@ const (
 )
 
 const (
+	ClusterRegistrationDeprecatedPhaseSuccess = ClusterRegistrationPhase("Success")
+	ClusterRegistrationDeprecatedPhaseDeleted = ClusterRegistrationPhase("Deleted")
+)
+
+const (
 	// // ClusterRegistrationPhaseSuccess is the state when cluster is registered successfully
 	// ClusterRegistrationPhaseSuccess = ClusterRegistrationPhase("Success")
 

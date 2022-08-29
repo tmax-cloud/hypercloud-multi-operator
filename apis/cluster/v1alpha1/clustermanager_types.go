@@ -15,6 +15,7 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"os"
 	"strings"
 
 	coreV1 "k8s.io/api/core/v1"
@@ -138,6 +139,17 @@ const (
 	ClusterManagerPhaseDeleting = ClusterManagerPhase("Deleting")
 )
 
+// deprecated phases
+const (
+	ClusterManagerDeprecatedPhasePending      = ClusterManagerPhase("Pending")
+	ClusterManagerDeprecatedPhaseProvisioning = ClusterManagerPhase("Provisioning")
+	ClusterManagerDeprecatedPhaseRegistering  = ClusterManagerPhase("Registering")
+	ClusterManagerDeprecatedPhaseProvisioned  = ClusterManagerPhase("Provisioned")
+	ClusterManagerDeprecatedPhaseRegistered   = ClusterManagerPhase("Registered")
+	ClusterManagerDeprecatedPhaseFailed       = ClusterManagerPhase("Failed")
+	ClusterManagerDeprecatedPhaseUnknown      = ClusterManagerPhase("Unknown")
+)
+
 const (
 	// // ClusterManagerPhasePending is the first state a Cluster is assigned by
 	// // Cluster API Cluster controller after being created.
@@ -241,4 +253,22 @@ func (c *ClusterManager) GetNamespacedName() types.NamespacedName {
 
 func (c *ClusterManager) GetNamespacedPrefix() string {
 	return strings.Join([]string{c.Namespace, c.Name}, "-")
+}
+
+func (c *ClusterManager) SetApplicationLink(subdomain string) {
+	c.Status.ApplicationLink = strings.Join(
+		[]string{
+			"https://",
+			subdomain,
+			".",
+			os.Getenv("HC_DOMAIN"),
+			"/applications/",
+			c.GetNamespacedPrefix(),
+			"-applications?node=argoproj.io/Application/argocd/",
+			c.GetNamespacedPrefix(),
+			"-applications/0&resource=",
+			"",
+		},
+		"",
+	)
 }

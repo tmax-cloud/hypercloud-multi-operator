@@ -16,6 +16,7 @@ package controllers
 
 import (
 	"context"
+	"strings"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -157,6 +158,21 @@ func (r *ClusterManagerReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	if !clusterManager.Status.GatewayReadyMigration {
 		clusterManager.Status.GatewayReady = clusterManager.Status.PrometheusReady
 		clusterManager.Status.GatewayReadyMigration = true
+	}
+
+	// ApplicationLink migration for old version
+	if clusterManager.Status.ApplicationLink == "" {
+		argoIngress := &networkingv1.Ingress{}
+		key := types.NamespacedName{
+			Name:      util.ArgoIngressName,
+			Namespace: util.ArgoNamespace,
+		}
+		if err := r.Get(context.TODO(), key, argoIngress); err != nil {
+			log.Error(err, "Can not get argocd ingress information.")
+		} else {
+			subdomain := strings.Split(argoIngress.Spec.Rules[0].Host, ".")[0]
+			clusterManager.SetApplicationLink(subdomain)
+		}
 	}
 
 	if clusterManager.Labels[clusterV1alpha1.LabelKeyClmClusterType] == clusterV1alpha1.ClusterTypeRegistered {
@@ -397,12 +413,35 @@ func (r *ClusterManagerReconciler) reconcilePhase(_ context.Context, clusterMana
 		clusterManager.Status.SetTypedPhase(clusterV1alpha1.ClusterManagerPhaseSyncNeeded)
 	}
 
+	if clusterManager.Status.GatewayReady {
+		clusterManager.Status.SetTypedPhase(clusterV1alpha1.ClusterManagerPhaseProcessing)
+	}
+
 	if clusterManager.Status.TraefikReady {
 		clusterManager.Status.SetTypedPhase(clusterV1alpha1.ClusterManagerPhaseReady)
 	}
 
 	if !clusterManager.DeletionTimestamp.IsZero() {
 		clusterManager.Status.SetTypedPhase(clusterV1alpha1.ClusterManagerPhaseDeleting)
+	}
+
+	// for migration
+	if clusterManager.Status.Phase == clusterV1alpha1.ClusterManagerDeprecatedPhaseProvisioning ||
+		clusterManager.Status.Phase == clusterV1alpha1.ClusterManagerDeprecatedPhaseRegistering {
+		if clusterManager.Status.GatewayReady {
+			clusterManager.Status.SetTypedPhase(clusterV1alpha1.ClusterManagerPhaseProcessing)
+		} else {
+			clusterManager.Status.SetTypedPhase(clusterV1alpha1.ClusterManagerPhaseSyncNeeded)
+		}
+	}
+
+	if clusterManager.Status.Phase == clusterV1alpha1.ClusterManagerDeprecatedPhaseProvisioned ||
+		clusterManager.Status.Phase == clusterV1alpha1.ClusterManagerDeprecatedPhaseRegistered {
+		if clusterManager.Status.GatewayReady {
+			clusterManager.Status.SetTypedPhase(clusterV1alpha1.ClusterManagerPhaseReady)
+		} else {
+			clusterManager.Status.SetTypedPhase(clusterV1alpha1.ClusterManagerPhaseSyncNeeded)
+		}
 	}
 }
 
