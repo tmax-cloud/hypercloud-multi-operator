@@ -26,6 +26,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 
+	"sigs.k8s.io/cluster-api/util/patch"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/event"
@@ -97,6 +98,15 @@ func (r *ClusterClaimReconciler) Reconcile(ctx context.Context, req ctrl.Request
 			return ctrl.Result{RequeueAfter: requeueAfter10Second}, nil
 		}
 		return ctrl.Result{}, nil
+	}
+
+	// status.phase migration for old version
+	if clusterClaim.Status.Phase == claimV1alpha1.ClusterClaimDeprecatedPhaseClusterDeleted {
+		clusterClaim.Status.Phase = claimV1alpha1.ClusterClaimPhaseClusterDeleted
+		helper, _ := patch.NewHelper(clusterClaim, r.Client)
+		if err := helper.Patch(context.TODO(), clusterClaim); err != nil {
+			r.Log.Error(err, "cluster claim migration patch error")
+		}
 	}
 
 	return ctrl.Result{}, nil

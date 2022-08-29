@@ -141,13 +141,13 @@ const (
 
 // deprecated phases
 const (
-	ClusterManagerPhasePending      = ClusterManagerPhase("Pending")
-	ClusterManagerPhaseProvisioning = ClusterManagerPhase("Provisioning")
-	ClusterManagerPhaseRegistering  = ClusterManagerPhase("Registering")
-	ClusterManagerPhaseProvisioned  = ClusterManagerPhase("Provisioned")
-	ClusterManagerPhaseRegistered   = ClusterManagerPhase("Registered")
-	ClusterManagerPhaseFailed       = ClusterManagerPhase("Failed")
-	ClusterManagerPhaseUnknown      = ClusterManagerPhase("Unknown")
+	ClusterManagerDeprecatedPhasePending      = ClusterManagerPhase("Pending")
+	ClusterManagerDeprecatedPhaseProvisioning = ClusterManagerPhase("Provisioning")
+	ClusterManagerDeprecatedPhaseRegistering  = ClusterManagerPhase("Registering")
+	ClusterManagerDeprecatedPhaseProvisioned  = ClusterManagerPhase("Provisioned")
+	ClusterManagerDeprecatedPhaseRegistered   = ClusterManagerPhase("Registered")
+	ClusterManagerDeprecatedPhaseFailed       = ClusterManagerPhase("Failed")
+	ClusterManagerDeprecatedPhaseUnknown      = ClusterManagerPhase("Unknown")
 )
 
 const (

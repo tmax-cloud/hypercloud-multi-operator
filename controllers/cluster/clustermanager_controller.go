@@ -421,8 +421,8 @@ func (r *ClusterManagerReconciler) reconcilePhase(_ context.Context, clusterMana
 	}
 
 	// for migration
-	if clusterManager.Status.Phase == clusterV1alpha1.ClusterManagerPhaseProvisioning ||
-		clusterManager.Status.Phase == clusterV1alpha1.ClusterManagerPhaseRegistering {
+	if clusterManager.Status.Phase == clusterV1alpha1.ClusterManagerDeprecatedPhaseProvisioning ||
+		clusterManager.Status.Phase == clusterV1alpha1.ClusterManagerDeprecatedPhaseRegistering {
 		if clusterManager.Status.GatewayReady {
 			clusterManager.Status.SetTypedPhase(clusterV1alpha1.ClusterManagerPhaseProcessing)
 		} else {
@@ -430,8 +430,8 @@ func (r *ClusterManagerReconciler) reconcilePhase(_ context.Context, clusterMana
 		}
 	}
 
-	if clusterManager.Status.Phase == clusterV1alpha1.ClusterManagerPhaseProvisioned ||
-		clusterManager.Status.Phase == clusterV1alpha1.ClusterManagerPhaseRegistered {
+	if clusterManager.Status.Phase == clusterV1alpha1.ClusterManagerDeprecatedPhaseProvisioned ||
+		clusterManager.Status.Phase == clusterV1alpha1.ClusterManagerDeprecatedPhaseRegistered {
 		if clusterManager.Status.GatewayReady {
 			clusterManager.Status.SetTypedPhase(clusterV1alpha1.ClusterManagerPhaseReady)
 		} else {
