@@ -361,7 +361,7 @@ func (r *ClusterManagerReconciler) machineDeploymentUpdate(ctx context.Context, 
 }
 
 func (r *ClusterManagerReconciler) CreateArgocdResources(ctx context.Context, clusterManager *clusterV1alpha1.ClusterManager) (ctrl.Result, error) {
-	if !clusterManager.Status.TraefikReady || clusterManager.Status.ArgoReady {
+	if !clusterManager.Status.ControlPlaneReady || !clusterManager.Status.Ready || clusterManager.Status.ArgoReady {
 		return ctrl.Result{}, nil
 	}
 	log := r.Log.WithValues("ClusterManager", clusterManager.GetNamespacedName())
