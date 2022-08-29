@@ -482,7 +482,7 @@ func (r *ClusterManagerReconciler) CreateArgocdResources(ctx context.Context, cl
 	return ctrl.Result{}, nil
 }
 
-func (r *ClusterManagerReconciler) CreateMonitoringResources(ctx context.Context, clusterManager *clusterV1alpha1.ClusterManager) (reconcile.Result, error) {
+func (r *ClusterManagerReconciler) CreateGatewayResources(ctx context.Context, clusterManager *clusterV1alpha1.ClusterManager) (reconcile.Result, error) {
 	if !clusterManager.Status.ArgoReady || clusterManager.Status.GatewayReady {
 		return ctrl.Result{}, nil
 	}

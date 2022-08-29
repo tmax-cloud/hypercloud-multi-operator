@@ -297,7 +297,7 @@ func (r *ClusterManagerReconciler) reconcile(ctx context.Context, clusterManager
 		// Argocd 연동을 위해 필요한 정보를 kube-config 로 부터 가져와 secret 을 생성한다.
 		r.CreateArgocdResources,
 		// single cluster 의 api gateway service 의 주소로 gateway service 생성
-		r.CreateMonitoringResources,
+		r.CreateGatewayResources,
 		// Kibana, Grafana, Kiali 등 모듈과 hyperauth oidc 연동을 위한 client 생성 작업 (hyperauth 계정정보로 여러 모듈에 로그인 가능)
 		// hyperauth caller 를 통해 admin token 을 가져와 각 모듈 마다 hyperauth client 를 생성후, 모듈에 따른 role 을 추가한다.
 		r.CreateHyperauthClient,
@@ -410,6 +410,10 @@ func (r *ClusterManagerReconciler) reconcilePhase(_ context.Context, clusterMana
 
 	if clusterManager.Status.ArgoReady {
 		clusterManager.Status.SetTypedPhase(clusterV1alpha1.ClusterManagerPhaseSyncNeeded)
+	}
+
+	if clusterManager.Status.GatewayReady {
+		clusterManager.Status.SetTypedPhase(clusterV1alpha1.ClusterManagerPhaseProcessing)
 	}
 
 	if clusterManager.Status.TraefikReady {
