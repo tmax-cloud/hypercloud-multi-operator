@@ -487,7 +487,7 @@ func (r *ClusterManagerReconciler) CreateGatewayResources(ctx context.Context, c
 		return ctrl.Result{}, nil
 	}
 	log := r.Log.WithValues("clustermanager", clusterManager.GetNamespacedName())
-	log.Info("Start to reconcile phase for CreateMonitoringResources")
+	log.Info("Start to reconcile phase for CreateGatewayResources")
 
 	kubeconfigSecret, err := r.GetKubeconfigSecret(clusterManager)
 	if err != nil {
@@ -562,7 +562,7 @@ func (r *ClusterManagerReconciler) CreateGatewayResources(ctx context.Context, c
 		return ctrl.Result{}, err
 	}
 
-	log.Info("Create monitoring resources successfully")
+	log.Info("Create gateway resources successfully")
 	clusterManager.Status.GatewayReady = true
 	return ctrl.Result{}, nil
 }
