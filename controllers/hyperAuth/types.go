@@ -44,14 +44,6 @@ type ClientConfig struct {
 	RedirectUris              []string `json:"redirectUris,omitempty"`
 }
 
-func (c *ClientConfig) IsNotFound() bool {
-	if c == nil || c.Id == "" {
-		return true
-	}
-
-	return false
-}
-
 type ClientLevelProtocolMapperConfig struct {
 	ClientId       string
 	ProtocolMapper ProtocolMapperConfig
@@ -106,7 +98,3 @@ type GroupConfig struct {
 	Path      string   `json:"path,omitempty"`
 	SubGroups []string `json:"subGroups,omitempty"`
 }
-
-// type UserCroupConfig struct {
-// 	UserName string `json:"name,omitempty"`
-// }
