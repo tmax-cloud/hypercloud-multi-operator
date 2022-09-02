@@ -14,6 +14,27 @@ limitations under the License.
 
 package hyperAuth
 
+type HyperAuthError struct {
+	NotFound bool
+	Type     string
+	Name     string
+}
+
+func (e HyperAuthError) Error() string {
+	return "Resource not found"
+}
+
+func IsNotFound(e error) bool {
+	if e == nil {
+		return false
+	}
+	if _, ok := e.(HyperAuthError); !ok {
+		return false
+	}
+
+	return e.(HyperAuthError).NotFound
+}
+
 type ClientConfig struct {
 	Id                        string   `json:"id,omitempty"`
 	ClientId                  string   `json:"clientId,omitempty"`
@@ -69,4 +90,11 @@ type ClientScopeMappingConfig struct {
 type ClientScopeConfig struct {
 	Id   string `json:"id,omitempty"`
 	Name string `json:"name,omitempty"`
+}
+
+type GroupConfig struct {
+	Id        string   `json:"id,omitempty"`
+	Name      string   `json:"name,omitempty"`
+	Path      string   `json:"path,omitempty"`
+	SubGroups []string `json:"subGroups,omitempty"`
 }

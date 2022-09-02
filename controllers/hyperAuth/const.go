@@ -28,6 +28,10 @@ const (
 	KEYCLOAK_ADMIN_SERVICE_ADD_CLIENT_SCOPE_TO_CLIENT     = "/auth/admin/realms/tmax/clients/@@id@@/optional-client-scopes/@@clientScopeId@@"
 	KEYCLOAK_ADMIN_SERVICE_GET_REALM_ROLE_BY_NAME         = "/auth/admin/realms/tmax/roles/@@roleName@@"
 	KEYCLOAK_ADMIN_SERVICE_ADD_REALM_ROLE_TO_USER         = "/auth/admin/realms/tmax/users/@@userId@@/role-mappings/realm"
+	KEYCLOAK_ADMIN_SERVICE_GET_GROUP                      = "/auth/admin/realms/tmax/groups"
+	KEYCLOAK_ADMIN_SERVICE_CREATE_GROUP                   = "/auth/admin/realms/tmax/groups"
+	KEYCLOAK_ADMIN_SERVICE_DELETE_GROUP                   = "/auth/admin/realms/tmax/groups/@@groupId@@"
+	KEYCLOAK_ADMIN_SERVICE_ADD_GROUP_TO_USER              = "/auth/admin/realms/tmax/users/@@userId@@/groups/@@groupId@@"
 	// hyperauth api
 	HYPERAUTH_SERVICE_GET_USER_ID_BY_EMAIL = "/auth/realms/tmax/user/@@userEmail@@?token=@@token@@"
 )
@@ -38,4 +42,13 @@ const (
 	PROTOCOL_MAPPER_CONFIG_PROTOCOL_NAME_GROUP_MEMBERSHIP = "oidc-group-membership-mapper"
 	PROTOCOL_MAPPER_CONFIG_PROTOCOL_NAME_USER_REALM_ROLE  = "oidc-usermodel-realm-role-mapper"
 	PROTOCOL_MAPPER_CONFIG_PROTOCOL_NAME_USER_CLIENT_ROLE = "oidc-usermodel-client-role-mapper"
+)
+
+const (
+	RESOURCE_TYPE_USER_EMAIL   = "UserEmail"
+	RESOURCE_TYPE_CLIENT       = "Client"
+	RESOURCE_TYPE_CLIENT_ROLE  = "ClientRole"
+	RESOURCE_TYPE_REALM_ROLE   = "RealmRole"
+	RESOURCE_TYPE_CLIENT_SCOPE = "ClientScop"
+	RESOURCE_TYPE_GROUP        = "Group"
 )

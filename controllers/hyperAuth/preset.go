@@ -181,3 +181,15 @@ func GetClientScopeMappingPreset(prefix string) []ClientScopeMappingConfig {
 
 	return configs
 }
+
+func GetGroupConfigPreset(prefix string) []GroupConfig {
+	configs := []GroupConfig{
+		{
+			Name:      strings.Join([]string{prefix, "hyperregistry"}, "-"),
+			Path:      "/" + prefix + "-hyperregistry",
+			SubGroups: []string{},
+		},
+	}
+
+	return configs
+}

@@ -943,7 +943,7 @@ func (r *ClusterManagerReconciler) DeleteTraefikResources(clusterManager *cluste
 	return nil
 }
 
-func (r *ClusterManagerReconciler) DeleteClientForSingleCluster(clusterManager *clusterV1alpha1.ClusterManager) error {
+func (r *ClusterManagerReconciler) DeleteHyperAuthResourcesForSingleCluster(clusterManager *clusterV1alpha1.ClusterManager) error {
 	log := r.Log.WithValues("clustermanager", clusterManager.GetNamespacedName())
 	key := types.NamespacedName{
 		Name:      "passwords",
@@ -951,10 +951,10 @@ func (r *ClusterManagerReconciler) DeleteClientForSingleCluster(clusterManager *
 	}
 	secret := &coreV1.Secret{}
 	if err := r.Get(context.TODO(), key, secret); errors.IsNotFound(err) {
-		log.Info("Hyperauth password secret is not found")
+		log.Info("HyperAuth password secret is not found")
 		return err
 	} else if err != nil {
-		log.Error(err, "Failed to get hyperauth password secret")
+		log.Error(err, "Failed to get HyperAuth password secret")
 		return err
 	}
 
@@ -962,11 +962,20 @@ func (r *ClusterManagerReconciler) DeleteClientForSingleCluster(clusterManager *
 	for _, config := range clientConfigs {
 		err := hyperauthCaller.DeleteClient(config, secret)
 		if err != nil {
-			log.Error(err, "Failed to delete hyperauth client ["+config.ClientId+"] for single cluster")
+			log.Error(err, "Failed to delete HyperAuth client ["+config.ClientId+"] for single cluster")
 			return err
 		}
 	}
 
-	log.Info("Delete clients for single cluster successfully")
+	groupConfigs := hyperauthCaller.GetGroupConfigPreset(clusterManager.GetNamespacedPrefix())
+	for _, config := range groupConfigs {
+		err := hyperauthCaller.DeleteGroup(config, secret)
+		if err != nil {
+			log.Error(err, "Failed to delete HyperAuth group ["+config.Name+"] for single cluster")
+			return err
+		}
+	}
+
+	log.Info("Delete HyperAuth resources for single cluster successfully")
 	return nil
 }
