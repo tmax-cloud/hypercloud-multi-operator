@@ -3,6 +3,32 @@ All notable changes to this project will be documented in this file.
 
 <!-------------------- v5.0.33.0 start -------------------->
 
+## HyperCloud-Multi-Operator_5.0.33.0 (2022. 09. 02. (금) 14:52:23 KST)
+
+### Added
+
+### Changed
+  - [mod] HyperAuthError type 로직 error 수정 by SISILIA
+
+### Fixed
+  - [ims][289299] hyperregistry oidc연동 방식 변경에 따른 코드 수정 by SISILIA
+
+### CRD yaml
+
+### Etc
+  - [etc] 불필요한 코드 제거 by SISILIA
+  - [etc] 오타 수정 by SISILIA
+  - [etc] cluster status 로직 일부 수정 by SISILIA
+  - [etc] status 체크 에러 수정 by SISILIA
+  - [etc] cluster claim reconcile 로직 error 수정 by SISILIA
+  - [etc] status 변경 migration 로직 보강 by SISILIA
+  - [etc] application link status migration 로직 추가 by SISILIA
+  - [etc] application Link 생성 로직 추가 by SISILIA
+
+<!--------------------- v5.0.33.0 end --------------------->
+
+<!-------------------- v5.0.33.0 start -------------------->
+
 ## HyperCloud-Multi-Operator_5.0.33.0 (2022. 09. 02. (금) 14:23:32 KST)
 
 ### Added
