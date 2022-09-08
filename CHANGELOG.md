@@ -1,6 +1,23 @@
 # HyperCloud-Multi-Operator changelog!!
 All notable changes to this project will be documented in this file.
 
+<!-------------------- v5.0.33.1 start -------------------->
+
+## HyperCloud-Multi-Operator_5.0.33.1 (2022. 09. 08. (목) 16:37:47 KST)
+
+### Added
+
+### Changed
+  - [mod] fix create hyperauth client error/disable DeleteDeprecatedTraefikResources by seung
+
+### Fixed
+
+### CRD yaml
+
+### Etc
+
+<!--------------------- v5.0.33.1 end --------------------->
+
 <!-------------------- v5.0.33.0 start -------------------->
 
 ## HyperCloud-Multi-Operator_5.0.33.0 (2022. 09. 02. (금) 14:52:23 KST)
