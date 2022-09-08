@@ -46,8 +46,8 @@ func GetTokenAsAdmin(secret *coreV1.Secret) (string, error) {
 
 	// Make Request Object
 	url := SetServiceDomainURI(KEYCLOAK_ADMIN_SERVICE_GET_TOKEN, nil)
-	playload := strings.NewReader(data.Encode())
-	req, err := http.NewRequest(http.MethodPost, url, playload)
+	payload := strings.NewReader(data.Encode())
+	req, err := http.NewRequest(http.MethodPost, url, payload)
 	if err != nil {
 		return "", err
 	}
@@ -124,10 +124,10 @@ func CreateClient(config ClientConfig, secret *coreV1.Secret) error {
 	if err != nil {
 		return err
 	}
-	playload := bytes.NewBuffer(jsonData)
+	payload := bytes.NewBuffer(jsonData)
 
 	url := SetServiceDomainURI(KEYCLOAK_ADMIN_SERVICE_CREATE_CLIENT, nil)
-	req, err := http.NewRequest(http.MethodPost, url, playload)
+	req, err := http.NewRequest(http.MethodPost, url, payload)
 	if err != nil {
 		return err
 	}
@@ -164,13 +164,13 @@ func CreateClientLevelProtocolMapper(config ClientLevelProtocolMapperConfig, sec
 	if err != nil {
 		return err
 	}
-	playload := bytes.NewBuffer(jsonData)
+	payload := bytes.NewBuffer(jsonData)
 
 	params := map[string]string{
 		"id": id,
 	}
 	url := SetServiceDomainURI(KEYCLOAK_ADMIN_SERVICE_CREATE_CLIENT_PROTOCOL_MAPPERS, params)
-	req, err := http.NewRequest(http.MethodPost, url, playload)
+	req, err := http.NewRequest(http.MethodPost, url, payload)
 	if err != nil {
 		return err
 	}
@@ -210,13 +210,13 @@ func CreateClientLevelRole(config ClientLevelRoleConfig, secret *coreV1.Secret) 
 	if err != nil {
 		return err
 	}
-	playload := bytes.NewBuffer(jsonData)
+	payload := bytes.NewBuffer(jsonData)
 
 	params := map[string]string{
 		"id": id,
 	}
 	url := SetServiceDomainURI(KEYCLOAK_ADMIN_SERVICE_CREATE_CLIENT_ROLES, params)
-	req, err := http.NewRequest(http.MethodPost, url, playload)
+	req, err := http.NewRequest(http.MethodPost, url, payload)
 	if err != nil {
 		return err
 	}
@@ -246,7 +246,7 @@ func GetUserIdByEmail(userEmail string, secret *coreV1.Secret) (string, error) {
 
 	params := map[string]string{
 		"userEmail": userEmail,
-		"token":     token,
+		"token":     strings.Replace(token, "Bearer ", "", 1),
 	}
 	url := SetServiceDomainURI(HYPERAUTH_SERVICE_GET_USER_ID_BY_EMAIL, params)
 	req, err := http.NewRequest(http.MethodGet, url, nil)
@@ -355,14 +355,14 @@ func AddClientLevelRolesToUserRoleMapping(config ClientLevelRoleConfig, userEmai
 	if err != nil {
 		return err
 	}
-	playload := bytes.NewBuffer(jsonData)
+	payload := bytes.NewBuffer(jsonData)
 
 	params := map[string]string{
 		"userId": userId,
 		"id":     id,
 	}
 	url := SetServiceDomainURI(KEYCLOAK_ADMIN_SERVICE_ADD_CLIENT_ROLE_TO_USER, params)
-	req, err := http.NewRequest(http.MethodPost, url, playload)
+	req, err := http.NewRequest(http.MethodPost, url, payload)
 	if err != nil {
 		return err
 	}
@@ -449,13 +449,13 @@ func AddRealmLevelRolesToUserRoleMapping(roleName string, userEmail string, secr
 	if err != nil {
 		return err
 	}
-	playload := bytes.NewBuffer(jsonData)
+	payload := bytes.NewBuffer(jsonData)
 
 	params := map[string]string{
 		"userId": userId,
 	}
 	url := SetServiceDomainURI(KEYCLOAK_ADMIN_SERVICE_ADD_REALM_ROLE_TO_USER, params)
-	req, err := http.NewRequest(http.MethodPost, url, playload)
+	req, err := http.NewRequest(http.MethodPost, url, payload)
 	if err != nil {
 		return err
 	}
@@ -569,13 +569,15 @@ func CreateGroup(config GroupConfig, secret *coreV1.Secret) error {
 	if err != nil {
 		return err
 	}
-	playload := bytes.NewBuffer(jsonData)
+	payload := bytes.NewBuffer(jsonData)
 
 	url := SetServiceDomainURI(KEYCLOAK_ADMIN_SERVICE_CREATE_GROUP, nil)
-	req, err := http.NewRequest(http.MethodPost, url, playload)
+	req, err := http.NewRequest(http.MethodPost, url, payload)
 	if err != nil {
 		return err
 	}
+
+	req.Header.Add("Content-Type", "application/json")
 	req.Header.Add("Authorization", token)
 
 	client := &http.Client{}
