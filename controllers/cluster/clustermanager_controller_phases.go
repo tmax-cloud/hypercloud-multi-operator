@@ -552,11 +552,11 @@ func (r *ClusterManagerReconciler) CreateGatewayResources(ctx context.Context, c
 
 	// For migration from b5.0.26.6 > b5.0.26.7
 	// 리소스 이름 및 status 이름 변경에 대응하기 위한 migration 코드
-	traefikReady, err := r.DeleteDeprecatedTraefikResources(clusterManager)
-	if err != nil {
-		return ctrl.Result{}, err
-	}
-	clusterManager.Status.TraefikReady = traefikReady
+	// traefikReady, err := r.DeleteDeprecatedTraefikResources(clusterManager)
+	// if err != nil {
+	// 	return ctrl.Result{}, err
+	// }
+	// clusterManager.Status.TraefikReady = traefikReady
 
 	if err := r.DeleteDeprecatedPrometheusResources(clusterManager); err != nil {
 		return ctrl.Result{}, err
