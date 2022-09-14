@@ -32,7 +32,7 @@ const (
 	KEYCLOAK_ADMIN_SERVICE_CREATE_GROUP                   = "/auth/admin/realms/tmax/groups"
 	KEYCLOAK_ADMIN_SERVICE_DELETE_GROUP                   = "/auth/admin/realms/tmax/groups/@@groupId@@"
 	KEYCLOAK_ADMIN_SERVICE_ADD_GROUP_TO_USER              = "/auth/admin/realms/tmax/users/@@userId@@/groups/@@groupId@@"
-	KEYCLOAK_ADMIN_SERVICE_GET_USERS_BY_EMAIL             = "/auth/admin/realms/tmax/users?email=@@userEmail@@"
+	KEYCLOAK_ADMIN_SERVICE_GET_USERS_BY_EMAIL             = "/auth/admin/realms/tmax/users?exact=true&email=@@userEmail@@"
 )
 
 const (
