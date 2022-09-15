@@ -25,7 +25,7 @@ const (
 	KEYCLOAK_ADMIN_SERVICE_GET_CLIENT_ROLE_BY_NAME        = "/auth/admin/realms/tmax/clients/@@id@@/roles/@@roleName@@"
 	KEYCLOAK_ADMIN_SERVICE_ADD_CLIENT_ROLE_TO_USER        = "/auth/admin/realms/tmax/users/@@userId@@/role-mappings/clients/@@id@@"
 	KEYCLOAK_ADMIN_SERVICE_GET_CLIENT_SCOPES              = "/auth/admin/realms/tmax/client-scopes"
-	KEYCLOAK_ADMIN_SERVICE_ADD_CLIENT_SCOPE_TO_CLIENT     = "/auth/admin/realms/tmax/clients/@@id@@/optional-client-scopes/@@clientScopeId@@"
+	KEYCLOAK_ADMIN_SERVICE_ADD_DEFAULT_CLIENT_SCOPE_TO_CLIENT = "/auth/admin/realms/tmax/clients/@@id@@/default-client-scopes/@@clientScopeId@@"
 	KEYCLOAK_ADMIN_SERVICE_GET_REALM_ROLE_BY_NAME         = "/auth/admin/realms/tmax/roles/@@roleName@@"
 	KEYCLOAK_ADMIN_SERVICE_ADD_REALM_ROLE_TO_USER         = "/auth/admin/realms/tmax/users/@@userId@@/role-mappings/realm"
 	KEYCLOAK_ADMIN_SERVICE_GET_GROUP                      = "/auth/admin/realms/tmax/groups"

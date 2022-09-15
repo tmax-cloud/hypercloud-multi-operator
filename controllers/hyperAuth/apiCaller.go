@@ -538,11 +538,13 @@ func AddClientScopeToClient(config ClientScopeMappingConfig, secret *coreV1.Secr
 		"id":            id,
 		"clientScopeId": clientScopeId,
 	}
-	url := SetServiceDomainURI(KEYCLOAK_ADMIN_SERVICE_ADD_CLIENT_SCOPE_TO_CLIENT, params)
+	url := SetServiceDomainURI(KEYCLOAK_ADMIN_SERVICE_ADD_DEFAULT_CLIENT_SCOPE_TO_CLIENT, params)
 	req, err := http.NewRequest(http.MethodPut, url, nil)
 	if err != nil {
 		return err
 	}
+	
+	req.Header.Add("Content-Type", "application/json")
 	req.Header.Add("Authorization", token)
 
 	client := &http.Client{}
