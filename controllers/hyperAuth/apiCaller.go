@@ -543,7 +543,7 @@ func AddClientScopeToClient(config ClientScopeMappingConfig, secret *coreV1.Secr
 	if err != nil {
 		return err
 	}
-	
+
 	req.Header.Add("Content-Type", "application/json")
 	req.Header.Add("Authorization", token)
 

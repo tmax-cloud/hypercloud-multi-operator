@@ -527,7 +527,6 @@ func (r *ClusterManagerReconciler) CreateApplication(clusterManager *clusterV1al
 		}
 
 		log.Info("Create ArgoCD Application successfully")
-		ctrl.SetControllerReference(clusterManager, application, r.Scheme)
 		return nil
 	}
 
