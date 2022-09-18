@@ -314,7 +314,7 @@ func (r *ClusterManagerReconciler) reconcileDelete(ctx context.Context, clusterM
 
 	// ArgoCD application이 모두 삭제되었는지 테스트
 	if err := r.CheckApplicationRemains(clusterManager); err != nil {
-		return ctrl.Result{}, err
+		return ctrl.Result{RequeueAfter: requeueAfter10Second}, err
 	}
 
 	// ClusterAPI-provider-aws의 경우, lb type의 svc가 남아있으면 infra nlb deletion이 stuck걸리면서 클러스터가 지워지지 않는 버그가 있음
@@ -378,22 +378,22 @@ func (r *ClusterManagerReconciler) reconcileDelete(ctx context.Context, clusterM
 			log.Error(err, "Failed to delete cluster info from cluster_member table")
 			return ctrl.Result{}, err
 		}
+		// kubeconfig secret이 없다면(모든 시크릿이 삭제되었다면) clm을 삭제한다.
+		key = types.NamespacedName{
+			Name:      clusterManager.Name + util.KubeconfigSuffix,
+			Namespace: clusterManager.Namespace,
+		}
+		if err := r.Get(context.TODO(), key, &coreV1.Secret{}); errors.IsNotFound(err) {
+			controllerutil.RemoveFinalizer(clusterManager, clusterV1alpha1.ClusterManagerFinalizer)
+			log.Info("Cluster manager was deleted successfully")
+			return ctrl.Result{}, nil
+		} else if err != nil {
+			log.Error(err, "Failed to get kubeconfig secret")
+			return ctrl.Result{}, err
+		}
+
 	} else if err != nil {
 		log.Error(err, "Failed to get cluster")
-		return ctrl.Result{}, err
-	}
-
-	// kubeconfig secret이 없다면(모든 시크릿이 삭제되었다면) clm을 삭제한다.
-	key = types.NamespacedName{
-		Name:      clusterManager.Name + util.KubeconfigSuffix,
-		Namespace: clusterManager.Namespace,
-	}
-	if err := r.Get(context.TODO(), key, &coreV1.Secret{}); errors.IsNotFound(err) {
-		controllerutil.RemoveFinalizer(clusterManager, clusterV1alpha1.ClusterManagerFinalizer)
-		log.Info("Cluster manager was deleted successfully")
-		return ctrl.Result{}, nil
-	} else if err != nil {
-		log.Error(err, "Failed to get kubeconfig secret")
 		return ctrl.Result{}, err
 	}
 
