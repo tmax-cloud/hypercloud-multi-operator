@@ -1,6 +1,27 @@
 # HyperCloud-Multi-Operator changelog!!
 All notable changes to this project will be documented in this file.
 
+<!-------------------- v5.0.34.0 start -------------------->
+
+## HyperCloud-Multi-Operator_5.0.34.0 (2022. 09. 21. (수) 16:09:17 KST)
+
+### Added
+
+### Changed
+  - [mod] fix errors in delete reconcilation by seung
+  - [mod] kubeconfig delete logic 변경 및 cluster registration delete logic 변경 by seung
+  - [mod] kiali hyperauth 연동시 default client scope로 생성 by seung
+  - [mod] fix bug in get user-id by email api call by seung
+  - [mod] hyperauth user api 대신 keycloak user api를 사용하도록 변경 by seung
+
+### Fixed
+
+### CRD yaml
+
+### Etc
+
+<!--------------------- v5.0.34.0 end --------------------->
+
 <!-------------------- v5.0.33.1 start -------------------->
 
 ## HyperCloud-Multi-Operator_5.0.33.1 (2022. 09. 08. (목) 16:37:47 KST)
