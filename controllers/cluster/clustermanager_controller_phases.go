@@ -170,6 +170,7 @@ func (r *ClusterManagerReconciler) CreateServiceInstance(ctx context.Context, cl
 		Name:      clusterManager.Name + clusterManager.Annotations[clusterV1alpha1.AnnotationKeyClmSuffix],
 		Namespace: clusterManager.Namespace,
 	}
+
 	if err := r.Get(context.TODO(), key, &servicecatalogv1beta1.ServiceInstance{}); errors.IsNotFound(err) {
 		clusterJson, err := json.Marshal(
 			&ClusterParameter{
@@ -472,7 +473,7 @@ func (r *ClusterManagerReconciler) CreateArgocdResources(ctx context.Context, cl
 		log.Error(err, "Can not get argocd ingress information.")
 	} else {
 		subdomain := strings.Split(argoIngress.Spec.Rules[0].Host, ".")[0]
-		clusterManager.SetApplicationLink(subdomain)
+		SetApplicationLink(clusterManager, subdomain)
 	}
 
 	log.Info("Create argocd cluster secret successfully")

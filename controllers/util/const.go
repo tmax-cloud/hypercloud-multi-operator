@@ -112,3 +112,10 @@ const (
 	ArgoDescriptionGitRepo                      = "Git repo 주소를 입력(gitlab의 경우 주소맨뒤에 .git을 입력)"
 	ArgoDescriptionGitRevision                  = "Git target revision(branch, tag)를 입력"
 )
+
+// multi-operator bootstrap을 위해 필요한 초기 환경변수
+const (
+	HC_DOMAIN          = "HC_DOMAIN"
+	AUTH_CLIENT_SECRET = "AUTH_CLIENT_SECRET"
+	AUTH_SUBDOMAIN     = "AUTH_SUBDOMAIN"
+)

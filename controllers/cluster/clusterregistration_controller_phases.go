@@ -190,7 +190,7 @@ func (r *ClusterRegistrationReconciler) CreateClusterManager(ctx context.Context
 					util.AnnotationKeyOwner:                   ClusterRegistration.Annotations[util.AnnotationKeyCreator],
 					util.AnnotationKeyCreator:                 ClusterRegistration.Annotations[util.AnnotationKeyCreator],
 					clusterV1alpha1.AnnotationKeyClmApiserver: endpoint,
-					clusterV1alpha1.AnnotationKeyClmDomain:    os.Getenv("HC_DOMAIN"),
+					clusterV1alpha1.AnnotationKeyClmDomain:    os.Getenv(util.HC_DOMAIN),
 				},
 				Labels: map[string]string{
 					clusterV1alpha1.LabelKeyClmClusterType: clusterV1alpha1.ClusterTypeRegistered,
