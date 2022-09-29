@@ -60,6 +60,10 @@ type ClusterParameter struct {
 	WorkerNum         int
 	Owner             string
 	KubernetesVersion string
+	HyperAuthUrl      string
+	HyperAuthCert     string
+	// AUDIT_WEBHOOK_CA_CERT     string
+	// AUDIT_WEBHOOK_SERVER_PATH string
 }
 
 type AwsParameter struct {
@@ -171,7 +175,7 @@ func (r *ClusterManagerReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 			log.Error(err, "Can not get argocd ingress information.")
 		} else {
 			subdomain := strings.Split(argoIngress.Spec.Rules[0].Host, ".")[0]
-			clusterManager.SetApplicationLink(subdomain)
+			SetApplicationLink(clusterManager, subdomain)
 		}
 	}
 

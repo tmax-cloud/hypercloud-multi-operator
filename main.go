@@ -27,6 +27,7 @@ import (
 	claimController "github.com/tmax-cloud/hypercloud-multi-operator/controllers/claim"
 	clusterController "github.com/tmax-cloud/hypercloud-multi-operator/controllers/cluster"
 	k8scontroller "github.com/tmax-cloud/hypercloud-multi-operator/controllers/k8s"
+	"github.com/tmax-cloud/hypercloud-multi-operator/controllers/util"
 	traefikV1alpha1 "github.com/traefik/traefik/v2/pkg/provider/kubernetes/crd/traefik/v1alpha1"
 
 	"k8s.io/apimachinery/pkg/runtime"
@@ -148,6 +149,11 @@ func main() {
 		os.Exit(1)
 	}
 	// +kubebuilder:scaffold:builder
+
+	if err := util.CheckRequiredEnvPreset(); err != nil {
+		setupLog.Error(err, "not exist required environment variables")
+		os.Exit(1)
+	}
 
 	setupLog.Info("starting manager")
 	if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {

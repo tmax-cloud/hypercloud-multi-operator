@@ -25,6 +25,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/tmax-cloud/hypercloud-multi-operator/controllers/util"
 	coreV1 "k8s.io/api/core/v1"
 )
 
@@ -32,7 +33,7 @@ func SetServiceDomainURI(serviceName string, urlParameter map[string]string) str
 	for key, value := range urlParameter {
 		serviceName = strings.Replace(serviceName, "@@"+key+"@@", value, 1)
 	}
-	return "https://" + os.Getenv("AUTH_SUBDOMAIN") + "." + os.Getenv("HC_DOMAIN") + serviceName
+	return "https://" + os.Getenv(util.AUTH_SUBDOMAIN) + "." + os.Getenv(util.HC_DOMAIN) + serviceName
 }
 
 func GetTokenAsAdmin(secret *coreV1.Secret) (string, error) {
