@@ -1,6 +1,24 @@
 # HyperCloud-Multi-Operator changelog!!
 All notable changes to this project will be documented in this file.
 
+<!-------------------- v5.0.34.1 start -------------------->
+
+## HyperCloud-Multi-Operator_5.0.34.1 (2022. 09. 29. (목) 15:43:23 KST)
+
+### Added
+  - [feat] 필요 환경변수가 있는지 check하는 기능 추가 by sjoh0704
+
+### Changed
+  - [mod] clustertemplate 내 hyperauth 변수 처리 by sjoh0704
+
+### Fixed
+
+### CRD yaml
+
+### Etc
+
+<!--------------------- v5.0.34.1 end --------------------->
+
 <!-------------------- v5.0.34.0 start -------------------->
 
 ## HyperCloud-Multi-Operator_5.0.34.0 (2022. 09. 21. (수) 16:09:17 KST)
