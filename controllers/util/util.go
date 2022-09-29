@@ -143,14 +143,6 @@ func GetProviderName(provider string) (string, error) {
 	return providerNameLogo[provider], nil
 }
 
-func GetRequiredEnvPreset() []string {
-	return []string{
-		HC_DOMAIN,
-		AUTH_CLIENT_SECRET,
-		AUTH_SUBDOMAIN,
-	}
-}
-
 func CheckRequiredEnvPreset() error {
 	notExistEnvList := []string{}
 	for _, env := range GetRequiredEnvPreset() {

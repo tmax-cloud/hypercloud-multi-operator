@@ -18,12 +18,14 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"os"
 	"regexp"
 	"strings"
 
 	argocdV1alpha1 "github.com/argoproj/argo-cd/v2/pkg/apis/application/v1alpha1"
 	servicecatalogv1beta1 "github.com/kubernetes-sigs/service-catalog/pkg/apis/servicecatalog/v1beta1"
 	clusterV1alpha1 "github.com/tmax-cloud/hypercloud-multi-operator/apis/cluster/v1alpha1"
+	"github.com/tmax-cloud/hypercloud-multi-operator/controllers/hyperAuth"
 	hyperauthCaller "github.com/tmax-cloud/hypercloud-multi-operator/controllers/hyperAuth"
 	util "github.com/tmax-cloud/hypercloud-multi-operator/controllers/util"
 
@@ -166,7 +168,45 @@ func (r *ClusterManagerReconciler) CreateServiceInstance(ctx context.Context, cl
 	log := r.Log.WithValues("clustermanager", clusterManager.GetNamespacedName())
 	log.Info("Start to reconcile phase for CreateServiceInstance")
 
+	// hypercloud5-api-server를 audit webhook server로 사용한다.
+	// api-server의 CA certificate를 추출하여 service instance에 넣어준다.
+	// key = types.NamespacedName{
+	// 	Name:      "hypercloud5-api-server-certs",
+	// 	Namespace: "hypercloud5-system",
+	// }
+	// auditWebhookServerSecret := &coreV1.Secret{}
+	// if err := r.Get(context.TODO(), key, auditWebhookServerSecret); errors.IsNotFound(err) {
+	// 	log.Error(err, "hypercloud5-api-server-certs secret not created . Waiting for secret to be created")
+	// 	return ctrl.Result{RequeueAfter: requeueAfter10Second}, err
+	// } else if err != nil {
+	// 	log.Error(err, "Failed to get hypercloud5-api-server-certs secret")
+	// 	return ctrl.Result{}, err
+	// }
+	// webhookServerCACert, err := base64.StdEncoding.DecodeString(string(hyperauthHttpsSecret.Data["ca.crt"]))
+	// if err != nil {
+	// 	log.Error(err, "Failed to decode hypercloud5-api-server-certs")
+	// 	return ctrl.Result{}, err
+	// }
+
+	// hyperauth certificate를 가져와서 service instance에 넣어주어야 한다.
 	key := types.NamespacedName{
+		Name:      hyperAuth.HYPERAUTH_HTTPS_SECRET,
+		Namespace: hyperAuth.HYPERAUTH_NAMESPACE,
+	}
+
+	hyperauthHttpsSecret := &coreV1.Secret{}
+	if err := r.Get(context.TODO(), key, hyperauthHttpsSecret); errors.IsNotFound(err) {
+		log.Error(err, "Hyperauth-https-secret not created . Waiting for secret to be created")
+		return ctrl.Result{RequeueAfter: requeueAfter10Second}, err
+	} else if err != nil {
+		log.Error(err, "Failed to get hyperauth-https-secret")
+		return ctrl.Result{}, err
+	}
+
+	hyperauthTlsCert := hyperAuth.GetHyperAuthTLSCertificate(hyperauthHttpsSecret)
+	hyperauthDomain := "https://" + os.Getenv("AUTH_SUBDOMAIN") + "." + os.Getenv("HC_DOMAIN") + "/auth/realms/tmax"
+
+	key = types.NamespacedName{
 		Name:      clusterManager.Name + clusterManager.Annotations[clusterV1alpha1.AnnotationKeyClmSuffix],
 		Namespace: clusterManager.Namespace,
 	}
@@ -180,6 +220,8 @@ func (r *ClusterManagerReconciler) CreateServiceInstance(ctx context.Context, cl
 				KubernetesVersion: clusterManager.Spec.Version,
 				MasterNum:         clusterManager.Spec.MasterNum,
 				WorkerNum:         clusterManager.Spec.WorkerNum,
+				HyperAuthUrl:      hyperauthDomain,
+				HyperAuthCert:     hyperauthTlsCert,
 			},
 		)
 		if err != nil {

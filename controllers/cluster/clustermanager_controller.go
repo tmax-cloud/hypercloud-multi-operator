@@ -60,6 +60,10 @@ type ClusterParameter struct {
 	WorkerNum         int
 	Owner             string
 	KubernetesVersion string
+	HyperAuthUrl      string
+	HyperAuthCert     string
+	// AUDIT_WEBHOOK_CA_CERT     string
+	// AUDIT_WEBHOOK_SERVER_PATH string
 }
 
 type AwsParameter struct {
