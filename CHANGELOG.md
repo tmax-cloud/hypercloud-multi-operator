@@ -1,6 +1,23 @@
 # HyperCloud-Multi-Operator changelog!!
 All notable changes to this project will be documented in this file.
 
+<!-------------------- v5.0.34.2 start -------------------->
+
+## HyperCloud-Multi-Operator_5.0.34.2 (2022. 09. 30. (금) 15:37:17 KST)
+
+### Added
+
+### Changed
+  - [mod] single cluster에 hyperauth tls certificate 생성하는 로직 제거 by sjoh0704
+
+### Fixed
+
+### CRD yaml
+
+### Etc
+
+<!--------------------- v5.0.34.2 end --------------------->
+
 <!-------------------- v5.0.34.1 start -------------------->
 
 ## HyperCloud-Multi-Operator_5.0.34.1 (2022. 09. 29. (목) 15:43:23 KST)
