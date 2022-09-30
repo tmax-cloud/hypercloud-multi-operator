@@ -52,7 +52,7 @@ const (
 	RESOURCE_TYPE_GROUP        = "Group"
 )
 
-const (
-	HYPERAUTH_HTTPS_SECRET = "hyperauth-https-secret"
-	HYPERAUTH_NAMESPACE    = "hyperauth"
-)
+// const (
+// 	HYPERAUTH_HTTPS_SECRET = "hyperauth-https-secret"
+// 	HYPERAUTH_NAMESPACE    = "hyperauth"
+// )
