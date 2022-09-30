@@ -16,9 +16,6 @@ package hyperAuth
 
 import (
 	"net/http"
-	"strings"
-
-	coreV1 "k8s.io/api/core/v1"
 )
 
 func IsOK(check int) bool {
@@ -34,9 +31,9 @@ func IsOK(check int) bool {
 	return ok
 }
 
-func GetHyperAuthTLSCertificate(hyperauthHttpsSecret *coreV1.Secret) string {
-	hyperauthTlsCert := strings.TrimSpace(string(hyperauthHttpsSecret.Data["tls.crt"]))
-	hyperauthTlsCert = strings.ReplaceAll(hyperauthTlsCert, "\n", "\\n")
-	hyperauthTlsCert = strings.ReplaceAll(hyperauthTlsCert, "\t", "\\t")
-	return hyperauthTlsCert
-}
+// func GetHyperAuthTLSCertificate(hyperauthHttpsSecret *coreV1.Secret) string {
+// 	hyperauthTlsCert := strings.TrimSpace(string(hyperauthHttpsSecret.Data["tls.crt"]))
+// 	hyperauthTlsCert = strings.ReplaceAll(hyperauthTlsCert, "\n", "\\n")
+// 	hyperauthTlsCert = strings.ReplaceAll(hyperauthTlsCert, "\t", "\\t")
+// 	return hyperauthTlsCert
+// }

@@ -25,7 +25,6 @@ import (
 	argocdV1alpha1 "github.com/argoproj/argo-cd/v2/pkg/apis/application/v1alpha1"
 	servicecatalogv1beta1 "github.com/kubernetes-sigs/service-catalog/pkg/apis/servicecatalog/v1beta1"
 	clusterV1alpha1 "github.com/tmax-cloud/hypercloud-multi-operator/apis/cluster/v1alpha1"
-	"github.com/tmax-cloud/hypercloud-multi-operator/controllers/hyperAuth"
 	hyperauthCaller "github.com/tmax-cloud/hypercloud-multi-operator/controllers/hyperAuth"
 	util "github.com/tmax-cloud/hypercloud-multi-operator/controllers/util"
 
@@ -189,24 +188,25 @@ func (r *ClusterManagerReconciler) CreateServiceInstance(ctx context.Context, cl
 	// }
 
 	// hyperauth certificate를 가져와서 service instance에 넣어주어야 한다.
-	key := types.NamespacedName{
-		Name:      hyperAuth.HYPERAUTH_HTTPS_SECRET,
-		Namespace: hyperAuth.HYPERAUTH_NAMESPACE,
-	}
+	// key := types.NamespacedName{
+	// 	Name:      hyperAuth.HYPERAUTH_HTTPS_SECRET,
+	// 	Namespace: hyperAuth.HYPERAUTH_NAMESPACE,
+	// }
 
-	hyperauthHttpsSecret := &coreV1.Secret{}
-	if err := r.Get(context.TODO(), key, hyperauthHttpsSecret); errors.IsNotFound(err) {
-		log.Error(err, "Hyperauth-https-secret not created . Waiting for secret to be created")
-		return ctrl.Result{RequeueAfter: requeueAfter10Second}, err
-	} else if err != nil {
-		log.Error(err, "Failed to get hyperauth-https-secret")
-		return ctrl.Result{}, err
-	}
+	// hyperauthHttpsSecret := &coreV1.Secret{}
+	// if err := r.Get(context.TODO(), key, hyperauthHttpsSecret); errors.IsNotFound(err) {
+	// 	log.Error(err, "Hyperauth-https-secret not created . Waiting for secret to be created")
+	// 	return ctrl.Result{RequeueAfter: requeueAfter10Second}, err
+	// } else if err != nil {
+	// 	log.Error(err, "Failed to get hyperauth-https-secret")
+	// 	return ctrl.Result{}, err
+	// }
 
-	hyperauthTlsCert := hyperAuth.GetHyperAuthTLSCertificate(hyperauthHttpsSecret)
+	// hyperauthTlsCert := hyperAuth.GetHyperAuthTLSCertificate(hyperauthHttpsSecret)
+
 	hyperauthDomain := "https://" + os.Getenv("AUTH_SUBDOMAIN") + "." + os.Getenv("HC_DOMAIN") + "/auth/realms/tmax"
 
-	key = types.NamespacedName{
+	key := types.NamespacedName{
 		Name:      clusterManager.Name + clusterManager.Annotations[clusterV1alpha1.AnnotationKeyClmSuffix],
 		Namespace: clusterManager.Namespace,
 	}
@@ -221,7 +221,6 @@ func (r *ClusterManagerReconciler) CreateServiceInstance(ctx context.Context, cl
 				MasterNum:         clusterManager.Spec.MasterNum,
 				WorkerNum:         clusterManager.Spec.WorkerNum,
 				HyperAuthUrl:      hyperauthDomain,
-				HyperAuthCert:     hyperauthTlsCert,
 			},
 		)
 		if err != nil {
