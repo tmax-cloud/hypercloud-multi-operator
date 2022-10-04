@@ -296,7 +296,6 @@ objects:
       - mkdir -p $HOME/.kube
       - cp /etc/kubernetes/admin.conf $HOME/.kube/config
       - chown $USER:$USER $HOME/.kube/config
-      - kubectl apply -f https://docs.projectcalico.org/archive/v3.16/manifests/calico.yaml
       useExperimentalRetryJoin: true
       users:
       - name: root
