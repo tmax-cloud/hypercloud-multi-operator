@@ -1,6 +1,23 @@
 # HyperCloud-Multi-Operator changelog!!
 All notable changes to this project will be documented in this file.
 
+<!-------------------- v5.0.34.3 start -------------------->
+
+## HyperCloud-Multi-Operator_5.0.34.3 (2022. 10. 12. (수) 10:51:34 KST)
+
+### Added
+
+### Changed
+  - [mod] bind-address 0.0.0.0으로 변경 by sjoh0704
+
+### Fixed
+
+### CRD yaml
+
+### Etc
+
+<!--------------------- v5.0.34.3 end --------------------->
+
 <!-------------------- v5.0.34.2 start -------------------->
 
 ## HyperCloud-Multi-Operator_5.0.34.2 (2022. 09. 30. (금) 15:37:17 KST)
