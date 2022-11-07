@@ -204,6 +204,8 @@ objects:
         iamInstanceProfile: control-plane.cluster-api-provider-aws.sigs.k8s.io
         instanceType: ${MasterType}
         sshKeyName: ${SshKey}
+        rootVolume:
+          size: 30
 - apiVersion: cluster.x-k8s.io/v1alpha3
   kind: MachineDeployment
   metadata:
@@ -237,6 +239,8 @@ objects:
         iamInstanceProfile: nodes.cluster-api-provider-aws.sigs.k8s.io
         instanceType: ${WorkerType}
         sshKeyName: ${SshKey}
+        rootVolume:
+          size: 30
 - apiVersion: bootstrap.cluster.x-k8s.io/v1alpha3
   kind: KubeadmConfigTemplate
   metadata:
