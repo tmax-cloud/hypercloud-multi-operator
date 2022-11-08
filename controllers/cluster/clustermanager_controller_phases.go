@@ -232,10 +232,12 @@ func (r *ClusterManagerReconciler) CreateServiceInstance(ctx context.Context, cl
 		case util.ProviderAws:
 			providerJson, err = json.Marshal(
 				&AwsParameter{
-					SshKey:     clusterManager.AwsSpec.SshKey,
-					Region:     clusterManager.AwsSpec.Region,
-					MasterType: clusterManager.AwsSpec.MasterType,
-					WorkerType: clusterManager.AwsSpec.WorkerType,
+					SshKey:         clusterManager.AwsSpec.SshKey,
+					Region:         clusterManager.AwsSpec.Region,
+					MasterType:     clusterManager.AwsSpec.MasterType,
+					MasterDiskSize: clusterManager.AwsSpec.MasterDiskSize,
+					WorkerType:     clusterManager.AwsSpec.WorkerType,
+					WorkerDiskSize: clusterManager.AwsSpec.WorkerDiskSize,
 				},
 			)
 			if err != nil {

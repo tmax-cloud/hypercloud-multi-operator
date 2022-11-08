@@ -45,6 +45,7 @@ objects:
     sshKeyName: ${SshKey}
   bastion:
     enabled: false
+    # enabled: true
 - apiVersion: controlplane.cluster.x-k8s.io/v1alpha3
   kind: KubeadmControlPlane
   metadata:
@@ -205,7 +206,7 @@ objects:
         instanceType: ${MasterType}
         sshKeyName: ${SshKey}
         rootVolume:
-          size: 30
+          size: ${MasterDiskSize}
 - apiVersion: cluster.x-k8s.io/v1alpha3
   kind: MachineDeployment
   metadata:
@@ -240,7 +241,7 @@ objects:
         instanceType: ${WorkerType}
         sshKeyName: ${SshKey}
         rootVolume:
-          size: 30
+          size: ${WorkerDiskSize}
 - apiVersion: bootstrap.cluster.x-k8s.io/v1alpha3
   kind: KubeadmConfigTemplate
   metadata:
@@ -319,6 +320,18 @@ parameters:
   required: false
   value: t3.large
   valueType: string
+- description: Master nodes disk type
+  displayName: MasterDiskSize
+  name: MasterDiskSize
+  required: false
+  value: 20
+  valueType: number
+- description: Worker nodes disk type
+  displayName: WorkerDiskSize
+  name: WorkerDiskSize
+  required: false
+  value: 20
+  valueType: number
 - description: HyperAuth url for open id connect
   displayName: HyperAuth URL
   name: HyperAuthUrl

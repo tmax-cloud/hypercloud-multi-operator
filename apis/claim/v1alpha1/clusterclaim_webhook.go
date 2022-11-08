@@ -113,6 +113,30 @@ func (r *ClusterClaim) ValidateCreate() error {
 		return k8sErrors.NewInvalid(r.GroupVersionKind().GroupKind(), "InvalidSpecClusterName", errList)
 	}
 
+	if r.Spec.ProviderAwsSpec.MasterDiskSize < 8 {
+		errList := []*field.Error{
+			{
+				Type:     field.ErrorTypeInvalid,
+				Field:    "spec.providerAwsSpec.masterDiskSize",
+				BadValue: r.Spec.ProviderAwsSpec.MasterDiskSize,
+				Detail:   "must be larger than 8 or equal to 8",
+			},
+		}
+		return k8sErrors.NewInvalid(r.GroupVersionKind().GroupKind(), "InvalidSpecClusterDiskSize", errList)
+	}
+
+	if r.Spec.ProviderAwsSpec.WorkerDiskSize < 8 {
+		errList := []*field.Error{
+			{
+				Type:     field.ErrorTypeInvalid,
+				Field:    "spec.providerAwsSpec.workerDiskSize",
+				BadValue: r.Spec.ProviderAwsSpec.WorkerDiskSize,
+				Detail:   "must be larger than 8 or equal to 8",
+			},
+		}
+		return k8sErrors.NewInvalid(r.GroupVersionKind().GroupKind(), "InvalidSpecClusterDiskSize", errList)
+	}
+
 	return nil
 }
 
