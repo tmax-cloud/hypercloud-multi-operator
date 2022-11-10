@@ -64,10 +64,12 @@ type ClusterParameter struct {
 }
 
 type AwsParameter struct {
-	SshKey     string
-	Region     string
-	MasterType string
-	WorkerType string
+	SshKey         string
+	Region         string
+	MasterType     string
+	WorkerType     string
+	MasterDiskSize int
+	WorkerDiskSize int
 }
 
 type VsphereParameter struct {

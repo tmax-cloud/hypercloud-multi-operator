@@ -15,10 +15,11 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"strings"
+
 	coreV1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"strings"
 )
 
 // type NodeInfo struct {
@@ -64,6 +65,10 @@ type ProviderAwsSpec struct {
 	MasterType string `json:"masterType,omitempty"`
 	// The type of VM for worker node
 	WorkerType string `json:"workerType,omitempty"`
+	// The size of VM for master node. Example: 20. The minimum value is 8.
+	MasterDiskSize int `json:"masterDiskSize,omitempty"`
+	// The size of VM for worker node. Example: 20. The minimum value is 8.
+	WorkerDiskSize int `json:"workerDiskSize,omitempty"`
 }
 
 // ProviderVsphereSpec defines
