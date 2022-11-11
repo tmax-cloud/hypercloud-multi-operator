@@ -1,6 +1,26 @@
 # HyperCloud-Multi-Operator changelog!!
 All notable changes to this project will be documented in this file.
 
+<!-------------------- v5.0.36.0 start -------------------->
+
+## HyperCloud-Multi-Operator_5.0.36.0 (2022. 11. 11. (금) 13:01:41 KST)
+
+### Added
+
+### Changed
+  - [mod] deploy.sh 수정 by sjoh0704
+  - [mod] fix error in validating webhook by sjoh0704
+  - [mod] capi-aws-template 수정:  ebs volume 크기 수정 8 => 30 by sjoh0704
+
+### Fixed
+
+### CRD yaml
+  - [crd] provider aws spec에 disk size 지정 변수 추가 by sjoh0704
+
+### Etc
+
+<!--------------------- v5.0.36.0 end --------------------->
+
 <!-------------------- v5.0.35.0 start -------------------->
 
 ## HyperCloud-Multi-Operator_5.0.35.0 (2022. 11. 04. (금) 13:22:00 KST)
