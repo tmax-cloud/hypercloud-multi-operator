@@ -360,9 +360,10 @@ func (r *ClusterManagerReconciler) kubeadmControlPlaneUpdate(ctx context.Context
 		*kcp.Spec.Replicas = int32(clusterManager.Spec.MasterNum)
 	}
 
-	if kcp.Spec.Version != clusterManager.Spec.Version {
-		kcp.Spec.Version = clusterManager.Spec.Version
-	}
+	// capi version upgrade 이슈로 미사용
+	// if kcp.Spec.Version != clusterManager.Spec.Version {
+	// 	kcp.Spec.Version = clusterManager.Spec.Version
+	// }
 
 	clusterManager.Status.Ready = true
 	return ctrl.Result{}, nil
@@ -388,7 +389,7 @@ func (r *ClusterManagerReconciler) machineDeploymentUpdate(ctx context.Context, 
 	helper, _ := patch.NewHelper(md, r.Client)
 	defer func() {
 		if err := helper.Patch(context.TODO(), md); err != nil {
-			r.Log.Error(err, "kubeadmcontrolplane patch error")
+			r.Log.Error(err, "machineDeployment patch error")
 		}
 	}()
 
@@ -396,9 +397,10 @@ func (r *ClusterManagerReconciler) machineDeploymentUpdate(ctx context.Context, 
 		*md.Spec.Replicas = int32(clusterManager.Spec.WorkerNum)
 	}
 
-	if *md.Spec.Template.Spec.Version != clusterManager.Spec.Version {
-		*md.Spec.Template.Spec.Version = clusterManager.Spec.Version
-	}
+	// capi version upgrade 이슈로 미사용
+	// if *md.Spec.Template.Spec.Version != clusterManager.Spec.Version {
+	// 	*md.Spec.Template.Spec.Version = clusterManager.Spec.Version
+	// }
 
 	return ctrl.Result{}, nil
 }
