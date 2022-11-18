@@ -140,6 +140,8 @@ const (
 	ClusterManagerPhaseReady = ClusterManagerPhase("Ready")
 	// 클러스터가 삭제중인 상태
 	ClusterManagerPhaseDeleting = ClusterManagerPhase("Deleting")
+	// 클러스터가 업그레이드 중인 상태
+	ClusterManagerPhaseUpgrading = ClusterManagerPhase("Upgrading")
 )
 
 // deprecated phases
@@ -206,6 +208,11 @@ const (
 	// LabelKeyClmClusterTypeDefunct = "type"
 	// LabelKeyClcNameDefunct = "parent"
 	// LabelKeyClrNameDefunct = "parent"
+)
+
+const (
+	ProviderAWS     = "AWS"
+	ProviderVSphere = "vSphere"
 )
 
 func (c *ClusterManagerStatus) SetTypedPhase(p ClusterManagerPhase) {

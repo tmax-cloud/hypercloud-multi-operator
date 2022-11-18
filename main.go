@@ -57,6 +57,7 @@ func init() {
 	utilruntime.Must(traefikV1alpha1.AddToScheme(scheme))
 	utilruntime.Must(argocdV1alpha1.AddToScheme(scheme))
 	// +kubebuilder:scaffold:scheme
+	
 }
 
 func main() {

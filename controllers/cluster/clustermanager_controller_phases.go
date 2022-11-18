@@ -35,14 +35,55 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/clientcmd"
-
+	// cpavV1alpha3 "sigs.k8s.io/cluster-api-provider-vsphere/apis/v1alpha3"
 	capiV1alpha3 "sigs.k8s.io/cluster-api/api/v1alpha3"
 	controlplanev1 "sigs.k8s.io/cluster-api/controlplane/kubeadm/api/v1alpha3"
 	"sigs.k8s.io/cluster-api/util/patch"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/yaml"
 )
+
+// reconcile시작 전 필요한 동작들을 수행
+func (r *ClusterManagerReconciler) ReadyReconcilePhase(ctx context.Context, clusterManager *clusterV1alpha1.ClusterManager) (ctrl.Result, error) {
+	log := r.Log.WithValues("clustermanager", clusterManager.GetNamespacedName())
+	log.Info("Start to reconcile phase for ReadyReconcilePhase")
+
+	// Label migration for old version
+	if _, ok := clusterManager.GetLabels()[clusterV1alpha1.LabelKeyClmClusterTypeDefunct]; ok {
+		clusterManager.Labels[clusterV1alpha1.LabelKeyClmClusterType] =
+			clusterManager.Labels[clusterV1alpha1.LabelKeyClmClusterTypeDefunct]
+	}
+
+	// Status migration for old version
+	if !clusterManager.Status.GatewayReadyMigration {
+		clusterManager.Status.GatewayReady = clusterManager.Status.PrometheusReady
+		clusterManager.Status.GatewayReadyMigration = true
+	}
+
+	// ApplicationLink migration for old version
+	if clusterManager.Status.ApplicationLink == "" {
+		argoIngress := &networkingV1.Ingress{}
+		key := types.NamespacedName{
+			Name:      util.ArgoIngressName,
+			Namespace: util.ArgoNamespace,
+		}
+		if err := r.Get(context.TODO(), key, argoIngress); err != nil {
+			log.Error(err, "Can not get argocd ingress information.")
+		} else {
+			subdomain := strings.Split(argoIngress.Spec.Rules[0].Host, ".")[0]
+			SetApplicationLink(clusterManager, subdomain)
+		}
+	}
+
+	// k8s version set
+	if clusterManager.Status.Version == "" {
+		clusterManager.Status.Version = clusterManager.Spec.Version
+	}
+
+	return ctrl.Result{}, nil
+}
 
 func (r *ClusterManagerReconciler) UpdateClusterManagerStatus(ctx context.Context, clusterManager *clusterV1alpha1.ClusterManager) (ctrl.Result, error) {
 	if clusterManager.Status.ControlPlaneReady {
@@ -332,6 +373,260 @@ func (r *ClusterManagerReconciler) SetEndpoint(ctx context.Context, clusterManag
 	return ctrl.Result{}, nil
 }
 
+func (r *ClusterManagerReconciler) VSphereClusterUpgradeReconcilePhase(ctx context.Context, clusterManager *clusterV1alpha1.ClusterManager) (ctrl.Result, error) {
+	log := r.Log.WithValues("clustermanager", clusterManager.GetNamespacedName())
+	log.Info("Start to reconcile phase for ClusterUpgradeReconcilePhase")
+
+	key := types.NamespacedName{
+		Name:      clusterManager.Name + "-control-plane",
+		Namespace: clusterManager.Namespace,
+	}
+	kcp := &controlplanev1.KubeadmControlPlane{}
+	if err := r.Get(context.TODO(), key, kcp); errors.IsNotFound(err) {
+		// kcp가 없는 경우는 잘못된 케이스이므로 끝낸다.
+		return ctrl.Result{}, nil
+	} else if err != nil {
+		log.Error(err, "Failed to get kubeadmcontrolplane")
+		return ctrl.Result{}, err
+	}
+
+	//create helper for patch
+	kcpHelper, _ := patch.NewHelper(kcp, r.Client)
+	defer func() {
+		if err := kcpHelper.Patch(context.TODO(), kcp); err != nil {
+			r.Log.Error(err, "KubeadmControlPlane patch error")
+		}
+	}()
+	// templateName := clusterManager.VsphereSpec.VcenterTemplate
+
+	// cluster-api
+
+
+	if kcp.Spec.Version != clusterManager.Spec.Version {
+		kcp.Spec.Version = clusterManager.Spec.Version
+		return ctrl.Result{RequeueAfter: requeueAfter10Second}, nil
+	}
+
+	// upgrade 완료한 machine 찾기
+	machines := &capiV1alpha3.MachineList{}
+	opts := []client.ListOption{
+		client.InNamespace(clusterManager.Namespace),
+		client.MatchingLabels{"cluster.x-k8s.io/cluster-name": clusterManager.Name},
+		client.MatchingLabels{"cluster.x-k8s.io/control-plane": ""},
+	}
+
+	upgradedMachineCount := 0
+	oldMachineList := []string{}
+
+	if err := r.List(context.TODO(), machines, opts...); err != nil {
+		log.Error(err, "Failed to list machines")
+		return ctrl.Result{RequeueAfter: requeueAfter10Second}, err
+	}
+	for _, machine := range machines.Items {
+		if machine.Status.Phase == string(capiV1alpha3.MachinePhaseRunning) && *machine.Spec.Version == clusterManager.Spec.Version {
+			upgradedMachineCount += 1
+
+		} else if *machine.Spec.Version != clusterManager.Spec.Version {
+			oldMachineList = append(oldMachineList, machine.Name)
+		}
+	}
+
+	if upgradedMachineCount == clusterManager.Spec.MasterNum {
+		log.Info(fmt.Sprintf("Controlplane nodes upgraded successfully (%d/%d)", upgradedMachineCount, clusterManager.Spec.MasterNum))
+	} else {
+		log.Info(fmt.Sprintf("Controlplane nodes are upgrading (%d/%d)", upgradedMachineCount, clusterManager.Spec.MasterNum))
+		log.Info(fmt.Sprintf("Need to upgrade machine: [%s]", strings.Join(oldMachineList, ", ")))
+		return ctrl.Result{RequeueAfter: requeueAfter30Second}, nil
+	}
+
+	key = types.NamespacedName{
+		Name:      clusterManager.Name + "-md-0",
+		Namespace: clusterManager.Namespace,
+	}
+
+	md := &capiV1alpha3.MachineDeployment{}
+	if err := r.Get(context.TODO(), key, md); errors.IsNotFound(err) {
+		return ctrl.Result{}, nil
+	} else if err != nil {
+		log.Error(err, "Failed to get machineDeployment")
+		return ctrl.Result{}, err
+	}
+
+	//create helper for patch
+	mdHelper, _ := patch.NewHelper(md, r.Client)
+	defer func() {
+		if err := mdHelper.Patch(context.TODO(), md); err != nil {
+			r.Log.Error(err, "machineDeployment patch error")
+		}
+	}()
+
+	if *md.Spec.Template.Spec.Version != clusterManager.Spec.Version {
+		*md.Spec.Template.Spec.Version = clusterManager.Spec.Version
+		return ctrl.Result{RequeueAfter: requeueAfter10Second}, nil
+	}
+
+	// upgrade 완료한 machine 찾기
+	machines = &capiV1alpha3.MachineList{}
+	opts = []client.ListOption{
+		client.InNamespace(clusterManager.Namespace),
+		client.MatchingLabels{"cluster.x-k8s.io/cluster-name": clusterManager.Name},
+		client.MatchingLabels{"cluster.x-k8s.io/deployment-name": clusterManager.Name + "-md-0"},
+	}
+
+	upgradedMachineCount = 0
+	oldMachineList = []string{}
+
+	if err := r.List(context.TODO(), machines, opts...); err != nil {
+		log.Error(err, "Failed to list machines")
+		return ctrl.Result{RequeueAfter: requeueAfter10Second}, err
+	}
+	for _, machine := range machines.Items {
+		if machine.Status.Phase == string(capiV1alpha3.MachinePhaseRunning) && *machine.Spec.Version == clusterManager.Spec.Version {
+			upgradedMachineCount += 1
+
+		} else if *machine.Spec.Version != clusterManager.Spec.Version {
+			oldMachineList = append(oldMachineList, machine.Name)
+		}
+	}
+
+	if upgradedMachineCount == clusterManager.Spec.WorkerNum {
+		log.Info(fmt.Sprintf("worker nodes upgraded successfully (%d/%d)", upgradedMachineCount, clusterManager.Spec.WorkerNum))
+	} else {
+		log.Info(fmt.Sprintf("worker nodes are upgrading (%d/%d)", upgradedMachineCount, clusterManager.Spec.WorkerNum))
+		log.Info(fmt.Sprintf("Need to upgrade machine: [%s]", strings.Join(oldMachineList, ", ")))
+		return ctrl.Result{RequeueAfter: requeueAfter30Second}, nil
+	}
+
+	clusterManager.Status.Version = clusterManager.Spec.Version
+	log.Info("Cluster upgradeded successfully")
+	return ctrl.Result{}, nil
+}
+
+func (r *ClusterManagerReconciler) AWSClusterUpgradeReconcilePhase(ctx context.Context, clusterManager *clusterV1alpha1.ClusterManager) (ctrl.Result, error) {
+	log := r.Log.WithValues("clustermanager", clusterManager.GetNamespacedName())
+	log.Info("Start to reconcile phase for ClusterUpgradeReconcilePhase")
+
+	key := types.NamespacedName{
+		Name:      clusterManager.Name + "-control-plane",
+		Namespace: clusterManager.Namespace,
+	}
+	kcp := &controlplanev1.KubeadmControlPlane{}
+	if err := r.Get(context.TODO(), key, kcp); errors.IsNotFound(err) {
+		// kcp가 없는 경우는 잘못된 케이스이므로 끝낸다.
+		return ctrl.Result{}, nil
+	} else if err != nil {
+		log.Error(err, "Failed to get kubeadmcontrolplane")
+		return ctrl.Result{}, err
+	}
+
+	//create helper for patch
+	kcpHelper, _ := patch.NewHelper(kcp, r.Client)
+	defer func() {
+		if err := kcpHelper.Patch(context.TODO(), kcp); err != nil {
+			r.Log.Error(err, "KubeadmControlPlane patch error")
+		}
+	}()
+
+	if kcp.Spec.Version != clusterManager.Spec.Version {
+		kcp.Spec.Version = clusterManager.Spec.Version
+		return ctrl.Result{RequeueAfter: requeueAfter10Second}, nil
+	}
+
+	// upgrade 완료한 machine 찾기
+	machines := &capiV1alpha3.MachineList{}
+	opts := []client.ListOption{
+		client.InNamespace(clusterManager.Namespace),
+		client.MatchingLabels{"cluster.x-k8s.io/cluster-name": clusterManager.Name},
+		client.MatchingLabels{"cluster.x-k8s.io/control-plane": ""},
+	}
+
+	upgradedMachineCount := 0
+	oldMachineList := []string{}
+
+	if err := r.List(context.TODO(), machines, opts...); err != nil {
+		log.Error(err, "Failed to list machines")
+		return ctrl.Result{RequeueAfter: requeueAfter10Second}, err
+	}
+	for _, machine := range machines.Items {
+		if machine.Status.Phase == string(capiV1alpha3.MachinePhaseRunning) && *machine.Spec.Version == clusterManager.Spec.Version {
+			upgradedMachineCount += 1
+
+		} else if *machine.Spec.Version != clusterManager.Spec.Version {
+			oldMachineList = append(oldMachineList, machine.Name)
+		}
+	}
+
+	if upgradedMachineCount == clusterManager.Spec.MasterNum {
+		log.Info(fmt.Sprintf("Controlplane nodes upgraded successfully (%d/%d)", upgradedMachineCount, clusterManager.Spec.MasterNum))
+	} else {
+		log.Info(fmt.Sprintf("Controlplane nodes are upgrading (%d/%d)", upgradedMachineCount, clusterManager.Spec.MasterNum))
+		log.Info(fmt.Sprintf("Need to upgrade machine: [%s]", strings.Join(oldMachineList, ", ")))
+		return ctrl.Result{RequeueAfter: requeueAfter30Second}, nil
+	}
+
+	key = types.NamespacedName{
+		Name:      clusterManager.Name + "-md-0",
+		Namespace: clusterManager.Namespace,
+	}
+
+	md := &capiV1alpha3.MachineDeployment{}
+	if err := r.Get(context.TODO(), key, md); errors.IsNotFound(err) {
+		return ctrl.Result{}, nil
+	} else if err != nil {
+		log.Error(err, "Failed to get machineDeployment")
+		return ctrl.Result{}, err
+	}
+
+	//create helper for patch
+	mdHelper, _ := patch.NewHelper(md, r.Client)
+	defer func() {
+		if err := mdHelper.Patch(context.TODO(), md); err != nil {
+			r.Log.Error(err, "machineDeployment patch error")
+		}
+	}()
+
+	if *md.Spec.Template.Spec.Version != clusterManager.Spec.Version {
+		*md.Spec.Template.Spec.Version = clusterManager.Spec.Version
+		return ctrl.Result{RequeueAfter: requeueAfter10Second}, nil
+	}
+
+	// upgrade 완료한 machine 찾기
+	machines = &capiV1alpha3.MachineList{}
+	opts = []client.ListOption{
+		client.InNamespace(clusterManager.Namespace),
+		client.MatchingLabels{"cluster.x-k8s.io/cluster-name": clusterManager.Name},
+		client.MatchingLabels{"cluster.x-k8s.io/deployment-name": clusterManager.Name + "-md-0"},
+	}
+
+	upgradedMachineCount = 0
+	oldMachineList = []string{}
+
+	if err := r.List(context.TODO(), machines, opts...); err != nil {
+		log.Error(err, "Failed to list machines")
+		return ctrl.Result{RequeueAfter: requeueAfter10Second}, err
+	}
+	for _, machine := range machines.Items {
+		if machine.Status.Phase == string(capiV1alpha3.MachinePhaseRunning) && *machine.Spec.Version == clusterManager.Spec.Version {
+			upgradedMachineCount += 1
+
+		} else if *machine.Spec.Version != clusterManager.Spec.Version {
+			oldMachineList = append(oldMachineList, machine.Name)
+		}
+	}
+
+	if upgradedMachineCount == clusterManager.Spec.WorkerNum {
+		log.Info(fmt.Sprintf("worker nodes upgraded successfully (%d/%d)", upgradedMachineCount, clusterManager.Spec.WorkerNum))
+	} else {
+		log.Info(fmt.Sprintf("worker nodes are upgrading (%d/%d)", upgradedMachineCount, clusterManager.Spec.WorkerNum))
+		log.Info(fmt.Sprintf("Need to upgrade machine: [%s]", strings.Join(oldMachineList, ", ")))
+		return ctrl.Result{RequeueAfter: requeueAfter30Second}, nil
+	}
+
+	clusterManager.Status.Version = clusterManager.Spec.Version
+	log.Info("Cluster upgradeded successfully")
+	return ctrl.Result{}, nil
+}
+
 func (r *ClusterManagerReconciler) kubeadmControlPlaneUpdate(ctx context.Context, clusterManager *clusterV1alpha1.ClusterManager) (ctrl.Result, error) {
 	log := r.Log.WithValues("clustermanager", clusterManager.GetNamespacedName())
 	log.Info("Start to reconcile phase for kubeadmControlPlaneUpdate")
@@ -344,7 +639,7 @@ func (r *ClusterManagerReconciler) kubeadmControlPlaneUpdate(ctx context.Context
 	if err := r.Get(context.TODO(), key, kcp); errors.IsNotFound(err) {
 		return ctrl.Result{}, nil
 	} else if err != nil {
-		log.Error(err, "Failed to get clusterRole")
+		log.Error(err, "Failed to get kubeadmControlPlane")
 		return ctrl.Result{}, err
 	}
 
@@ -381,7 +676,7 @@ func (r *ClusterManagerReconciler) machineDeploymentUpdate(ctx context.Context, 
 	if err := r.Get(context.TODO(), key, md); errors.IsNotFound(err) {
 		return ctrl.Result{}, nil
 	} else if err != nil {
-		log.Error(err, "Failed to get clusterRole")
+		log.Error(err, "Failed to get machineDeployment")
 		return ctrl.Result{}, err
 	}
 

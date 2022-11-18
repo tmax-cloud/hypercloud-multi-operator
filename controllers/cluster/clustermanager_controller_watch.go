@@ -130,7 +130,7 @@ func (r *ClusterManagerReconciler) requeueClusterManagersForMachineDeployment(o 
 		}
 	}()
 
-	clm.Status.WorkerRun = int(md.Status.Replicas)
+	clm.Status.WorkerRun = int(md.Status.ReadyReplicas)
 
 	return nil
 }
