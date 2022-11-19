@@ -16,7 +16,6 @@ package controllers
 
 import (
 	"context"
-	"time"
 
 	"github.com/go-logr/logr"
 	certmanagerV1 "github.com/jetstack/cert-manager/pkg/apis/certmanager/v1"
@@ -44,50 +43,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 )
-
-const (
-	requeueAfter10Second = 10 * time.Second
-	requeueAfter20Second = 20 * time.Second
-	requeueAfter30Second = 30 * time.Second
-	requeueAfter1Minute  = 1 * time.Minute
-)
-
-type ClusterParameter struct {
-	Namespace         string
-	ClusterName       string
-	MasterNum         int
-	WorkerNum         int
-	Owner             string
-	KubernetesVersion string
-	HyperAuthUrl      string
-}
-
-type AwsParameter struct {
-	SshKey         string
-	Region         string
-	MasterType     string
-	WorkerType     string
-	MasterDiskSize int
-	WorkerDiskSize int
-}
-
-type VsphereParameter struct {
-	PodCidr             string
-	VcenterIp           string
-	VcenterId           string
-	VcenterPassword     string
-	VcenterThumbprint   string
-	VcenterNetwork      string
-	VcenterDataCenter   string
-	VcenterDataStore    string
-	VcenterFolder       string
-	VcenterResourcePool string
-	VcenterKcpIp        string
-	VcenterCpuNum       int
-	VcenterMemSize      int
-	VcenterDiskSize     int
-	VcenterTemplate     string
-}
 
 // ClusterManagerReconciler reconciles a ClusterManager object
 type ClusterManagerReconciler struct {
@@ -260,7 +215,9 @@ func (r *ClusterManagerReconciler) reconcile(ctx context.Context, clusterManager
 		if clusterManager.Spec.Provider == clusterV1alpha1.ProviderAWS {
 			phases = append(phases, r.AWSClusterUpgradeReconcilePhase)
 		} else if clusterManager.Spec.Provider == clusterV1alpha1.ProviderVSphere {
-			phases = append(phases, r.VSphereClusterUpgradeReconcilePhase)
+			phases = append(phases,
+				r.CreateUpgradeVsphereServiceInstance,
+				r.VSphereClusterUpgradeReconcilePhase)
 		}
 
 	}

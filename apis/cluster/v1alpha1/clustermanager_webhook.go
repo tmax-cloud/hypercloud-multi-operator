@@ -16,6 +16,7 @@ package v1alpha1
 
 import (
 	"errors"
+	"fmt"
 
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -76,6 +77,19 @@ func (r *ClusterManager) ValidateUpdate(old runtime.Object) error {
 	// 		return errors.New("Cannot modify groups when cluster status is not ready")
 	// 	}
 	// }
+
+	// version upgrade의 경우
+	if r.Spec.Version != oldClusterManager.Spec.Version {
+		fmt.Println("1")
+		// vsphere의 경우, version과 template을 함께 업데이트해야 함
+		if r.Spec.Provider == ProviderVSphere {
+			fmt.Println("2")
+			if r.VsphereSpec.VcenterTemplate == oldClusterManager.VsphereSpec.VcenterTemplate {
+				fmt.Println("3")
+				return errors.New("For vsphere provider, must update spec.version and vsphereSpec.vcetnerTemplate")
+			}
+		}
+	}
 
 	return nil
 }

@@ -35,6 +35,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/clientcmd"
+
 	// cpavV1alpha3 "sigs.k8s.io/cluster-api-provider-vsphere/apis/v1alpha3"
 	capiV1alpha3 "sigs.k8s.io/cluster-api/api/v1alpha3"
 	controlplanev1 "sigs.k8s.io/cluster-api/controlplane/kubeadm/api/v1alpha3"
@@ -332,13 +333,83 @@ func (r *ClusterManagerReconciler) CreateServiceInstance(ctx context.Context, cl
 				},
 			},
 		}
+		ctrl.SetControllerReference(clusterManager, serviceInstance, r.Scheme)
 		if err = r.Create(context.TODO(), serviceInstance); err != nil {
 			log.Error(err, "Failed to create ServiceInstance")
 			return ctrl.Result{}, err
 		}
+		clusterManager.Annotations[clusterV1alpha1.AnnotationKeyClmSuffix] = generatedSuffix
+	} else if err != nil {
+		log.Error(err, "Failed to get ServiceInstance")
+		return ctrl.Result{}, err
+	}
+
+	return ctrl.Result{}, nil
+}
+
+func (r *ClusterManagerReconciler) CreateUpgradeVsphereServiceInstance(ctx context.Context, clusterManager *clusterV1alpha1.ClusterManager) (ctrl.Result, error) {
+	log := r.Log.WithValues("clustermanager", clusterManager.GetNamespacedName())
+	log.Info("Start to reconcile phase for CreateUpgradeVsphereServiceInstance")
+
+	clmSuffix, ok := clusterManager.Annotations[clusterV1alpha1.AnnotationKeyClmSuffix]
+	if !ok {
+		err := fmt.Errorf("Cannot find cluster suffix from cluster manager")
+		log.Error(err, "failed to upgrade vsphere cluster")
+		return ctrl.Result{}, err
+	}
+	serviceInstanceName := fmt.Sprintf("%s-%s-%s", clusterManager.Name, clmSuffix, clusterManager.Spec.Version)
+	key := types.NamespacedName{
+		Name:      serviceInstanceName,
+		Namespace: clusterManager.Namespace,
+	}
+
+	if err := r.Get(context.TODO(), key, &servicecatalogv1beta1.ServiceInstance{}); errors.IsNotFound(err) {
+		upgradeJson, err := json.Marshal(
+			&VsphereUpgradeParameter{
+				Namespace:           clusterManager.Namespace,
+				KubernetesVersion:   clusterManager.Spec.Version,
+				ClusterName:         clusterManager.Name,
+				VcenterIp:           clusterManager.VsphereSpec.VcenterIp,
+				VcenterThumbprint:   clusterManager.VsphereSpec.VcenterThumbprint,
+				VcenterNetwork:      clusterManager.VsphereSpec.VcenterNetwork,
+				VcenterDataCenter:   clusterManager.VsphereSpec.VcenterDataCenter,
+				VcenterDataStore:    clusterManager.VsphereSpec.VcenterDataStore,
+				VcenterFolder:       clusterManager.VsphereSpec.VcenterFolder,
+				VcenterResourcePool: clusterManager.VsphereSpec.VcenterResourcePool,
+				VcenterCpuNum:       clusterManager.VsphereSpec.VcenterCpuNum,
+				VcenterMemSize:      clusterManager.VsphereSpec.VcenterMemSize,
+				VcenterDiskSize:     clusterManager.VsphereSpec.VcenterDiskSize,
+				VcenterTemplate:     clusterManager.VsphereSpec.VcenterTemplate,
+			},
+		)
+		if err != nil {
+			log.Error(err, "Failed to marshal upgrade parameters")
+		}
+		serviceInstance := &servicecatalogv1beta1.ServiceInstance{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      serviceInstanceName,
+				Namespace: clusterManager.Namespace,
+				Annotations: map[string]string{
+					util.AnnotationKeyOwner:   clusterManager.Annotations[util.AnnotationKeyCreator],
+					util.AnnotationKeyCreator: clusterManager.Annotations[util.AnnotationKeyCreator],
+				},
+			},
+			Spec: servicecatalogv1beta1.ServiceInstanceSpec{
+				PlanReference: servicecatalogv1beta1.PlanReference{
+					ClusterServiceClassExternalName: "capi-vsphere-upgrade-template",
+					ClusterServicePlanExternalName:  "capi-vsphere-upgrade-template-plan-default",
+				},
+				Parameters: &runtime.RawExtension{
+					Raw: upgradeJson,
+				},
+			},
+		}
 
 		ctrl.SetControllerReference(clusterManager, serviceInstance, r.Scheme)
-		clusterManager.Annotations[clusterV1alpha1.AnnotationKeyClmSuffix] = generatedSuffix
+		if err = r.Create(context.TODO(), serviceInstance); err != nil {
+			log.Error(err, "Failed to create ServiceInstance")
+			return ctrl.Result{}, err
+		}
 	} else if err != nil {
 		log.Error(err, "Failed to get ServiceInstance")
 		return ctrl.Result{}, err
@@ -375,16 +446,46 @@ func (r *ClusterManagerReconciler) SetEndpoint(ctx context.Context, clusterManag
 
 func (r *ClusterManagerReconciler) VSphereClusterUpgradeReconcilePhase(ctx context.Context, clusterManager *clusterV1alpha1.ClusterManager) (ctrl.Result, error) {
 	log := r.Log.WithValues("clustermanager", clusterManager.GetNamespacedName())
-	log.Info("Start to reconcile phase for ClusterUpgradeReconcilePhase")
+	log.Info("Start to reconcile phase for VSphereClusterUpgradeReconcilePhase")
+
+	// service instance 체크
+	clmSuffix, ok := clusterManager.Annotations[clusterV1alpha1.AnnotationKeyClmSuffix]
+	if !ok {
+		err := fmt.Errorf("Cannot find cluster suffix from cluster manager")
+		log.Error(err, "failed to upgrade vsphere cluster")
+		return ctrl.Result{}, err
+	}
+	serviceInstanceName := fmt.Sprintf("%s-%s-%s", clusterManager.Name, clmSuffix, clusterManager.Spec.Version)
 
 	key := types.NamespacedName{
+		Name:      serviceInstanceName,
+		Namespace: clusterManager.Namespace,
+	}
+
+	serviceinstance := &servicecatalogv1beta1.ServiceInstance{}
+	if err := r.Get(context.TODO(), key, serviceinstance); errors.IsNotFound(err) {
+		log.Info("Waiting for vsphere upgrade service instance to be created")
+		return ctrl.Result{RequeueAfter: requeueAfter10Second}, nil
+	} else if err != nil {
+		log.Error(err, "failed to get service instance")
+		return ctrl.Result{}, err
+	}
+
+	if serviceinstance.Status.ProvisionStatus != servicecatalogv1beta1.ServiceInstanceProvisionStatusProvisioned {
+		log.Info("Waiting for vsphere upgrade service instance to be provisioned")
+		return ctrl.Result{Requeue: true}, nil
+	}
+
+	// kcp 업데이트
+	key = types.NamespacedName{
 		Name:      clusterManager.Name + "-control-plane",
 		Namespace: clusterManager.Namespace,
 	}
+
 	kcp := &controlplanev1.KubeadmControlPlane{}
 	if err := r.Get(context.TODO(), key, kcp); errors.IsNotFound(err) {
-		// kcp가 없는 경우는 잘못된 케이스이므로 끝낸다.
-		return ctrl.Result{}, nil
+		log.Error(err, "Cannot find kubeadmcontrolplane")
+		return ctrl.Result{}, err
 	} else if err != nil {
 		log.Error(err, "Failed to get kubeadmcontrolplane")
 		return ctrl.Result{}, err
@@ -397,13 +498,11 @@ func (r *ClusterManagerReconciler) VSphereClusterUpgradeReconcilePhase(ctx conte
 			r.Log.Error(err, "KubeadmControlPlane patch error")
 		}
 	}()
-	// templateName := clusterManager.VsphereSpec.VcenterTemplate
 
-	// cluster-api
-
-
+	// 단일 트랜잭션으로 업데이트 필요
 	if kcp.Spec.Version != clusterManager.Spec.Version {
 		kcp.Spec.Version = clusterManager.Spec.Version
+		kcp.Spec.InfrastructureTemplate.Name = clusterManager.VsphereSpec.VcenterTemplate
 		return ctrl.Result{RequeueAfter: requeueAfter10Second}, nil
 	}
 
@@ -439,6 +538,7 @@ func (r *ClusterManagerReconciler) VSphereClusterUpgradeReconcilePhase(ctx conte
 		return ctrl.Result{RequeueAfter: requeueAfter30Second}, nil
 	}
 
+	// machineDeployment 업데이트
 	key = types.NamespacedName{
 		Name:      clusterManager.Name + "-md-0",
 		Namespace: clusterManager.Namespace,
@@ -462,6 +562,7 @@ func (r *ClusterManagerReconciler) VSphereClusterUpgradeReconcilePhase(ctx conte
 
 	if *md.Spec.Template.Spec.Version != clusterManager.Spec.Version {
 		*md.Spec.Template.Spec.Version = clusterManager.Spec.Version
+		md.Spec.Template.Spec.InfrastructureRef.Name = clusterManager.VsphereSpec.VcenterTemplate
 		return ctrl.Result{RequeueAfter: requeueAfter10Second}, nil
 	}
 
@@ -504,7 +605,7 @@ func (r *ClusterManagerReconciler) VSphereClusterUpgradeReconcilePhase(ctx conte
 
 func (r *ClusterManagerReconciler) AWSClusterUpgradeReconcilePhase(ctx context.Context, clusterManager *clusterV1alpha1.ClusterManager) (ctrl.Result, error) {
 	log := r.Log.WithValues("clustermanager", clusterManager.GetNamespacedName())
-	log.Info("Start to reconcile phase for ClusterUpgradeReconcilePhase")
+	log.Info("Start to reconcile phase for AWSClusterUpgradeReconcilePhase")
 
 	key := types.NamespacedName{
 		Name:      clusterManager.Name + "-control-plane",
