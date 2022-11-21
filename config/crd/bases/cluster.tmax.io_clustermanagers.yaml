@@ -130,6 +130,8 @@ spec:
                 type: boolean
               gatewayReadyMigration:
                 type: boolean
+              masterNum:
+                type: integer
               masterRun:
                 type: integer
               nodeInfo:
@@ -202,6 +204,8 @@ spec:
                 type: boolean
               version:
                 type: string
+              workerNum:
+                type: integer
               workerRun:
                 type: integer
             type: object

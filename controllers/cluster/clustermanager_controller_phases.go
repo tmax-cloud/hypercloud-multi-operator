@@ -76,9 +76,14 @@ func (r *ClusterManagerReconciler) ReadyReconcilePhase(ctx context.Context, clus
 		}
 	}
 
-	// k8s version set
 	if clusterManager.Status.Version == "" {
 		clusterManager.Status.Version = clusterManager.Spec.Version
+	}
+	if clusterManager.Status.MasterNum == 0 {
+		clusterManager.Status.MasterNum = clusterManager.Spec.MasterNum
+	}
+	if clusterManager.Status.WorkerNum == 0 {
+		clusterManager.Status.WorkerNum = clusterManager.Spec.WorkerNum
 	}
 
 	return ctrl.Result{}, nil
@@ -474,7 +479,7 @@ func (r *ClusterManagerReconciler) ClusterUpgrade(ctx context.Context, clusterMa
 	}
 
 	// upgrade 완료한 machine 찾기
-	upgradedMachineCount, oldMachineList, err := r.GetMachineList(clusterManager, true)
+	upgradedMachineCount, oldMachineList, err := r.GetUpgradeMachinesInfo(clusterManager, true)
 	if err != nil {
 		log.Error(err, "Failed to list machines")
 		return ctrl.Result{RequeueAfter: requeueAfter10Second}, nil
@@ -513,13 +518,13 @@ func (r *ClusterManagerReconciler) ClusterUpgrade(ctx context.Context, clusterMa
 	if *md.Spec.Template.Spec.Version != clusterManager.Spec.Version {
 		*md.Spec.Template.Spec.Version = clusterManager.Spec.Version
 		if clusterManager.Spec.Provider == clusterV1alpha1.ProviderVSphere {
-			kcp.Spec.InfrastructureTemplate.Name = fmt.Sprintf("%s-%s", clusterManager.Name, clusterManager.Spec.Version)
+			md.Spec.Template.Spec.InfrastructureRef.Name = fmt.Sprintf("%s-%s", clusterManager.Name, clusterManager.Spec.Version)
 		}
 		return ctrl.Result{RequeueAfter: requeueAfter10Second}, nil
 	}
 
 	// upgrade 완료한 machine 찾기
-	upgradedMachineCount, oldMachineList, err = r.GetMachineList(clusterManager, false)
+	upgradedMachineCount, oldMachineList, err = r.GetUpgradeMachinesInfo(clusterManager, false)
 	if err != nil {
 		log.Error(err, "Failed to list machines")
 		return ctrl.Result{RequeueAfter: requeueAfter10Second}, nil
@@ -566,11 +571,6 @@ func (r *ClusterManagerReconciler) kubeadmControlPlaneUpdate(ctx context.Context
 		*kcp.Spec.Replicas = int32(clusterManager.Spec.MasterNum)
 	}
 
-	// capi version upgrade 이슈로 미사용
-	// if kcp.Spec.Version != clusterManager.Spec.Version {
-	// 	kcp.Spec.Version = clusterManager.Spec.Version
-	// }
-
 	clusterManager.Status.Ready = true
 	return ctrl.Result{}, nil
 }
@@ -602,11 +602,6 @@ func (r *ClusterManagerReconciler) machineDeploymentUpdate(ctx context.Context, 
 	if *md.Spec.Replicas != int32(clusterManager.Spec.WorkerNum) {
 		*md.Spec.Replicas = int32(clusterManager.Spec.WorkerNum)
 	}
-
-	// capi version upgrade 이슈로 미사용
-	// if *md.Spec.Template.Spec.Version != clusterManager.Spec.Version {
-	// 	*md.Spec.Template.Spec.Version = clusterManager.Spec.Version
-	// }
 
 	return ctrl.Result{}, nil
 }

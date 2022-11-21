@@ -479,7 +479,7 @@ func (r *ClusterManagerReconciler) SetupWithManager(mgr ctrl.Manager) error {
 				oldMd := e.ObjectOld.(*capiV1alpha3.MachineDeployment)
 				newMd := e.ObjectNew.(*capiV1alpha3.MachineDeployment)
 
-				return oldMd.Status.ReadyReplicas != newMd.Status.ReadyReplicas
+				return oldMd.Status.Replicas != newMd.Status.Replicas
 			},
 			CreateFunc: func(e event.CreateEvent) bool {
 				return true

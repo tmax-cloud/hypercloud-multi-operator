@@ -113,6 +113,8 @@ type ClusterManagerStatus struct {
 	ControlPlaneReady     bool                    `json:"controlPlaneReady,omitempty"`
 	MasterRun             int                     `json:"masterRun,omitempty"`
 	WorkerRun             int                     `json:"workerRun,omitempty"`
+	MasterNum             int                     `json:"masterNum,omitempty"`
+	WorkerNum             int                     `json:"workerNum,omitempty"`
 	NodeInfo              []coreV1.NodeSystemInfo `json:"nodeInfo,omitempty"`
 	Phase                 ClusterManagerPhase     `json:"phase,omitempty"`
 	ControlPlaneEndpoint  string                  `json:"controlPlaneEndpoint,omitempty"`

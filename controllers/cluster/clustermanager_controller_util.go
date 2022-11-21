@@ -75,9 +75,8 @@ func MakeServiceInstance(clusterManager *clusterV1alpha1.ClusterManager, service
 	return serviceInstance
 }
 
-// upgrade 완료한 machine 수, 아직 upgrade되지 않은 machine list를 반환한다.
-func (r *ClusterManagerReconciler) GetMachineList(clusterManager *clusterV1alpha1.ClusterManager, controlplane bool) (int, []string, error) {
-	machines := &capiV1alpha3.MachineList{}
+// controlplane, worker에 따른 machine list를 반환한다.
+func (r *ClusterManagerReconciler) GetMachineList(clusterManager *clusterV1alpha1.ClusterManager, controlplane bool) ([]capiV1alpha3.Machine, error) {
 
 	opts := []client.ListOption{client.InNamespace(clusterManager.Namespace),
 		client.MatchingLabels{CAPI_CLUSTER_LABEL_KEY: clusterManager.Name}}
@@ -87,13 +86,27 @@ func (r *ClusterManagerReconciler) GetMachineList(clusterManager *clusterV1alpha
 		opts = append(opts, client.MatchingLabels{CAPI_WORKER_LABEL_KEY: clusterManager.Name + "-md-0"})
 	}
 
+	machines := &capiV1alpha3.MachineList{}
+
+	if err := r.List(context.TODO(), machines, opts...); err != nil {
+		return []capiV1alpha3.Machine{}, err
+	}
+
+	return machines.Items, nil
+}
+
+// upgrade 완료한 machine 수, 아직 upgrade되지 않은 machine list를 반환한다.
+func (r *ClusterManagerReconciler) GetUpgradeMachinesInfo(clusterManager *clusterV1alpha1.ClusterManager, controlplane bool) (int, []string, error) {
+
+	machines, err := r.GetMachineList(clusterManager, controlplane)
+	if err != nil {
+		return 0, []string{}, err
+	}
+
 	upgradedMachineCount := 0
 	oldMachineList := []string{}
 
-	if err := r.List(context.TODO(), machines, opts...); err != nil {
-		return 0, []string{}, err
-	}
-	for _, machine := range machines.Items {
+	for _, machine := range machines {
 		if machine.Status.Phase == string(capiV1alpha3.MachinePhaseRunning) && *machine.Spec.Version == clusterManager.Spec.Version {
 			upgradedMachineCount += 1
 
