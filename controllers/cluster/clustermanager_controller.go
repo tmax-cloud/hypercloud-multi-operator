@@ -212,14 +212,10 @@ func (r *ClusterManagerReconciler) reconcile(ctx context.Context, clusterManager
 		clusterManager.Status.Version != "" && clusterManager.Spec.Version != clusterManager.Status.Version {
 		//capi version upgrade하는 경우
 		phases = []func(context.Context, *clusterV1alpha1.ClusterManager) (ctrl.Result, error){}
-		if clusterManager.Spec.Provider == clusterV1alpha1.ProviderAWS {
-			phases = append(phases, r.AWSClusterUpgradeReconcilePhase)
-		} else if clusterManager.Spec.Provider == clusterV1alpha1.ProviderVSphere {
-			phases = append(phases,
-				r.CreateUpgradeVsphereServiceInstance,
-				r.VSphereClusterUpgradeReconcilePhase)
+		if clusterManager.Spec.Provider == clusterV1alpha1.ProviderVSphere {
+			phases = append(phases, r.CreateUpgradeServiceInstance)
 		}
-
+		phases = append(phases, r.ClusterUpgrade)
 	}
 
 	res := ctrl.Result{}

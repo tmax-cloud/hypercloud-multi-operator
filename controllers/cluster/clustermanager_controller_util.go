@@ -29,15 +29,80 @@ import (
 	util "github.com/tmax-cloud/hypercloud-multi-operator/controllers/util"
 	dynamicv2 "github.com/traefik/traefik/v2/pkg/config/dynamic"
 	traefikV1alpha1 "github.com/traefik/traefik/v2/pkg/provider/kubernetes/crd/traefik/v1alpha1"
+	capiV1alpha3 "sigs.k8s.io/cluster-api/api/v1alpha3"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	servicecatalogv1beta1 "github.com/kubernetes-sigs/service-catalog/pkg/apis/servicecatalog/v1beta1"
 	coreV1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
+
+func MakeServiceInstance(clusterManager *clusterV1alpha1.ClusterManager, serviceInstanceName string, json []byte, upgrade bool) *servicecatalogv1beta1.ServiceInstance {
+	templateName := ""
+	if upgrade {
+		// vsphere upgrade에 대해서만 serviceinstance를 생성하므로
+		templateName = CAPI_VSPHERE_UPGRADE_TEMPLATE
+	} else {
+		templateName = "capi-" + strings.ToLower(clusterManager.Spec.Provider) + "-template"
+	}
+
+	serviceInstance := &servicecatalogv1beta1.ServiceInstance{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      serviceInstanceName,
+			Namespace: clusterManager.Namespace,
+			Annotations: map[string]string{
+				util.AnnotationKeyOwner:   clusterManager.Annotations[util.AnnotationKeyCreator],
+				util.AnnotationKeyCreator: clusterManager.Annotations[util.AnnotationKeyCreator],
+			},
+		},
+		Spec: servicecatalogv1beta1.ServiceInstanceSpec{
+			PlanReference: servicecatalogv1beta1.PlanReference{
+				ClusterServiceClassExternalName: templateName,
+				ClusterServicePlanExternalName:  fmt.Sprintf("%s-%s", templateName, "plan-default"),
+			},
+			Parameters: &runtime.RawExtension{
+				Raw: json,
+			},
+		},
+	}
+
+	return serviceInstance
+}
+
+// upgrade 완료한 machine 수, 아직 upgrade되지 않은 machine list를 반환한다.
+func (r *ClusterManagerReconciler) GetMachineList(clusterManager *clusterV1alpha1.ClusterManager, controlplane bool) (int, []string, error) {
+	machines := &capiV1alpha3.MachineList{}
+
+	opts := []client.ListOption{client.InNamespace(clusterManager.Namespace),
+		client.MatchingLabels{CAPI_CLUSTER_LABEL_KEY: clusterManager.Name}}
+	if controlplane {
+		opts = append(opts, client.MatchingLabels{CAPI_CONTROLPLANE_LABEL_KEY: ""})
+	} else {
+		opts = append(opts, client.MatchingLabels{CAPI_WORKER_LABEL_KEY: clusterManager.Name + "-md-0"})
+	}
+
+	upgradedMachineCount := 0
+	oldMachineList := []string{}
+
+	if err := r.List(context.TODO(), machines, opts...); err != nil {
+		return 0, []string{}, err
+	}
+	for _, machine := range machines.Items {
+		if machine.Status.Phase == string(capiV1alpha3.MachinePhaseRunning) && *machine.Spec.Version == clusterManager.Spec.Version {
+			upgradedMachineCount += 1
+
+		} else if *machine.Spec.Version != clusterManager.Spec.Version {
+			oldMachineList = append(oldMachineList, machine.Name)
+		}
+	}
+	return upgradedMachineCount, oldMachineList, nil
+}
 
 func SetApplicationLink(c *clusterV1alpha1.ClusterManager, subdomain string) {
 	c.Status.ApplicationLink = strings.Join(
