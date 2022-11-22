@@ -18,7 +18,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"os"
 	"regexp"
 	"strings"
 
@@ -249,25 +248,13 @@ func (r *ClusterManagerReconciler) CreateServiceInstance(ctx context.Context, cl
 
 	// hyperauthTlsCert := hyperAuth.GetHyperAuthTLSCertificate(hyperauthHttpsSecret)
 
-	hyperauthDomain := "https://" + os.Getenv("AUTH_SUBDOMAIN") + "." + os.Getenv("HC_DOMAIN") + "/auth/realms/tmax"
-
 	key := types.NamespacedName{
 		Name:      clusterManager.Name + clusterManager.Annotations[clusterV1alpha1.AnnotationKeyClmSuffix],
 		Namespace: clusterManager.Namespace,
 	}
 
 	if err := r.Get(context.TODO(), key, &servicecatalogv1beta1.ServiceInstance{}); errors.IsNotFound(err) {
-		clusterJson, err := json.Marshal(
-			&ClusterParameter{
-				Namespace:         clusterManager.Namespace,
-				ClusterName:       clusterManager.Name,
-				Owner:             clusterManager.Annotations[util.AnnotationKeyOwner],
-				KubernetesVersion: clusterManager.Spec.Version,
-				MasterNum:         clusterManager.Spec.MasterNum,
-				WorkerNum:         clusterManager.Spec.WorkerNum,
-				HyperAuthUrl:      hyperauthDomain,
-			},
-		)
+		clusterJson, err := Marshaling(&ClusterParameter{}, *clusterManager)
 		if err != nil {
 			log.Error(err, "Failed to marshal cluster parameters")
 		}
@@ -275,47 +262,18 @@ func (r *ClusterManagerReconciler) CreateServiceInstance(ctx context.Context, cl
 		var providerJson []byte
 		switch strings.ToUpper(clusterManager.Spec.Provider) {
 		case util.ProviderAws:
-			providerJson, err = json.Marshal(
-				&AwsParameter{
-					SshKey:         clusterManager.AwsSpec.SshKey,
-					Region:         clusterManager.AwsSpec.Region,
-					MasterType:     clusterManager.AwsSpec.MasterType,
-					MasterDiskSize: clusterManager.AwsSpec.MasterDiskSize,
-					WorkerType:     clusterManager.AwsSpec.WorkerType,
-					WorkerDiskSize: clusterManager.AwsSpec.WorkerDiskSize,
-				},
-			)
-
+			providerJson, err = Marshaling(&AwsParameter{}, *clusterManager)
 			if err != nil {
 				log.Error(err, "Failed to marshal cluster parameters")
 				return ctrl.Result{}, err
 			}
 		case util.ProviderVsphere:
-			providerJson, err = json.Marshal(
-				&VsphereParameter{
-					PodCidr:             clusterManager.VsphereSpec.PodCidr,
-					VcenterIp:           clusterManager.VsphereSpec.VcenterIp,
-					VcenterId:           clusterManager.VsphereSpec.VcenterId,
-					VcenterPassword:     clusterManager.VsphereSpec.VcenterPassword,
-					VcenterThumbprint:   clusterManager.VsphereSpec.VcenterThumbprint,
-					VcenterNetwork:      clusterManager.VsphereSpec.VcenterNetwork,
-					VcenterDataCenter:   clusterManager.VsphereSpec.VcenterDataCenter,
-					VcenterDataStore:    clusterManager.VsphereSpec.VcenterDataStore,
-					VcenterFolder:       clusterManager.VsphereSpec.VcenterFolder,
-					VcenterResourcePool: clusterManager.VsphereSpec.VcenterResourcePool,
-					VcenterKcpIp:        clusterManager.VsphereSpec.VcenterKcpIp,
-					VcenterCpuNum:       clusterManager.VsphereSpec.VcenterCpuNum,
-					VcenterMemSize:      clusterManager.VsphereSpec.VcenterMemSize,
-					VcenterDiskSize:     clusterManager.VsphereSpec.VcenterDiskSize,
-					VcenterTemplate:     clusterManager.VsphereSpec.VcenterTemplate,
-				},
-			)
+			providerJson, err = Marshaling(&VsphereParameter{}, *clusterManager)
 			if err != nil {
 				log.Error(err, "Failed to marshal cluster parameters")
 				return ctrl.Result{}, err
 			}
 		}
-
 		clusterJson = util.MergeJson(clusterJson, providerJson)
 		generatedSuffix := util.CreateSuffixString()
 		serviceInstanceName := clusterManager.Name + "-" + generatedSuffix
@@ -350,24 +308,7 @@ func (r *ClusterManagerReconciler) CreateUpgradeServiceInstance(ctx context.Cont
 	}
 
 	if err := r.Get(context.TODO(), key, &servicecatalogv1beta1.ServiceInstance{}); errors.IsNotFound(err) {
-		upgradeJson, err := json.Marshal(
-			&VsphereUpgradeParameter{
-				Namespace:           clusterManager.Namespace,
-				KubernetesVersion:   clusterManager.Spec.Version,
-				ClusterName:         clusterManager.Name,
-				VcenterIp:           clusterManager.VsphereSpec.VcenterIp,
-				VcenterThumbprint:   clusterManager.VsphereSpec.VcenterThumbprint,
-				VcenterNetwork:      clusterManager.VsphereSpec.VcenterNetwork,
-				VcenterDataCenter:   clusterManager.VsphereSpec.VcenterDataCenter,
-				VcenterDataStore:    clusterManager.VsphereSpec.VcenterDataStore,
-				VcenterFolder:       clusterManager.VsphereSpec.VcenterFolder,
-				VcenterResourcePool: clusterManager.VsphereSpec.VcenterResourcePool,
-				VcenterCpuNum:       clusterManager.VsphereSpec.VcenterCpuNum,
-				VcenterMemSize:      clusterManager.VsphereSpec.VcenterMemSize,
-				VcenterDiskSize:     clusterManager.VsphereSpec.VcenterDiskSize,
-				VcenterTemplate:     clusterManager.VsphereSpec.VcenterTemplate,
-			},
-		)
+		upgradeJson, err := Marshaling(&VsphereUpgradeParameter{}, *clusterManager)
 		if err != nil {
 			log.Error(err, "Failed to marshal upgrade parameters")
 		}

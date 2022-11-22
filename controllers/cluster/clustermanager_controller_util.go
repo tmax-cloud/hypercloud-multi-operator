@@ -16,6 +16,7 @@ package controllers
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 	"regexp"
@@ -42,6 +43,125 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
+
+type Parameters interface {
+	SetParameter(clusterV1alpha1.ClusterManager)
+}
+
+type ClusterParameter struct {
+	Namespace         string
+	ClusterName       string
+	MasterNum         int
+	WorkerNum         int
+	Owner             string
+	KubernetesVersion string
+	HyperAuthUrl      string
+}
+
+func (p *ClusterParameter) SetParameter(clusterManager clusterV1alpha1.ClusterManager) {
+	hyperauthDomain := "https://" + os.Getenv("AUTH_SUBDOMAIN") + "." + os.Getenv("HC_DOMAIN") + "/auth/realms/tmax"
+	p.Namespace = clusterManager.Namespace
+	p.ClusterName = clusterManager.Name
+	p.Owner = clusterManager.Annotations[util.AnnotationKeyOwner]
+	p.KubernetesVersion = clusterManager.Spec.Version
+	p.MasterNum = clusterManager.Spec.MasterNum
+	p.WorkerNum = clusterManager.Spec.WorkerNum
+	p.HyperAuthUrl = hyperauthDomain
+}
+
+type AwsParameter struct {
+	SshKey         string
+	Region         string
+	MasterType     string
+	WorkerType     string
+	MasterDiskSize int
+	WorkerDiskSize int
+}
+
+func (p *AwsParameter) SetParameter(clusterManager clusterV1alpha1.ClusterManager) {
+	p.SshKey = clusterManager.AwsSpec.SshKey
+	p.Region = clusterManager.AwsSpec.Region
+	p.MasterType = clusterManager.AwsSpec.MasterType
+	p.MasterDiskSize = clusterManager.AwsSpec.MasterDiskSize
+	p.WorkerType = clusterManager.AwsSpec.WorkerType
+	p.WorkerDiskSize = clusterManager.AwsSpec.WorkerDiskSize
+}
+
+type VsphereParameter struct {
+	PodCidr             string
+	VcenterIp           string
+	VcenterId           string
+	VcenterPassword     string
+	VcenterThumbprint   string
+	VcenterNetwork      string
+	VcenterDataCenter   string
+	VcenterDataStore    string
+	VcenterFolder       string
+	VcenterResourcePool string
+	VcenterKcpIp        string
+	VcenterCpuNum       int
+	VcenterMemSize      int
+	VcenterDiskSize     int
+	VcenterTemplate     string
+}
+
+func (p *VsphereParameter) SetParameter(clusterManager clusterV1alpha1.ClusterManager) {
+	p.PodCidr = clusterManager.VsphereSpec.PodCidr
+	p.VcenterIp = clusterManager.VsphereSpec.VcenterIp
+	p.VcenterId = clusterManager.VsphereSpec.VcenterId
+	p.VcenterPassword = clusterManager.VsphereSpec.VcenterPassword
+	p.VcenterThumbprint = clusterManager.VsphereSpec.VcenterThumbprint
+	p.VcenterNetwork = clusterManager.VsphereSpec.VcenterNetwork
+	p.VcenterDataCenter = clusterManager.VsphereSpec.VcenterDataCenter
+	p.VcenterDataStore = clusterManager.VsphereSpec.VcenterDataStore
+	p.VcenterFolder = clusterManager.VsphereSpec.VcenterFolder
+	p.VcenterResourcePool = clusterManager.VsphereSpec.VcenterResourcePool
+	p.VcenterKcpIp = clusterManager.VsphereSpec.VcenterKcpIp
+	p.VcenterCpuNum = clusterManager.VsphereSpec.VcenterCpuNum
+	p.VcenterMemSize = clusterManager.VsphereSpec.VcenterMemSize
+	p.VcenterDiskSize = clusterManager.VsphereSpec.VcenterDiskSize
+	p.VcenterTemplate = clusterManager.VsphereSpec.VcenterTemplate
+}
+
+type VsphereUpgradeParameter struct {
+	Namespace           string
+	ClusterName         string
+	VcenterIp           string
+	VcenterThumbprint   string
+	VcenterNetwork      string
+	VcenterDataCenter   string
+	VcenterDataStore    string
+	VcenterFolder       string
+	VcenterResourcePool string
+	VcenterCpuNum       int
+	VcenterMemSize      int
+	VcenterDiskSize     int
+	VcenterTemplate     string
+	KubernetesVersion   string
+}
+
+func (p *VsphereUpgradeParameter) SetParameter(clusterManager clusterV1alpha1.ClusterManager) {
+	p.Namespace = clusterManager.Namespace
+	p.KubernetesVersion = clusterManager.Spec.Version
+	p.ClusterName = clusterManager.Name
+	p.VcenterIp = clusterManager.VsphereSpec.VcenterIp
+	p.VcenterThumbprint = clusterManager.VsphereSpec.VcenterThumbprint
+	p.VcenterNetwork = clusterManager.VsphereSpec.VcenterNetwork
+	p.VcenterDataCenter = clusterManager.VsphereSpec.VcenterDataCenter
+	p.VcenterDataStore = clusterManager.VsphereSpec.VcenterDataStore
+	p.VcenterFolder = clusterManager.VsphereSpec.VcenterFolder
+	p.VcenterResourcePool = clusterManager.VsphereSpec.VcenterResourcePool
+	p.VcenterCpuNum = clusterManager.VsphereSpec.VcenterCpuNum
+	p.VcenterMemSize = clusterManager.VsphereSpec.VcenterMemSize
+	p.VcenterDiskSize = clusterManager.VsphereSpec.VcenterDiskSize
+	p.VcenterTemplate = clusterManager.VsphereSpec.VcenterTemplate
+}
+
+// parameter에 clustermanager spec 값을 넣어 marshaling해서 리턴하는 메서드
+func Marshaling(parameter Parameters, clusterManager clusterV1alpha1.ClusterManager) ([]byte, error) {
+	parameter.SetParameter(clusterManager)
+	return json.Marshal(parameter)
+}
 
 func MakeServiceInstance(clusterManager *clusterV1alpha1.ClusterManager, serviceInstanceName string, json []byte, upgrade bool) *servicecatalogv1beta1.ServiceInstance {
 	templateName := ""
