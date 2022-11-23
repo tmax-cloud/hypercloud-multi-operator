@@ -207,19 +207,18 @@ func (r *ClusterManagerReconciler) reconcile(ctx context.Context, clusterManager
 		r.CreateTraefikResources,
 	)
 
-	// special case
+	// special case- capi upgrade/master scaling/worker scaling
 	if clusterManager.Labels[clusterV1alpha1.LabelKeyClmClusterType] == clusterV1alpha1.ClusterTypeCreated {
-		phases = []func(context.Context, *clusterV1alpha1.ClusterManager) (ctrl.Result, error){}
-		//capi version upgrade하는 경우
 		if clusterManager.Status.Version != "" && clusterManager.Spec.Version != clusterManager.Status.Version {
+			phases = []func(context.Context, *clusterV1alpha1.ClusterManager) (ctrl.Result, error){}
 			if clusterManager.Spec.Provider == clusterV1alpha1.ProviderVSphere {
 				phases = append(phases, r.CreateUpgradeServiceInstance)
 			}
 			phases = append(phases, r.ClusterUpgrade)
 		} else if clusterManager.Status.MasterNum != 0 && clusterManager.Spec.MasterNum != clusterManager.Status.MasterNum {
-			phases = append(phases, r.ControlplaneScaling)
+			phases = []func(context.Context, *clusterV1alpha1.ClusterManager) (ctrl.Result, error){r.ControlplaneScaling}
 		} else if clusterManager.Status.WorkerNum != 0 && clusterManager.Spec.WorkerNum != clusterManager.Status.WorkerNum {
-			phases = append(phases, r.WorkerScaling)
+			phases = []func(context.Context, *clusterV1alpha1.ClusterManager) (ctrl.Result, error){r.WorkerScaling}
 		}
 	}
 
