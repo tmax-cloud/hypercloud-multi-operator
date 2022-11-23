@@ -157,7 +157,7 @@ func (r *ClusterManagerReconciler) UpdateClusterManagerStatus(ctx context.Contex
 				strings.Split(node.Spec.ProviderID, "://")[0],
 			)
 			if err != nil {
-				log.Error(err, "Cannot found given provider name.")
+				log.Error(err, "Cannot find given provider name.")
 			}
 			clusterManager.Status.Provider = providerID
 			clusterManager.Spec.Provider = providerID
@@ -172,7 +172,7 @@ func (r *ClusterManagerReconciler) UpdateClusterManagerStatus(ctx context.Contex
 				matchString[len("cloud-provider: "):],
 			)
 			if err != nil {
-				log.Error(err, "Cannot found given provider name.")
+				log.Error(err, "Cannot find given provider name.")
 			}
 			clusterManager.Status.Provider = cloudProvider
 			clusterManager.Spec.Provider = cloudProvider
@@ -775,7 +775,7 @@ func (r *ClusterManagerReconciler) CreateGatewayResources(ctx context.Context, c
 		Services(util.ApiGatewayNamespace).
 		Get(context.TODO(), "gateway", metav1.GetOptions{})
 	if errors.IsNotFound(err) {
-		log.Info("Cannot found Service for gateway. Wait for installing api-gateway. Requeue after 1 min")
+		log.Info("Cannot find Service for gateway. Wait for installing api-gateway. Requeue after 1 min")
 		return ctrl.Result{RequeueAfter: requeueAfter1Minute}, nil
 	} else if err != nil {
 		log.Error(err, "Failed to get Service for gateway")
