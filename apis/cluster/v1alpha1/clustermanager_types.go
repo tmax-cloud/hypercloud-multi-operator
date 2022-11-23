@@ -125,6 +125,8 @@ type ClusterManagerStatus struct {
 	AuthClientReady       bool                    `json:"authClientReady,omitempty"`
 	OpenSearchReady       bool                    `json:"openSearchReady,omitempty"`
 	ApplicationLink       string                  `json:"applicationLink,omitempty"`
+	// UpgradeRequeueCount   int                     `json:"upgradeRequeueCount,omitempty"`
+
 	// will be deprecated
 	PrometheusReady bool `json:"prometheusReady,omitempty"`
 	// HyperregistryOidcReady bool                    `json:"hyperregistryOidcReady,omitempty"`
@@ -144,6 +146,8 @@ const (
 	ClusterManagerPhaseDeleting = ClusterManagerPhase("Deleting")
 	// 클러스터가 업그레이드 중인 상태
 	ClusterManagerPhaseUpgrading = ClusterManagerPhase("Upgrading")
+	// 클러스터가 스케일링 중인 상태
+	ClusterManagerPhaseScaling = ClusterManagerPhase("Scaling")
 )
 
 // deprecated phases

@@ -37,7 +37,6 @@ import (
 	// cpavV1alpha3 "sigs.k8s.io/cluster-api-provider-vsphere/apis/v1alpha3"
 	capiV1alpha3 "sigs.k8s.io/cluster-api/api/v1alpha3"
 	controlplanev1 "sigs.k8s.io/cluster-api/controlplane/kubeadm/api/v1alpha3"
-	"sigs.k8s.io/cluster-api/util/patch"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/yaml"
@@ -352,6 +351,89 @@ func (r *ClusterManagerReconciler) SetEndpoint(ctx context.Context, clusterManag
 	return ctrl.Result{}, nil
 }
 
+// controlplane을 scaling한다.
+func (r *ClusterManagerReconciler) ControlplaneScaling(ctx context.Context, clusterManager *clusterV1alpha1.ClusterManager) (ctrl.Result, error) {
+	log := r.Log.WithValues("clustermanager", clusterManager.GetNamespacedName())
+	log.Info("Start to reconcile phase for ControlplaneScaling")
+
+	key := types.NamespacedName{
+		Name:      clusterManager.Name + "-control-plane",
+		Namespace: clusterManager.Namespace,
+	}
+
+	kcp := &controlplanev1.KubeadmControlPlane{}
+	if err := r.Get(context.TODO(), key, kcp); errors.IsNotFound(err) {
+		log.Error(err, "Cannot find kubeadmcontrolplane")
+		return ctrl.Result{}, err
+	} else if err != nil {
+		log.Error(err, "Failed to get kubeadmcontrolplane")
+		return ctrl.Result{}, err
+	}
+
+	expectedNum := int32(clusterManager.Spec.MasterNum)
+	if *kcp.Spec.Replicas != expectedNum {
+		*kcp.Spec.Replicas = expectedNum
+		if err := r.Update(context.TODO(), kcp); err != nil {
+			log.Info("Failed to update kubadmcontrolplane")
+			return ctrl.Result{}, err
+		}
+		return ctrl.Result{RequeueAfter: requeueAfter20Second}, nil
+	}
+
+	if kcp.Status.ReadyReplicas == *kcp.Spec.Replicas {
+		log.Info("Controlplane scaling is completed successfully")
+		clusterManager.Status.MasterNum = clusterManager.Spec.MasterNum
+		return ctrl.Result{}, nil
+	}
+	if clusterManager.Spec.MasterNum > clusterManager.Status.MasterNum {
+		log.Info("Waiting for Controlplane nodes to be scaled out. Requeue after 1 min.")
+	} else {
+		log.Info("Waiting for Controlplane nodes to be scaled in. Requeue after 1 min.")
+	}
+	return ctrl.Result{RequeueAfter: requeueAfter1Minute}, nil
+}
+
+// worker를 scaling한다.
+func (r *ClusterManagerReconciler) WorkerScaling(ctx context.Context, clusterManager *clusterV1alpha1.ClusterManager) (ctrl.Result, error) {
+	log := r.Log.WithValues("clustermanager", clusterManager.GetNamespacedName())
+	log.Info("Start to reconcile phase for WorkerScaling")
+
+	key := types.NamespacedName{
+		Name:      clusterManager.Name + "-md-0",
+		Namespace: clusterManager.Namespace,
+	}
+
+	md := &capiV1alpha3.MachineDeployment{}
+	if err := r.Get(context.TODO(), key, md); errors.IsNotFound(err) {
+		return ctrl.Result{}, nil
+	} else if err != nil {
+		log.Error(err, "Failed to get machineDeployment")
+		return ctrl.Result{}, err
+	}
+
+	expectedNum := int32(clusterManager.Spec.WorkerNum)
+	if *md.Spec.Replicas != expectedNum {
+		*md.Spec.Replicas = expectedNum
+		if err := r.Update(context.TODO(), md); err != nil {
+			log.Info("Failed to update machineDeployment")
+			return ctrl.Result{}, err
+		}
+		return ctrl.Result{RequeueAfter: requeueAfter20Second}, nil
+	}
+
+	if md.Status.ReadyReplicas == *md.Spec.Replicas {
+		log.Info("Worker scaling is completed successfully")
+		clusterManager.Status.WorkerNum = clusterManager.Spec.WorkerNum
+		return ctrl.Result{}, nil
+	}
+	if clusterManager.Spec.WorkerNum > clusterManager.Spec.WorkerNum {
+		log.Info("Waiting for Worker nodes to be scaled out. Requeue after 20sec.")
+	} else {
+		log.Info("Waiting for Worker nodes to be scaled in. Requeue after 20sec.")
+	}
+	return ctrl.Result{RequeueAfter: requeueAfter20Second}, nil
+}
+
 // cluster를 upgrade한다. vsphere의 경우, serviceinstance 생성이 필요하다.
 func (r *ClusterManagerReconciler) ClusterUpgrade(ctx context.Context, clusterManager *clusterV1alpha1.ClusterManager) (ctrl.Result, error) {
 	log := r.Log.WithValues("clustermanager", clusterManager.GetNamespacedName())
@@ -402,36 +484,32 @@ func (r *ClusterManagerReconciler) ClusterUpgrade(ctx context.Context, clusterMa
 		return ctrl.Result{}, err
 	}
 
-	//create helper for patch
-	kcpHelper, _ := patch.NewHelper(kcp, r.Client)
-	defer func() {
-		if err := kcpHelper.Patch(context.TODO(), kcp); err != nil {
-			r.Log.Error(err, "KubeadmControlPlane patch error")
-		}
-	}()
-
 	// 단일 트랜잭션으로 업데이트 필요
 	if kcp.Spec.Version != clusterManager.Spec.Version {
 		kcp.Spec.Version = clusterManager.Spec.Version
 		if clusterManager.Spec.Provider == clusterV1alpha1.ProviderVSphere {
 			kcp.Spec.InfrastructureTemplate.Name = fmt.Sprintf("%s-%s", clusterManager.Name, clusterManager.Spec.Version)
 		}
+		if err := r.Update(context.TODO(), kcp); err != nil {
+			log.Error(err, "Failed to update kubeadmcontrolplane")
+			return ctrl.Result{}, err
+		}
 		return ctrl.Result{RequeueAfter: requeueAfter10Second}, nil
 	}
 
 	// upgrade 완료한 machine 찾기
-	upgradedMachineCount, oldMachineList, err := r.GetUpgradeMachinesInfo(clusterManager, true)
+	machines, err := r.GetUpgradeControlplaneMachines(clusterManager)
 	if err != nil {
 		log.Error(err, "Failed to list machines")
 		return ctrl.Result{RequeueAfter: requeueAfter10Second}, nil
 	}
 
-	if upgradedMachineCount == clusterManager.Spec.MasterNum {
-		log.Info(fmt.Sprintf("Controlplane nodes upgraded successfully (%d/%d)", upgradedMachineCount, clusterManager.Spec.MasterNum))
+	if len(machines.NewMachineRunningList) == clusterManager.Spec.MasterNum {
+		log.Info(fmt.Sprintf("Controlplane nodes upgraded successfully (%d/%d)", len(machines.NewMachineRunningList), clusterManager.Spec.MasterNum))
 	} else {
-		log.Info(fmt.Sprintf("Controlplane nodes are upgrading (%d/%d)", upgradedMachineCount, clusterManager.Spec.MasterNum))
-		log.Info(fmt.Sprintf("Need to upgrade machine: [%s]", strings.Join(oldMachineList, ", ")))
-		return ctrl.Result{RequeueAfter: requeueAfter30Second}, nil
+		log.Info(fmt.Sprintf("Controlplane nodes are upgrading (%d/%d)", len(machines.NewMachineRunningList), clusterManager.Spec.MasterNum))
+		log.Info(fmt.Sprintf("Need to upgrade machine: [%s]. Requeue After 1 min", strings.Join(machines.OldMachineList, ", ")))
+		return ctrl.Result{RequeueAfter: requeueAfter1Minute}, nil
 	}
 
 	// machineDeployment 업데이트
@@ -448,35 +526,31 @@ func (r *ClusterManagerReconciler) ClusterUpgrade(ctx context.Context, clusterMa
 		return ctrl.Result{}, err
 	}
 
-	//create helper for patch
-	mdHelper, _ := patch.NewHelper(md, r.Client)
-	defer func() {
-		if err := mdHelper.Patch(context.TODO(), md); err != nil {
-			r.Log.Error(err, "machineDeployment patch error")
-		}
-	}()
-
 	if *md.Spec.Template.Spec.Version != clusterManager.Spec.Version {
 		*md.Spec.Template.Spec.Version = clusterManager.Spec.Version
 		if clusterManager.Spec.Provider == clusterV1alpha1.ProviderVSphere {
 			md.Spec.Template.Spec.InfrastructureRef.Name = fmt.Sprintf("%s-%s", clusterManager.Name, clusterManager.Spec.Version)
 		}
+		if err := r.Update(context.TODO(), md); err != nil {
+			log.Error(err, "Failed to update machinedeployment")
+			return ctrl.Result{}, err
+		}
 		return ctrl.Result{RequeueAfter: requeueAfter10Second}, nil
 	}
 
 	// upgrade 완료한 machine 찾기
-	upgradedMachineCount, oldMachineList, err = r.GetUpgradeMachinesInfo(clusterManager, false)
+	machines, err = r.GetUpgradeWorkerMachines(clusterManager)
 	if err != nil {
 		log.Error(err, "Failed to list machines")
 		return ctrl.Result{RequeueAfter: requeueAfter10Second}, nil
 	}
 
-	if upgradedMachineCount == clusterManager.Spec.WorkerNum {
-		log.Info(fmt.Sprintf("worker nodes upgraded successfully (%d/%d)", upgradedMachineCount, clusterManager.Spec.WorkerNum))
+	if len(machines.NewMachineRunningList) == clusterManager.Spec.WorkerNum {
+		log.Info(fmt.Sprintf("worker nodes upgraded successfully (%d/%d)", len(machines.NewMachineRunningList), clusterManager.Spec.WorkerNum))
 	} else {
-		log.Info(fmt.Sprintf("worker nodes are upgrading (%d/%d)", upgradedMachineCount, clusterManager.Spec.WorkerNum))
-		log.Info(fmt.Sprintf("Need to upgrade machine: [%s]", strings.Join(oldMachineList, ", ")))
-		return ctrl.Result{RequeueAfter: requeueAfter30Second}, nil
+		log.Info(fmt.Sprintf("worker nodes are upgrading (%d/%d)", len(machines.NewMachineRunningList), clusterManager.Spec.WorkerNum))
+		log.Info(fmt.Sprintf("Need to upgrade machine: [%s]. Requeue After 1 min", strings.Join(machines.OldMachineList, ", ")))
+		return ctrl.Result{RequeueAfter: requeueAfter1Minute}, nil
 	}
 
 	clusterManager.Status.Version = clusterManager.Spec.Version
@@ -501,16 +575,16 @@ func (r *ClusterManagerReconciler) kubeadmControlPlaneUpdate(ctx context.Context
 	}
 
 	//create helper for patch
-	helper, _ := patch.NewHelper(kcp, r.Client)
-	defer func() {
-		if err := helper.Patch(context.TODO(), kcp); err != nil {
-			r.Log.Error(err, "KubeadmControlPlane patch error")
-		}
-	}()
+	// helper, _ := patch.NewHelper(kcp, r.Client)
+	// defer func() {
+	// 	if err := helper.Patch(context.TODO(), kcp); err != nil {
+	// 		r.Log.Error(err, "KubeadmControlPlane patch error")
+	// 	}
+	// }()
 
-	if *kcp.Spec.Replicas != int32(clusterManager.Spec.MasterNum) {
-		*kcp.Spec.Replicas = int32(clusterManager.Spec.MasterNum)
-	}
+	// if *kcp.Spec.Replicas != int32(clusterManager.Spec.MasterNum) {
+	// 	*kcp.Spec.Replicas = int32(clusterManager.Spec.MasterNum)
+	// }
 
 	clusterManager.Status.Ready = true
 	return ctrl.Result{}, nil
@@ -533,16 +607,16 @@ func (r *ClusterManagerReconciler) machineDeploymentUpdate(ctx context.Context, 
 	}
 
 	//create helper for patch
-	helper, _ := patch.NewHelper(md, r.Client)
-	defer func() {
-		if err := helper.Patch(context.TODO(), md); err != nil {
-			r.Log.Error(err, "machineDeployment patch error")
-		}
-	}()
+	// helper, _ := patch.NewHelper(md, r.Client)
+	// defer func() {
+	// 	if err := helper.Patch(context.TODO(), md); err != nil {
+	// 		r.Log.Error(err, "machineDeployment patch error")
+	// 	}
+	// }()
 
-	if *md.Spec.Replicas != int32(clusterManager.Spec.WorkerNum) {
-		*md.Spec.Replicas = int32(clusterManager.Spec.WorkerNum)
-	}
+	// if *md.Spec.Replicas != int32(clusterManager.Spec.WorkerNum) {
+	// 	*md.Spec.Replicas = int32(clusterManager.Spec.WorkerNum)
+	// }
 
 	return ctrl.Result{}, nil
 }

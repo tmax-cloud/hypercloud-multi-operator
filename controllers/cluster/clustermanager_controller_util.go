@@ -205,36 +205,74 @@ func (r *ClusterManagerReconciler) GetMachineList(clusterManager *clusterV1alpha
 	} else {
 		opts = append(opts, client.MatchingLabels{CAPI_WORKER_LABEL_KEY: clusterManager.Name + "-md-0"})
 	}
-
 	machines := &capiV1alpha3.MachineList{}
-
 	if err := r.List(context.TODO(), machines, opts...); err != nil {
 		return []capiV1alpha3.Machine{}, err
 	}
-
 	return machines.Items, nil
 }
 
-// upgrade 완료한 machine 수, 아직 upgrade되지 않은 machine list를 반환한다.
-func (r *ClusterManagerReconciler) GetUpgradeMachinesInfo(clusterManager *clusterV1alpha1.ClusterManager, controlplane bool) (int, []string, error) {
+// controlplane machine list를 반환
+func (r *ClusterManagerReconciler) GetControlplaneMachineList(clusterManager *clusterV1alpha1.ClusterManager) ([]capiV1alpha3.Machine, error) {
+	return r.GetMachineList(clusterManager, true)
+}
 
-	machines, err := r.GetMachineList(clusterManager, controlplane)
+// worker machine list를 반환
+func (r *ClusterManagerReconciler) GetWorkerMachineList(clusterManager *clusterV1alpha1.ClusterManager) ([]capiV1alpha3.Machine, error) {
+	return r.GetMachineList(clusterManager, false)
+}
+
+type MachineUpgradeList struct {
+	// 새로운 version의 머신 이름 리스트
+	NewMachineList []string
+	// 이전 version의 머신 이름 리스트
+	OldMachineList []string
+	// Running 상태의 새로운 Version 머신 이름 리스트
+	NewMachineRunningList []string
+}
+
+func (m *MachineUpgradeList) SetMachines(new []string, old []string, newRunning []string) {
+	m.NewMachineList = new
+	m.OldMachineList = old
+	m.NewMachineRunningList = newRunning
+}
+
+// controlplane machine들의 MachineUpgradeList를 반환
+func (r *ClusterManagerReconciler) GetUpgradeControlplaneMachines(clusterManager *clusterV1alpha1.ClusterManager) (MachineUpgradeList, error) {
+	machines, err := r.GetControlplaneMachineList(clusterManager)
 	if err != nil {
-		return 0, []string{}, err
+		return MachineUpgradeList{}, err
 	}
+	return r.GetUpgradeMachinesInfo(clusterManager, machines)
+}
 
-	upgradedMachineCount := 0
+// worker machine들의 MachineUpgradeList를 반환
+func (r *ClusterManagerReconciler) GetUpgradeWorkerMachines(clusterManager *clusterV1alpha1.ClusterManager) (MachineUpgradeList, error) {
+	machines, err := r.GetWorkerMachineList(clusterManager)
+	if err != nil {
+		return MachineUpgradeList{}, err
+	}
+	return r.GetUpgradeMachinesInfo(clusterManager, machines)
+}
+
+func (r *ClusterManagerReconciler) GetUpgradeMachinesInfo(clusterManager *clusterV1alpha1.ClusterManager, machines []capiV1alpha3.Machine) (MachineUpgradeList, error) {
+	machineUpgrade := MachineUpgradeList{}
+	newMachineList := []string{}
 	oldMachineList := []string{}
+	newMachineRunning := []string{}
 
 	for _, machine := range machines {
-		if machine.Status.Phase == string(capiV1alpha3.MachinePhaseRunning) && *machine.Spec.Version == clusterManager.Spec.Version {
-			upgradedMachineCount += 1
-
+		if *machine.Spec.Version == clusterManager.Spec.Version {
+			newMachineList = append(newMachineList, machine.Name)
+			if machine.Status.Phase == string(capiV1alpha3.MachinePhaseRunning) {
+				newMachineRunning = append(newMachineRunning, machine.Name)
+			}
 		} else if *machine.Spec.Version != clusterManager.Spec.Version {
 			oldMachineList = append(oldMachineList, machine.Name)
 		}
 	}
-	return upgradedMachineCount, oldMachineList, nil
+	machineUpgrade.SetMachines(newMachineList, oldMachineList, newMachineRunning)
+	return machineUpgrade, nil
 }
 
 func SetApplicationLink(c *clusterV1alpha1.ClusterManager, subdomain string) {
