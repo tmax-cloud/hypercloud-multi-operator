@@ -113,6 +113,8 @@ type ClusterManagerStatus struct {
 	ControlPlaneReady     bool                    `json:"controlPlaneReady,omitempty"`
 	MasterRun             int                     `json:"masterRun,omitempty"`
 	WorkerRun             int                     `json:"workerRun,omitempty"`
+	MasterNum             int                     `json:"masterNum,omitempty"`
+	WorkerNum             int                     `json:"workerNum,omitempty"`
 	NodeInfo              []coreV1.NodeSystemInfo `json:"nodeInfo,omitempty"`
 	Phase                 ClusterManagerPhase     `json:"phase,omitempty"`
 	ControlPlaneEndpoint  string                  `json:"controlPlaneEndpoint,omitempty"`
@@ -123,6 +125,8 @@ type ClusterManagerStatus struct {
 	AuthClientReady       bool                    `json:"authClientReady,omitempty"`
 	OpenSearchReady       bool                    `json:"openSearchReady,omitempty"`
 	ApplicationLink       string                  `json:"applicationLink,omitempty"`
+	// UpgradeRequeueCount   int                     `json:"upgradeRequeueCount,omitempty"`
+
 	// will be deprecated
 	PrometheusReady bool `json:"prometheusReady,omitempty"`
 	// HyperregistryOidcReady bool                    `json:"hyperregistryOidcReady,omitempty"`
@@ -140,6 +144,10 @@ const (
 	ClusterManagerPhaseReady = ClusterManagerPhase("Ready")
 	// 클러스터가 삭제중인 상태
 	ClusterManagerPhaseDeleting = ClusterManagerPhase("Deleting")
+	// 클러스터가 업그레이드 중인 상태
+	ClusterManagerPhaseUpgrading = ClusterManagerPhase("Upgrading")
+	// 클러스터가 스케일링 중인 상태
+	ClusterManagerPhaseScaling = ClusterManagerPhase("Scaling")
 )
 
 // deprecated phases
@@ -206,6 +214,11 @@ const (
 	// LabelKeyClmClusterTypeDefunct = "type"
 	// LabelKeyClcNameDefunct = "parent"
 	// LabelKeyClrNameDefunct = "parent"
+)
+
+const (
+	ProviderAWS     = "AWS"
+	ProviderVSphere = "vSphere"
 )
 
 func (c *ClusterManagerStatus) SetTypedPhase(p ClusterManagerPhase) {
