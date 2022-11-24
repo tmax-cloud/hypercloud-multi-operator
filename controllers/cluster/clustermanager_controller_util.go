@@ -725,7 +725,11 @@ func (r *ClusterManagerReconciler) CreateApplication(clusterManager *clusterV1al
 								Value: util.ArgoDescriptionConsoleSubdomain,
 							},
 							{
-								Name:  "modules.hyperAuth.subdomain",
+								Name:  "global.domain",
+								Value: util.ArgoDescriptionGlobalDomain,
+							},
+							{
+								Name:  "global.masterSingle.hyperAuthDomain",
 								Value: util.ArgoDescriptionHyperAuthSubdomain,
 							},
 							{
@@ -733,8 +737,12 @@ func (r *ClusterManagerReconciler) CreateApplication(clusterManager *clusterV1al
 								Value: util.ArgoDescriptionKibanaSubdomain,
 							},
 							{
-								Name:  "modules.grafana.subdomain",
-								Value: util.ArgoDescriptionGrafanaSubdomain,
+								Name:  "modules.grafanaOperator.subdomain",
+								Value: util.ArgoDescriptionGrafanaOperatorSubdomain,
+							},
+							{
+								Name:  "modules.helmApiserver.subdomain",
+								Value: util.ArgoDescriptionHelmApiServerSubdomain,
 							},
 							{
 								Name:  "modules.serviceMesh.jaeger.subdomain",
