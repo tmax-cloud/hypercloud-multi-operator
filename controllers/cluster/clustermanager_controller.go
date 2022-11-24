@@ -374,9 +374,8 @@ func (r *ClusterManagerReconciler) reconcilePhase(_ context.Context, clusterMana
 	}
 
 	// cluster scaling
-	if (clusterManager.Status.MasterNum != 0 && clusterManager.Status.WorkerNum != 0) &&
-		clusterManager.Spec.MasterNum != clusterManager.Status.MasterNum ||
-		clusterManager.Spec.WorkerNum != clusterManager.Status.WorkerNum {
+	if (clusterManager.Status.MasterNum != 0 && clusterManager.Spec.MasterNum != clusterManager.Status.MasterNum) ||
+		(clusterManager.Status.WorkerNum != 0 && clusterManager.Spec.WorkerNum != clusterManager.Status.WorkerNum) {
 		clusterManager.Status.SetTypedPhase(clusterV1alpha1.ClusterManagerPhaseScaling)
 		return
 	}
