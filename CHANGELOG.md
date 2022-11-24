@@ -1,6 +1,32 @@
 # HyperCloud-Multi-Operator changelog!!
 All notable changes to this project will be documented in this file.
 
+<!-------------------- v5.0.37.0 start -------------------->
+
+## HyperCloud-Multi-Operator_5.0.37.0 (2022. 11. 24. (목) 15:41:31 KST)
+
+### Added
+  - [feat] argocd application update by sjoh0704
+  - [feat] scaling 기능 추가/scaling, upgrade 관련 webhook 추가 by sjoh0704
+  - [feat] crd status에 masterNum/workerNum 추가 / masterNum webhook 추가/ error fix by sjoh0704
+  - [feat] capv cluster upgrade 기능 추가 by sjoh0704
+  - [feat] capa cluster upgrade 기능 추가 by sjoh0704
+  - [feat] clusterclaim 생성 기준 추가 / 불필요한  webhook 제거 by sjoh0704
+
+### Changed
+  - [mod] fix reconcile error by sjoh0704
+  - [mod] refactoring-전체 parameter를 interface로 묶어서 관리 by sjoh0704
+  - [mod] capv upgrade 기능 수정 및 최적화 by sjoh0704
+
+### Fixed
+
+### CRD yaml
+
+### Etc
+  - [etc] log 오타 수정 by sjoh0704
+
+<!--------------------- v5.0.37.0 end --------------------->
+
 <!-------------------- v5.0.36.0 start -------------------->
 
 ## HyperCloud-Multi-Operator_5.0.36.0 (2022. 11. 11. (금) 13:01:41 KST)
