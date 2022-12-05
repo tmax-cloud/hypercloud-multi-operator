@@ -1,0 +1,6 @@
+apiVersion: claim.tmax.io/v1alpha1
+kind: ClusterUpdateClaim
+metadata:
+  name: clusterupdateclaim-sample
+spec:
+  # TODO(user): Add fields here

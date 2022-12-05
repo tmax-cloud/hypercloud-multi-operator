@@ -53,7 +53,7 @@ func init() {
 	utilruntime.Must(clusterV1alpha3.AddToScheme(scheme))
 	utilruntime.Must(controlplanev1.AddToScheme(scheme))
 	utilruntime.Must(servicecatalogv1beta1.AddToScheme(scheme))
-	utilruntime.Must(certmanagerV1.AddToScheme((scheme)))
+	utilruntime.Must(certmanagerV1.AddToScheme(scheme))
 	utilruntime.Must(traefikV1alpha1.AddToScheme(scheme))
 	utilruntime.Must(argocdV1alpha1.AddToScheme(scheme))
 	// +kubebuilder:scaffold:scheme
