@@ -33,6 +33,12 @@ const (
 	ClusterUpdateClaimPhaseError = ClusterUpdateClaimPhase("Error")
 )
 
+type ClusterUpdateType string
+
+const (
+	ClusterUpdateTypeNodeScale = ClusterUpdateType("NodeScale")
+)
+
 // ClusterUpdateClaimSpec defines the desired state of ClusterUpdateClaim
 type ClusterUpdateClaimSpec struct {
 	// +kubebuilder:validation:Required
@@ -41,13 +47,13 @@ type ClusterUpdateClaimSpec struct {
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:Enum:=NodeScale;
 	// The type of update claim
-	UpdateType string `json:"masterNum"`
+	UpdateType ClusterUpdateType `json:"updateType"`
 	// +kubebuilder:validation:Minimum:=1
 	// The expected number of master node
-	ExpectedMasterNum int `json:"expectedMasterNum"`
+	ExpectedMasterNum int `json:"expectedMasterNum,omitempty"`
 	// +kubebuilder:validation:Minimum:=1
 	// The expected number of worker node
-	ExpectedWorkerNum int `json:"expectedWorkerNum"`
+	ExpectedWorkerNum int `json:"expectedWorkerNum,omitempty"`
 }
 
 // ClusterUpdateClaimStatus defines the observed state of ClusterUpdateClaim
@@ -61,7 +67,7 @@ type ClusterUpdateClaimStatus struct {
 
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
-// +kubebuilder:resource:path=clusterupdateclaims,shortName=ccc,scope=Namespaced
+// +kubebuilder:resource:path=clusterupdateclaims,shortName=cuc,scope=Namespaced
 // +kubebuilder:printcolumn:name="Status",type=string,JSONPath=`.status.phase`
 // +kubebuilder:printcolumn:name="Reason",type=string,JSONPath=`.status.reason`
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
@@ -85,4 +91,8 @@ type ClusterUpdateClaimList struct {
 
 func init() {
 	SchemeBuilder.Register(&ClusterUpdateClaim{}, &ClusterUpdateClaimList{})
+}
+
+func (c *ClusterUpdateClaimStatus) SetTypedPhase(p ClusterUpdateClaimPhase) {
+	c.Phase = p
 }

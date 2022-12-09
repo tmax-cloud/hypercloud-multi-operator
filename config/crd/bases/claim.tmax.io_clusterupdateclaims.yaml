@@ -14,7 +14,7 @@ spec:
     listKind: ClusterUpdateClaimList
     plural: clusterupdateclaims
     shortNames:
-    - ccc
+    - cuc
     singular: clusterupdateclaim
   scope: Namespaced
   versions:
@@ -60,16 +60,14 @@ spec:
                 description: The expected number of worker node
                 minimum: 1
                 type: integer
-              masterNum:
+              updateType:
                 description: The type of update claim
                 enum:
                 - NodeScale
                 type: string
             required:
             - clusterName
-            - expectedMasterNum
-            - expectedWorkerNum
-            - masterNum
+            - updateType
             type: object
           status:
             description: ClusterUpdateClaimStatus defines the observed state of ClusterUpdateClaim

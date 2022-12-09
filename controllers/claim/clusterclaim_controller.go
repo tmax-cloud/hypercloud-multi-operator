@@ -117,7 +117,7 @@ func (r *ClusterClaimReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	return ctrl.Result{}, nil
 }
 
-func (r *ClusterClaimReconciler) requeueClusterClaimsForClusterManager(o client.Object) []ctrl.Request {
+func (r *ClusterClaimReconciler) RequeueClusterClaimsForClusterManager(o client.Object) []ctrl.Request {
 	clm := o.DeepCopyObject().(*clusterV1alpha1.ClusterManager)
 	log := r.Log.WithValues("objectMapper", "clusterManagerToClusterClaim", "clusterManager", clm.Name)
 	log.Info("Start to clusterManagerToClusterClaim mapping...")
@@ -178,7 +178,7 @@ func (r *ClusterClaimReconciler) SetupWithManager(mgr ctrl.Manager) error {
 
 	return controller.Watch(
 		&source.Kind{Type: &clusterV1alpha1.ClusterManager{}},
-		handler.EnqueueRequestsFromMapFunc(r.requeueClusterClaimsForClusterManager),
+		handler.EnqueueRequestsFromMapFunc(r.RequeueClusterClaimsForClusterManager),
 		predicate.Funcs{
 			UpdateFunc: func(e event.UpdateEvent) bool {
 				return false
