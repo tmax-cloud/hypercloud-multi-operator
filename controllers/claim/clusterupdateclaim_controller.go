@@ -102,6 +102,7 @@ func (r *ClusterUpdateClaimReconciler) Reconcile(ctx context.Context, req ctrl.R
 			return ctrl.Result{}, nil
 		}
 		log.Info("Updated clustermanager successfully")
+		clusterUpdateClaim.Status.Reason = "Admin approved" // capi fetch 변경 필요 
 		return ctrl.Result{}, nil
 	}
 
