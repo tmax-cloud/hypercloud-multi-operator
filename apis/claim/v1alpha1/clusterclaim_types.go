@@ -76,12 +76,12 @@ type AwsClaimSpec struct {
 	// The type of VM for master node. Example: m4.xlarge. see: https://aws.amazon.com/ec2/instance-types
 	MasterType string `json:"masterType,omitempty"`
 	// +kubebuilder:validation:Minimum:=8
-	// The size of VM for master node. Example: 20
+	// The disk size of VM for master node. Example: 20
 	MasterDiskSize int `json:"masterDiskSize,omitempty"`
-	// The type of VM for master node. Example: m4.xlarge. see: https://aws.amazon.com/ec2/instance-types
+	// The type of VM for worker node. Example: m4.xlarge. see: https://aws.amazon.com/ec2/instance-types
 	WorkerType string `json:"workerType,omitempty"`
 	// +kubebuilder:validation:Minimum:=8
-	// The size of VM for worker node. Example: 20
+	// The disk size of VM for worker node. Example: 20
 	WorkerDiskSize int `json:"workerDiskSize,omitempty"`
 }
 
