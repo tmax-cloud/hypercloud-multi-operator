@@ -65,9 +65,9 @@ type ProviderAwsSpec struct {
 	MasterType string `json:"masterType,omitempty"`
 	// The type of VM for worker node
 	WorkerType string `json:"workerType,omitempty"`
-	// The size of VM for master node. Example: 20. The minimum value is 8.
+	// The disk size of VM for master node. Example: 20
 	MasterDiskSize int `json:"masterDiskSize,omitempty"`
-	// The size of VM for worker node. Example: 20. The minimum value is 8.
+	// The disk size of VM for worker node. Example: 20
 	WorkerDiskSize int `json:"workerDiskSize,omitempty"`
 }
 

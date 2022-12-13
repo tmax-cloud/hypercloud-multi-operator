@@ -65,7 +65,7 @@ spec:
                 description: Provider Aws Spec
                 properties:
                   masterDiskSize:
-                    description: 'The size of VM for master node. Example: 20'
+                    description: 'The disk size of VM for master node. Example: 20'
                     minimum: 8
                     type: integer
                   masterType:
@@ -95,11 +95,11 @@ spec:
                     description: The ssh key info to access VM
                     type: string
                   workerDiskSize:
-                    description: 'The size of VM for worker node. Example: 20'
+                    description: 'The disk size of VM for worker node. Example: 20'
                     minimum: 8
                     type: integer
                   workerType:
-                    description: 'The type of VM for master node. Example: m4.xlarge.
+                    description: 'The type of VM for worker node. Example: m4.xlarge.
                       see: https://aws.amazon.com/ec2/instance-types'
                     type: string
                 type: object
