@@ -16,6 +16,7 @@ package v1alpha1
 
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 )
 
 type ClusterUpdateClaimPhase string
@@ -68,6 +69,7 @@ type ClusterUpdateClaimStatus struct {
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
 // +kubebuilder:resource:path=clusterupdateclaims,shortName=cuc,scope=Namespaced
+// +kubebuilder:printcolumn:name="Cluster",type=string,JSONPath=`.spec.clusterName`
 // +kubebuilder:printcolumn:name="Status",type=string,JSONPath=`.status.phase`
 // +kubebuilder:printcolumn:name="Reason",type=string,JSONPath=`.status.reason`
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
@@ -95,4 +97,11 @@ func init() {
 
 func (c *ClusterUpdateClaimStatus) SetTypedPhase(p ClusterUpdateClaimPhase) {
 	c.Phase = p
+}
+
+func (c *ClusterUpdateClaim) GetNamespacedName() types.NamespacedName {
+	return types.NamespacedName{
+		Name:      c.Name,
+		Namespace: c.Namespace,
+	}
 }

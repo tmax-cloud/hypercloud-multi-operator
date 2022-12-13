@@ -16,15 +16,15 @@ package controllers
 
 import (
 	"context"
-
-	clusterV1alpha1 "github.com/tmax-cloud/hypercloud-multi-operator/apis/cluster/v1alpha1"
+	"fmt"
 
 	"github.com/go-logr/logr"
 	claimV1alpha1 "github.com/tmax-cloud/hypercloud-multi-operator/apis/claim/v1alpha1"
-
+	clusterV1alpha1 "github.com/tmax-cloud/hypercloud-multi-operator/apis/cluster/v1alpha1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
-
+	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/cluster-api/util/patch"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/event"
@@ -54,7 +54,7 @@ const (
 // +kubebuilder:rbac:groups=cluster.tmax.io,resources=clustermanagers/status,verbs=get;update;patch
 
 // cluster update claim reconcile loop
-func (r *ClusterUpdateClaimReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+func (r *ClusterUpdateClaimReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ ctrl.Result, reterr error) {
 	_ = context.Background()
 	log := r.Log.WithValues("ClusterUpdateClaim", req.NamespacedName)
 
@@ -67,46 +67,50 @@ func (r *ClusterUpdateClaimReconciler) Reconcile(ctx context.Context, req ctrl.R
 		return ctrl.Result{}, err
 	}
 
-	// if clusterUpdateClaim.Labels[LabelKeyClmName] == "" {
-	// 	clusterUpdateClaim.Labels[LabelKeyClmName] = clusterUpdateClaim.Spec.ClusterName
-	// }
+	//set patch helper
+	patchHelper, err := patch.NewHelper(clusterUpdateClaim, r.Client)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
 
-	if clusterUpdateClaim.Status.Phase == "" {
-		clusterUpdateClaim.Status.SetTypedPhase(claimV1alpha1.ClusterUpdateClaimPhaseAwaiting)
-		clusterUpdateClaim.Status.Reason = "Waiting for admin approval"
-		err := r.Status().Update(context.TODO(), clusterUpdateClaim)
-		if err != nil {
-			log.Error(err, "Failed to update ClusterUpdateClaim status")
+	defer func() {
+		if err := patchHelper.Patch(context.TODO(), clusterUpdateClaim); err != nil {
+			log.Error(err, "Failed to patch clusterupdateclaim")
+			reterr = err
+		}
+	}()
+
+	key := types.NamespacedName{
+		Name:      clusterUpdateClaim.Spec.ClusterName,
+		Namespace: clusterUpdateClaim.Namespace,
+	}
+
+	clm := &clusterV1alpha1.ClusterManager{}
+
+	if err := r.Get(context.TODO(), key, clm); errors.IsNotFound(err) {
+		log.Info("Process Delete phase")
+		if err := r.ProcessDeletePhase(clusterUpdateClaim); err != nil {
+			log.Error(err, "Failed to reconcile ProcessDeletePhase")
 			return ctrl.Result{}, err
 		}
 		return ctrl.Result{}, nil
+	} else if err != nil {
+		return ctrl.Result{}, err
 	}
 
-	if clusterUpdateClaim.Status.Phase == claimV1alpha1.ClusterUpdateClaimPhaseAwaiting {
-		return ctrl.Result{}, nil
+	log.Info(fmt.Sprintf("Found clustermanager [%s]. Start clusterupdateclaim reconcile phase", clusterUpdateClaim.Spec.ClusterName))
+
+	if err := r.ReconcileReady(clusterUpdateClaim, clm); err != nil {
+		log.Error(err, "Failed to reconcile ReconcileReady")
+		return ctrl.Result{}, err
 	}
 
-	// console이 phase를 approved로 변경시 clustermanager 변경
-	if clusterUpdateClaim.Status.Phase == claimV1alpha1.ClusterUpdateClaimPhaseApproved {
-		if err := r.UpdateClusterManager(context.TODO(), clusterUpdateClaim); err != nil {
-			log.Error(err, "Failed to Update ClusterManager")
-
-			clusterUpdateClaim.Status.SetTypedPhase(claimV1alpha1.ClusterUpdateClaimPhaseError)
-			clusterUpdateClaim.Status.Reason = err.Error()
-			err := r.Status().Update(context.TODO(), clusterUpdateClaim)
-			if err != nil {
-				log.Error(err, "Failed to update ClusterUpdateClaim status")
-				return ctrl.Result{}, err
-			}
-
-			return ctrl.Result{}, nil
-		}
-		log.Info("Updated clustermanager successfully")
-		clusterUpdateClaim.Status.Reason = "Admin approved" // capi fetch 변경 필요 
-		return ctrl.Result{}, nil
+	// console이 phase를 변경시 동작
+	if err := r.ProcessPhase(clusterUpdateClaim, clm); err != nil {
+		log.Error(err, "Failed to reconcile ProcessPhase")
+		return ctrl.Result{}, err
 	}
-
-	return ctrl.Result{}, nil
+	return
 }
 
 func (r *ClusterUpdateClaimReconciler) SetupWithManager(mgr ctrl.Manager) error {
@@ -115,6 +119,10 @@ func (r *ClusterUpdateClaimReconciler) SetupWithManager(mgr ctrl.Manager) error 
 		WithEventFilter(
 			predicate.Funcs{
 				CreateFunc: func(e event.CreateEvent) bool {
+					c := e.Object.(*claimV1alpha1.ClusterUpdateClaim)
+					if _, ok := c.Labels[LabelKeyClmName]; ok {
+						return false
+					}
 					return true
 				},
 				UpdateFunc: func(e event.UpdateEvent) bool {
@@ -161,6 +169,7 @@ func (r *ClusterUpdateClaimReconciler) SetupWithManager(mgr ctrl.Manager) error 
 					return true
 				}
 				return false
+				// return true
 			},
 			GenericFunc: func(e event.GenericEvent) bool {
 				return false
