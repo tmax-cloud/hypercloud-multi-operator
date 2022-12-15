@@ -1,6 +1,28 @@
 # HyperCloud-Multi-Operator changelog!!
 All notable changes to this project will be documented in this file.
 
+<!-------------------- v5.1.0.0 start -------------------->
+
+## HyperCloud-Multi-Operator_5.1.0.0 (2022. 12. 15. (목) 17:00:24 KST)
+
+### Added
+  - [feat] add cluster update claim sample by sjoh0704
+  - [feat] cluster update claim 기능 수정 by sjoh0704
+  - [feat] add cluster update claim controller by sjoh0704
+  - [feat] add cluster update claim controller by sjoh0704
+
+### Changed
+
+### Fixed
+
+### CRD yaml
+  - [crd] add clusterupdateclaim by sjoh0704
+  - [crd] correct incorrect crd content by sjoh0704
+
+### Etc
+
+<!--------------------- v5.1.0.0 end --------------------->
+
 <!-------------------- v5.0.38.0 start -------------------->
 
 ## HyperCloud-Multi-Operator_5.0.38.0 (2022. 12. 01. (목) 12:25:58 KST)
