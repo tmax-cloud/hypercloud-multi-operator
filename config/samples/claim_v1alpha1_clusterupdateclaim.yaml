@@ -1,0 +1,8 @@
+apiVersion: claim.tmax.io/v1alpha1
+kind: ClusterUpdateClaim
+metadata:
+  name: clusterupdateclaim-sample
+spec:
+  clusterName: clustername
+  updateType: NodeScale
+  expectedMasterNum: 3

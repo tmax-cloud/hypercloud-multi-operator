@@ -1,0 +1,101 @@
+
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.6.2
+  creationTimestamp: null
+  name: clusterupdateclaims.claim.tmax.io
+spec:
+  group: claim.tmax.io
+  names:
+    kind: ClusterUpdateClaim
+    listKind: ClusterUpdateClaimList
+    plural: clusterupdateclaims
+    shortNames:
+    - cuc
+    singular: clusterupdateclaim
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .spec.clusterName
+      name: Cluster
+      type: string
+    - jsonPath: .status.phase
+      name: Status
+      type: string
+    - jsonPath: .status.reason
+      name: Reason
+      type: string
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: ClusterUpdateClaim is the Schema for the clusterupdateclaims
+          API
+        properties:
+          apiVersion:
+            description: 'APIVersion defines the versioned schema of this representation
+              of an object. Servers should convert recognized schemas to the latest
+              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+            type: string
+          kind:
+            description: 'Kind is a string value representing the REST resource this
+              object represents. Servers may infer this from the endpoint the client
+              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: ClusterUpdateClaimSpec defines the desired state of ClusterUpdateClaim
+            properties:
+              clusterName:
+                description: The name of the cluster to be created
+                type: string
+              expectedMasterNum:
+                description: The expected number of master node
+                minimum: 1
+                type: integer
+              expectedWorkerNum:
+                description: The expected number of worker node
+                minimum: 1
+                type: integer
+              updateType:
+                description: The type of update claim
+                enum:
+                - NodeScale
+                type: string
+            required:
+            - clusterName
+            - updateType
+            type: object
+          status:
+            description: ClusterUpdateClaimStatus defines the observed state of ClusterUpdateClaim
+            properties:
+              message:
+                type: string
+              phase:
+                enum:
+                - Awaiting
+                - Approved
+                - Rejected
+                - Error
+                - Cluster Deleted
+                type: string
+              reason:
+                type: string
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
+status:
+  acceptedNames:
+    kind: ""
+    plural: ""
+  conditions: []
+  storedVersions: []

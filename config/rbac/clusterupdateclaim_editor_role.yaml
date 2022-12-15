@@ -1,0 +1,24 @@
+# permissions for end users to edit clusterupdateclaims.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: clusterupdateclaim-editor-role
+rules:
+- apiGroups:
+  - claim.tmax.io
+  resources:
+  - clusterupdateclaims
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - claim.tmax.io
+  resources:
+  - clusterupdateclaims/status
+  verbs:
+  - get

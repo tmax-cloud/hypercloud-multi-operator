@@ -53,7 +53,7 @@ func init() {
 	utilruntime.Must(clusterV1alpha3.AddToScheme(scheme))
 	utilruntime.Must(controlplanev1.AddToScheme(scheme))
 	utilruntime.Must(servicecatalogv1beta1.AddToScheme(scheme))
-	utilruntime.Must(certmanagerV1.AddToScheme((scheme)))
+	utilruntime.Must(certmanagerV1.AddToScheme(scheme))
 	utilruntime.Must(traefikV1alpha1.AddToScheme(scheme))
 	utilruntime.Must(argocdV1alpha1.AddToScheme(scheme))
 	// +kubebuilder:scaffold:scheme
@@ -96,6 +96,7 @@ func main() {
 		setupLog.Error(err, "unable to create controller", "controller", "ClusterClaim")
 		os.Exit(1)
 	}
+
 	if err = (&clusterController.ClusterManagerReconciler{
 		Client: mgr.GetClient(),
 		Log:    ctrl.Log.WithName("controllers").WithName("ClusterManager"),
@@ -104,14 +105,29 @@ func main() {
 		setupLog.Error(err, "unable to create controller", "controller", "ClusterManager")
 		os.Exit(1)
 	}
+
+	if err = (&claimController.ClusterUpdateClaimReconciler{
+		Client: mgr.GetClient(),
+		Log:    ctrl.Log.WithName("controllers").WithName("ClusterUpdateClaim"),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "ClusterManager")
+		os.Exit(1)
+	}
+
 	if err = (&claimV1alpha1.ClusterClaim{}).SetupWebhookWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create webhook", "webhook", "ClusterClaim")
 		os.Exit(1)
 	}
+
 	if err = (&clusterV1alpha1.ClusterManager{}).SetupWebhookWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create webhook", "webhook", "ClusterManager")
 		os.Exit(1)
 	}
+	// if err = (&claimV1alpha1.ClusterUpdateClaim{}).SetupWebhookWithManager(mgr); err != nil {
+	// 	setupLog.Error(err, "unable to create webhook", "webhook", "ClusterClaim")
+	// 	os.Exit(1)
+	// }
 
 	// if err = (&clusterController.ClusterReconciler{
 	// 	Client: mgr.GetClient(),
