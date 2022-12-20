@@ -79,12 +79,18 @@ func (r *ClusterUpdateClaimReconciler) Reconcile(ctx context.Context, req ctrl.R
 		}
 	}()
 
+	return r.reconcile(ctx, cuc)
+}
+
+// reconcile handles clusterupdateclaim reconciliation.
+func (r *ClusterUpdateClaimReconciler) reconcile(ctx context.Context, cuc *claimV1alpha1.ClusterUpdateClaim) (ctrl.Result, error) {
+	log := r.Log.WithValues("ClusterUpdateClaim", cuc.GetNamespacedName())
 	clmKey := cuc.GetClusterNamespacedName()
 	clm := &clusterV1alpha1.ClusterManager{}
 
 	if err := r.Get(context.TODO(), clmKey, clm); errors.IsNotFound(err) {
 
-		// clm이 없을 때 
+		// clm이 없을 때
 		isInvalid := cuc.Status.Phase == ""
 		isDeleting := cuc.Status.Phase == claimV1alpha1.ClusterUpdateClaimPhaseAwaiting
 
@@ -102,7 +108,7 @@ func (r *ClusterUpdateClaimReconciler) Reconcile(ctx context.Context, req ctrl.R
 		return ctrl.Result{}, err
 	}
 
-	// clm이 있을 때 
+	// clm이 있을 때
 	log.Info(fmt.Sprintf("Found clustermanager [%s]. Start clusterupdateclaim reconcile phase", cuc.Spec.ClusterName))
 
 	if err := r.SetupClaimStatus(cuc, clm); err != nil {

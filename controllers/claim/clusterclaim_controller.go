@@ -26,7 +26,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 
-	"sigs.k8s.io/cluster-api/util/patch"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/event"
@@ -77,22 +76,25 @@ func (r *ClusterClaimReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	}
 
 	if !AutoAdmit {
-		if clusterClaim.Status.Phase == "" {
+		NotInitialized := clusterClaim.Status.Phase == ""
+		Awaiting := clusterClaim.Status.Phase == claimV1alpha1.ClusterClaimPhaseAwaiting
+		if NotInitialized {
 			clusterClaim.Status.SetTypedPhase(claimV1alpha1.ClusterClaimPhaseAwaiting)
-			clusterClaim.Status.Reason = "Waiting for admin approval"
+			clusterClaim.Status.SetReason("Waiting for admin approval")
 			err := r.Status().Update(context.TODO(), clusterClaim)
 			if err != nil {
 				log.Error(err, "Failed to update ClusterClaim status")
 				return ctrl.Result{}, err
 			}
 			return ctrl.Result{}, nil
-		} else if clusterClaim.Status.Phase == claimV1alpha1.ClusterClaimPhaseAwaiting {
+		} else if Awaiting {
 			return ctrl.Result{}, nil
 		}
 	}
 
 	// console로부터 approved로 변경시 clustermanager 생성
-	if clusterClaim.Status.Phase == claimV1alpha1.ClusterClaimPhaseApproved {
+	Approved := clusterClaim.Status.Phase == claimV1alpha1.ClusterClaimPhaseApproved
+	if Approved {
 		if err := r.CreateClusterManager(context.TODO(), clusterClaim); err != nil {
 			log.Error(err, "Failed to Create ClusterManager")
 			return ctrl.Result{RequeueAfter: requeueAfter10Second}, nil
@@ -101,18 +103,18 @@ func (r *ClusterClaimReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	}
 
 	// status.phase migration for old version
-	if clusterClaim.Status.Phase == claimV1alpha1.ClusterClaimDeprecatedPhaseClusterDeleted {
-		clusterClaim.Status.Phase = claimV1alpha1.ClusterClaimPhaseClusterDeleted
-		helper, err := patch.NewHelper(clusterClaim, r.Client)
-		if err != nil {
-			r.Log.Error(err, "error to set patch helper for clusterclaim")
-			return ctrl.Result{}, err
-		}
-		if err := helper.Patch(context.TODO(), clusterClaim); err != nil {
-			r.Log.Error(err, "cluster claim migration patch error")
-			return ctrl.Result{}, err
-		}
-	}
+	// if clusterClaim.Status.Phase == claimV1alpha1.ClusterClaimDeprecatedPhaseClusterDeleted {
+	// 	clusterClaim.Status.Phase = claimV1alpha1.ClusterClaimPhaseClusterDeleted
+	// 	helper, err := patch.NewHelper(clusterClaim, r.Client)
+	// 	if err != nil {
+	// 		r.Log.Error(err, "error to set patch helper for clusterclaim")
+	// 		return ctrl.Result{}, err
+	// 	}
+	// 	if err := helper.Patch(context.TODO(), clusterClaim); err != nil {
+	// 		r.Log.Error(err, "cluster claim migration patch error")
+	// 		return ctrl.Result{}, err
+	// 	}
+	// }
 
 	return ctrl.Result{}, nil
 }
@@ -136,13 +138,14 @@ func (r *ClusterClaimReconciler) RequeueClusterClaimsForClusterManager(o client.
 		return nil
 	}
 
-	if cc.Status.Phase != claimV1alpha1.ClusterClaimPhaseApproved {
+	NotApproved := cc.Status.Phase != claimV1alpha1.ClusterClaimPhaseApproved
+	if NotApproved {
 		log.Info("ClusterClaims for ClusterManager [" + cc.Spec.ClusterName + "] is already delete... Do not update cc status to delete ")
 		return nil
 	}
 
 	cc.Status.SetTypedPhase(claimV1alpha1.ClusterClaimPhaseClusterDeleted)
-	cc.Status.Reason = "cluster is deleted"
+	cc.Status.SetReason("cluster is deleted")
 	err := r.Status().Update(context.TODO(), cc)
 	if err != nil {
 		log.Error(err, "Failed to update ClusterClaim status")

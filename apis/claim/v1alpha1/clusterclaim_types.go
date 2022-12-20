@@ -131,9 +131,6 @@ type ClusterClaimStatus struct {
 	Phase ClusterClaimPhase `json:"phase,omitempty" protobuf:"bytes,4,opt,name=phase"`
 }
 
-func (c *ClusterClaimStatus) SetTypedPhase(p ClusterClaimPhase) {
-	c.Phase = p
-}
 
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
@@ -160,4 +157,12 @@ type ClusterClaimList struct {
 
 func init() {
 	SchemeBuilder.Register(&ClusterClaim{}, &ClusterClaimList{})
+}
+
+func (c *ClusterClaimStatus) SetTypedPhase(p ClusterClaimPhase) {
+	c.Phase = p
+}
+
+func (c *ClusterClaimStatus) SetReason(r string) {
+	c.Reason = r
 }
