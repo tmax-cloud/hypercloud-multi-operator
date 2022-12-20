@@ -99,9 +99,20 @@ func (c *ClusterUpdateClaimStatus) SetTypedPhase(p ClusterUpdateClaimPhase) {
 	c.Phase = p
 }
 
+func (c *ClusterUpdateClaimStatus) SetReason(r string) {
+	c.Reason = r
+}
+
 func (c *ClusterUpdateClaim) GetNamespacedName() types.NamespacedName {
 	return types.NamespacedName{
 		Name:      c.Name,
+		Namespace: c.Namespace,
+	}
+}
+
+func (c *ClusterUpdateClaim) GetClusterNamespacedName() types.NamespacedName {
+	return types.NamespacedName{
+		Name:      c.Spec.ClusterName,
 		Namespace: c.Namespace,
 	}
 }
