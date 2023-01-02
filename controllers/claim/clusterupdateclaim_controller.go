@@ -58,7 +58,7 @@ func (r *ClusterUpdateClaimReconciler) Reconcile(ctx context.Context, req ctrl.R
 	log := r.Log.WithValues("ClusterUpdateClaim", req.NamespacedName)
 
 	cuc := &claimV1alpha1.ClusterUpdateClaim{}
-	if err := r.Get(context.TODO(), req.NamespacedName, cuc); errors.IsNotFound(err) {
+	if err := r.Client.Get(context.TODO(), req.NamespacedName, cuc); errors.IsNotFound(err) {
 		log.Info("ClusterUpdateClaim resource not found. Ignoring since object must be deleted")
 		return ctrl.Result{}, nil
 	} else if err != nil {
@@ -88,18 +88,18 @@ func (r *ClusterUpdateClaimReconciler) reconcile(ctx context.Context, cuc *claim
 	clmKey := cuc.GetClusterNamespacedName()
 	clm := &clusterV1alpha1.ClusterManager{}
 
-	if err := r.Get(context.TODO(), clmKey, clm); errors.IsNotFound(err) {
+	if err := r.Client.Get(context.TODO(), clmKey, clm); errors.IsNotFound(err) {
 
-		isInvalid := cuc.Status.Phase == ""
+		clusterNotFound := cuc.Status.Phase == ""
 		isDeleting := cuc.Status.Phase == claimV1alpha1.ClusterUpdateClaimPhaseAwaiting
 
-		if isInvalid {
+		if clusterNotFound {
 			cuc.Status.SetTypedPhase(claimV1alpha1.ClusterUpdateClaimPhaseError)
-			cuc.Status.SetReason("Cluster not found")
+			cuc.Status.SetTypedReason(claimV1alpha1.ClusterUpdateClaimReasonClusterNotFound)
 		} else if isDeleting {
 			// cluster manager 삭제 후, reconcile loop로 들어온 awaiting 상태의 cluster update claim에 대한 cluster deleted 삭제 처리
 			cuc.Status.SetTypedPhase(claimV1alpha1.ClusterUpdateClaimPhaseClusterDeleted)
-			cuc.Status.SetReason("Cluster deleted")
+			cuc.Status.SetTypedReason(claimV1alpha1.ClusterUpdateClaimReasonClusterDeleted)
 		}
 
 		return ctrl.Result{}, nil
@@ -122,13 +122,13 @@ func (r *ClusterUpdateClaimReconciler) reconcile(ctx context.Context, cuc *claim
 		log.Info("Approved clusterupdateclaim")
 		if err := r.UpdateClusterManagerByUpdateType(clm, cuc); err != nil {
 			cuc.Status.SetTypedPhase(claimV1alpha1.ClusterUpdateClaimPhaseError)
-			cuc.Status.SetReason(err.Error())
+			cuc.Status.SetTypedReason(claimV1alpha1.ClusterUpdateClaimReason(err.Error()))
 			return ctrl.Result{}, err
 		}
-		cuc.Status.SetReason("Admin approved")
+		cuc.Status.SetTypedReason(claimV1alpha1.ClusterUpdateClaimReasonAdminApproved)
 	} else if Rejected {
 		log.Info("Rejected clusterupdateclaim")
-		cuc.Status.SetReason("Admin rejected")
+		cuc.Status.SetTypedReason(claimV1alpha1.ClusterUpdateClaimReasonAdminRejected)
 	}
 	return ctrl.Result{}, nil
 }

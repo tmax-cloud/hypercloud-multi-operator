@@ -74,7 +74,7 @@ func (r *ClusterRegistrationReconciler) CheckValidation(ctx context.Context, Clu
 		Name:      ClusterRegistration.Spec.ClusterName,
 		Namespace: ClusterRegistration.Namespace,
 	}
-	if err := r.Get(context.TODO(), key, &clusterV1alpha1.ClusterManager{}); err != nil && !errors.IsNotFound(err) {
+	if err := r.Client.Get(context.TODO(), key, &clusterV1alpha1.ClusterManager{}); err != nil && !errors.IsNotFound(err) {
 		log.Error(err, "Failed to get clusterManager")
 		return ctrl.Result{}, err
 	} else if err == nil {
@@ -101,7 +101,7 @@ func (r *ClusterRegistrationReconciler) CreateKubeconfigSecret(ctx context.Conte
 		Namespace: ClusterRegistration.Namespace,
 	}
 	clm := &clusterV1alpha1.ClusterManager{}
-	if err := r.Get(context.TODO(), key, clm); errors.IsNotFound(err) {
+	if err := r.Client.Get(context.TODO(), key, clm); errors.IsNotFound(err) {
 		log.Info("Wait for creating cluster manager")
 		return ctrl.Result{}, err
 	} else if err != nil {
@@ -129,7 +129,7 @@ func (r *ClusterRegistrationReconciler) CreateKubeconfigSecret(ctx context.Conte
 		Namespace: ClusterRegistration.Namespace,
 	}
 	kubeconfigSecret := &coreV1.Secret{}
-	if err := r.Get(context.TODO(), key, kubeconfigSecret); errors.IsNotFound(err) {
+	if err := r.Client.Get(context.TODO(), key, kubeconfigSecret); errors.IsNotFound(err) {
 		kubeconfigSecret = &coreV1.Secret{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      kubeconfigSecretName,
@@ -182,7 +182,7 @@ func (r *ClusterRegistrationReconciler) CreateClusterManager(ctx context.Context
 	key := clusterRegistration.GetCluterManagerNamespacedName()
 
 	clm := &clusterV1alpha1.ClusterManager{}
-	if err := r.Get(context.TODO(), key, &clusterV1alpha1.ClusterManager{}); errors.IsNotFound(err) {
+	if err := r.Client.Get(context.TODO(), key, &clusterV1alpha1.ClusterManager{}); errors.IsNotFound(err) {
 		clm = ConstructClusterManagerByRegistration(clusterRegistration)
 		clm.Annotations[clusterV1alpha1.AnnotationKeyClmApiserver] = endpoint
 		clm.Annotations[clusterV1alpha1.AnnotationKeyClmDomain] = os.Getenv(util.HC_DOMAIN)

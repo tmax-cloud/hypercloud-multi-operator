@@ -301,7 +301,7 @@ func (r *ClusterManagerReconciler) GetKubeconfigSecret(clusterManager *clusterV1
 		Namespace: clusterManager.Namespace,
 	}
 	kubeconfigSecret := &coreV1.Secret{}
-	if err := r.Get(context.TODO(), key, kubeconfigSecret); errors.IsNotFound(err) {
+	if err := r.Client.Get(context.TODO(), key, kubeconfigSecret); errors.IsNotFound(err) {
 		log.Info("kubeconfig secret is not found")
 		return nil, err
 	} else if err != nil {
@@ -319,7 +319,7 @@ func (r *ClusterManagerReconciler) CreateCertificate(clusterManager *clusterV1al
 		Name:      clusterManager.Name + "-certificate",
 		Namespace: clusterManager.Namespace,
 	}
-	err := r.Get(context.TODO(), key, &certmanagerV1.Certificate{})
+	err := r.Client.Get(context.TODO(), key, &certmanagerV1.Certificate{})
 	if errors.IsNotFound(err) {
 		certificate := &certmanagerV1.Certificate{
 			ObjectMeta: metav1.ObjectMeta{
@@ -372,7 +372,7 @@ func (r *ClusterManagerReconciler) CreateIngress(clusterManager *clusterV1alpha1
 		Name:      clusterManager.Name + "-ingress",
 		Namespace: clusterManager.Namespace,
 	}
-	err := r.Get(context.TODO(), key, &networkingv1.Ingress{})
+	err := r.Client.Get(context.TODO(), key, &networkingv1.Ingress{})
 	if errors.IsNotFound(err) {
 		provider := "tmax-cloud"
 		pathType := networkingv1.PathTypePrefix
@@ -461,7 +461,7 @@ func (r *ClusterManagerReconciler) CreateGatewayService(clusterManager *clusterV
 		Name:      clusterManager.Name + "-gateway-service",
 		Namespace: clusterManager.Namespace,
 	}
-	err := r.Get(context.TODO(), key, &coreV1.Service{})
+	err := r.Client.Get(context.TODO(), key, &coreV1.Service{})
 	if errors.IsNotFound(err) {
 		service := &coreV1.Service{
 			ObjectMeta: metav1.ObjectMeta{
@@ -508,7 +508,7 @@ func (r *ClusterManagerReconciler) CreateGatewayService(clusterManager *clusterV
 // 		Name:      clusterManager.Name + "-gateway-service",
 // 		Namespace: clusterManager.Namespace,
 // 	}
-// 	err := r.Get(context.TODO(), key, &coreV1.Endpoints{})
+// 	err := r.Client.Get(context.TODO(), key, &coreV1.Endpoints{})
 // 	if errors.IsNotFound(err) {
 // 		endpoint := &coreV1.Endpoints{
 // 			ObjectMeta: metav1.ObjectMeta{
@@ -558,7 +558,7 @@ func (r *ClusterManagerReconciler) CreateMiddleware(clusterManager *clusterV1alp
 		Name:      clusterManager.Name + "-prefix",
 		Namespace: clusterManager.Namespace,
 	}
-	err := r.Get(context.TODO(), key, &traefikV1alpha1.Middleware{})
+	err := r.Client.Get(context.TODO(), key, &traefikV1alpha1.Middleware{})
 	if errors.IsNotFound(err) {
 		middleware := &traefikV1alpha1.Middleware{
 			ObjectMeta: metav1.ObjectMeta{
@@ -634,7 +634,7 @@ func (r *ClusterManagerReconciler) CreateServiceAccountSecret(clusterManager *cl
 		Namespace: clusterManager.Namespace,
 	}
 	jwtDecodeSecret := &coreV1.Secret{}
-	err = r.Get(context.TODO(), key, jwtDecodeSecret)
+	err = r.Client.Get(context.TODO(), key, jwtDecodeSecret)
 	if errors.IsNotFound(err) {
 		secret := &coreV1.Secret{
 			ObjectMeta: metav1.ObjectMeta{
@@ -680,7 +680,7 @@ func (r *ClusterManagerReconciler) CreateApplication(clusterManager *clusterV1al
 		Name:      clusterManager.GetNamespacedPrefix() + "-applications",
 		Namespace: util.ArgoNamespace,
 	}
-	err := r.Get(context.TODO(), key, &argocdV1alpha1.Application{})
+	err := r.Client.Get(context.TODO(), key, &argocdV1alpha1.Application{})
 	if errors.IsNotFound(err) {
 		application := &argocdV1alpha1.Application{
 			ObjectMeta: metav1.ObjectMeta{
@@ -804,7 +804,7 @@ func (r *ClusterManagerReconciler) DeleteCertificate(clusterManager *clusterV1al
 		Namespace: clusterManager.Namespace,
 	}
 	certificate := &certmanagerV1.Certificate{}
-	err := r.Get(context.TODO(), key, certificate)
+	err := r.Client.Get(context.TODO(), key, certificate)
 	if errors.IsNotFound(err) {
 		return nil
 	}
@@ -831,7 +831,7 @@ func (r *ClusterManagerReconciler) DeleteCertSecret(clusterManager *clusterV1alp
 		Namespace: clusterManager.Namespace,
 	}
 	secret := &coreV1.Secret{}
-	err := r.Get(context.TODO(), key, secret)
+	err := r.Client.Get(context.TODO(), key, secret)
 	if errors.IsNotFound(err) {
 		return nil
 	}
@@ -858,7 +858,7 @@ func (r *ClusterManagerReconciler) DeleteIngress(clusterManager *clusterV1alpha1
 		Namespace: clusterManager.Namespace,
 	}
 	ingress := &networkingv1.Ingress{}
-	err := r.Get(context.TODO(), key, ingress)
+	err := r.Client.Get(context.TODO(), key, ingress)
 	if errors.IsNotFound(err) {
 		return nil
 	}
@@ -885,7 +885,7 @@ func (r *ClusterManagerReconciler) DeleteService(clusterManager *clusterV1alpha1
 		Namespace: clusterManager.Namespace,
 	}
 	service := &coreV1.Service{}
-	err := r.Get(context.TODO(), key, service)
+	err := r.Client.Get(context.TODO(), key, service)
 	if errors.IsNotFound(err) {
 		return nil
 	}
@@ -912,7 +912,7 @@ func (r *ClusterManagerReconciler) DeleteEndpoint(clusterManager *clusterV1alpha
 		Namespace: clusterManager.Namespace,
 	}
 	endpoint := &coreV1.Endpoints{}
-	err := r.Get(context.TODO(), key, endpoint)
+	err := r.Client.Get(context.TODO(), key, endpoint)
 	if errors.IsNotFound(err) {
 		return nil
 	}
@@ -939,7 +939,7 @@ func (r *ClusterManagerReconciler) DeleteMiddleware(clusterManager *clusterV1alp
 		Namespace: clusterManager.Namespace,
 	}
 	middleware := &traefikV1alpha1.Middleware{}
-	err := r.Get(context.TODO(), key, middleware)
+	err := r.Client.Get(context.TODO(), key, middleware)
 	if errors.IsNotFound(err) {
 		return nil
 	}
@@ -966,7 +966,7 @@ func (r *ClusterManagerReconciler) DeleteGatewayService(clusterManager *clusterV
 		Namespace: clusterManager.Namespace,
 	}
 	service := &coreV1.Service{}
-	err := r.Get(context.TODO(), key, service)
+	err := r.Client.Get(context.TODO(), key, service)
 	if errors.IsNotFound(err) {
 		return nil
 	}
@@ -993,7 +993,7 @@ func (r *ClusterManagerReconciler) DeleteGatewayEndpoint(clusterManager *cluster
 		Namespace: clusterManager.Namespace,
 	}
 	endpoint := &coreV1.Endpoints{}
-	err := r.Get(context.TODO(), key, endpoint)
+	err := r.Client.Get(context.TODO(), key, endpoint)
 	if errors.IsNotFound(err) {
 		return nil
 	}
@@ -1020,7 +1020,7 @@ func (r *ClusterManagerReconciler) DeleteDeprecatedTraefikResources(clusterManag
 		Namespace: clusterManager.Namespace,
 	}
 	ingress := &networkingv1.Ingress{}
-	if err := r.Get(context.TODO(), key, ingress); errors.IsNotFound(err) {
+	if err := r.Client.Get(context.TODO(), key, ingress); errors.IsNotFound(err) {
 		log.Info("Not found: " + key.Name)
 	} else if err != nil {
 		log.Error(err, "Failed to get: "+key.Name)
@@ -1038,7 +1038,7 @@ func (r *ClusterManagerReconciler) DeleteDeprecatedTraefikResources(clusterManag
 		Namespace: clusterManager.Namespace,
 	}
 	service := &coreV1.Service{}
-	if err := r.Get(context.TODO(), key, service); errors.IsNotFound(err) {
+	if err := r.Client.Get(context.TODO(), key, service); errors.IsNotFound(err) {
 		log.Info("Not found: " + key.Name)
 	} else if err != nil {
 		log.Error(err, "Failed to get: "+key.Name)
@@ -1052,7 +1052,7 @@ func (r *ClusterManagerReconciler) DeleteDeprecatedTraefikResources(clusterManag
 	}
 
 	endpoint := &coreV1.Endpoints{}
-	if err := r.Get(context.TODO(), key, endpoint); errors.IsNotFound(err) {
+	if err := r.Client.Get(context.TODO(), key, endpoint); errors.IsNotFound(err) {
 		log.Info("Not found: " + key.Name)
 	} else if err != nil {
 		log.Error(err, "Failed to get: "+key.Name)
@@ -1075,7 +1075,7 @@ func (r *ClusterManagerReconciler) DeleteDeprecatedPrometheusResources(clusterMa
 		Namespace: clusterManager.Namespace,
 	}
 	service := &coreV1.Service{}
-	if err := r.Get(context.TODO(), key, service); errors.IsNotFound(err) {
+	if err := r.Client.Get(context.TODO(), key, service); errors.IsNotFound(err) {
 		log.Info("Not found: " + key.Name)
 	} else if err != nil {
 		log.Error(err, "Failed to get: "+key.Name)
@@ -1088,7 +1088,7 @@ func (r *ClusterManagerReconciler) DeleteDeprecatedPrometheusResources(clusterMa
 	}
 
 	endpoint := &coreV1.Endpoints{}
-	if err := r.Get(context.TODO(), key, endpoint); errors.IsNotFound(err) {
+	if err := r.Client.Get(context.TODO(), key, endpoint); errors.IsNotFound(err) {
 		log.Info("Not found: " + key.Name)
 	} else if err != nil {
 		log.Error(err, "Failed to get: "+key.Name)
@@ -1212,7 +1212,7 @@ func (r *ClusterManagerReconciler) DeleteHyperAuthResourcesForSingleCluster(clus
 		Namespace: "hyperauth",
 	}
 	secret := &coreV1.Secret{}
-	if err := r.Get(context.TODO(), key, secret); errors.IsNotFound(err) {
+	if err := r.Client.Get(context.TODO(), key, secret); errors.IsNotFound(err) {
 		log.Info("HyperAuth password secret is not found")
 		return err
 	} else if err != nil {

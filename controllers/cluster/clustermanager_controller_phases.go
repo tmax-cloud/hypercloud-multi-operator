@@ -66,7 +66,7 @@ func (r *ClusterManagerReconciler) ReadyReconcilePhase(ctx context.Context, clus
 			Name:      util.ArgoIngressName,
 			Namespace: util.ArgoNamespace,
 		}
-		if err := r.Get(context.TODO(), key, argoIngress); err != nil {
+		if err := r.Client.Get(context.TODO(), key, argoIngress); err != nil {
 			log.Error(err, "Can not get argocd ingress information.")
 		} else {
 			subdomain := strings.Split(argoIngress.Spec.Rules[0].Host, ".")[0]
@@ -217,7 +217,7 @@ func (r *ClusterManagerReconciler) CreateServiceInstance(ctx context.Context, cl
 	// 	Namespace: "hypercloud5-system",
 	// }
 	// auditWebhookServerSecret := &coreV1.Secret{}
-	// if err := r.Get(context.TODO(), key, auditWebhookServerSecret); errors.IsNotFound(err) {
+	// if err := r.Client.Get(context.TODO(), key, auditWebhookServerSecret); errors.IsNotFound(err) {
 	// 	log.Error(err, "hypercloud5-api-server-certs secret not created . Waiting for secret to be created")
 	// 	return ctrl.Result{RequeueAfter: requeueAfter10Second}, err
 	// } else if err != nil {
@@ -237,7 +237,7 @@ func (r *ClusterManagerReconciler) CreateServiceInstance(ctx context.Context, cl
 	// }
 
 	// hyperauthHttpsSecret := &coreV1.Secret{}
-	// if err := r.Get(context.TODO(), key, hyperauthHttpsSecret); errors.IsNotFound(err) {
+	// if err := r.Client.Get(context.TODO(), key, hyperauthHttpsSecret); errors.IsNotFound(err) {
 	// 	log.Error(err, "Hyperauth-https-secret not created . Waiting for secret to be created")
 	// 	return ctrl.Result{RequeueAfter: requeueAfter10Second}, err
 	// } else if err != nil {
@@ -306,7 +306,7 @@ func (r *ClusterManagerReconciler) CreateUpgradeServiceInstance(ctx context.Cont
 		Namespace: clusterManager.Namespace,
 	}
 
-	if err := r.Get(context.TODO(), key, &servicecatalogv1beta1.ServiceInstance{}); errors.IsNotFound(err) {
+	if err := r.Client.Get(context.TODO(), key, &servicecatalogv1beta1.ServiceInstance{}); errors.IsNotFound(err) {
 		upgradeJson, err := Marshaling(&VsphereUpgradeParameter{}, *clusterManager)
 		if err != nil {
 			log.Error(err, "Failed to marshal upgrade parameters")
@@ -334,7 +334,7 @@ func (r *ClusterManagerReconciler) SetEndpoint(ctx context.Context, clusterManag
 
 	key := clusterManager.GetNamespacedName()
 	cluster := &capiV1alpha3.Cluster{}
-	if err := r.Get(context.TODO(), key, cluster); errors.IsNotFound(err) {
+	if err := r.Client.Get(context.TODO(), key, cluster); errors.IsNotFound(err) {
 		log.Info("Cluster is not found. Requeue after 20sec")
 		return ctrl.Result{RequeueAfter: requeueAfter20Second}, err
 	} else if err != nil {
@@ -362,7 +362,7 @@ func (r *ClusterManagerReconciler) ScaleControlplane(ctx context.Context, cluste
 	}
 
 	kcp := &controlplanev1.KubeadmControlPlane{}
-	if err := r.Get(context.TODO(), key, kcp); errors.IsNotFound(err) {
+	if err := r.Client.Get(context.TODO(), key, kcp); errors.IsNotFound(err) {
 		log.Error(err, "Cannot find kubeadmcontrolplane")
 		return ctrl.Result{}, err
 	} else if err != nil {
@@ -404,7 +404,7 @@ func (r *ClusterManagerReconciler) ScaleWorker(ctx context.Context, clusterManag
 	}
 
 	md := &capiV1alpha3.MachineDeployment{}
-	if err := r.Get(context.TODO(), key, md); errors.IsNotFound(err) {
+	if err := r.Client.Get(context.TODO(), key, md); errors.IsNotFound(err) {
 		return ctrl.Result{}, nil
 	} else if err != nil {
 		log.Error(err, "Failed to get machineDeployment")
@@ -455,7 +455,7 @@ func (r *ClusterManagerReconciler) UpgradeCluster(ctx context.Context, clusterMa
 		}
 
 		serviceinstance := &servicecatalogv1beta1.ServiceInstance{}
-		if err := r.Get(context.TODO(), key, serviceinstance); errors.IsNotFound(err) {
+		if err := r.Client.Get(context.TODO(), key, serviceinstance); errors.IsNotFound(err) {
 			log.Info("Waiting for vsphere upgrade service instance to be created")
 			return ctrl.Result{RequeueAfter: requeueAfter10Second}, nil
 		} else if err != nil {
@@ -476,7 +476,7 @@ func (r *ClusterManagerReconciler) UpgradeCluster(ctx context.Context, clusterMa
 	}
 
 	kcp := &controlplanev1.KubeadmControlPlane{}
-	if err := r.Get(context.TODO(), key, kcp); errors.IsNotFound(err) {
+	if err := r.Client.Get(context.TODO(), key, kcp); errors.IsNotFound(err) {
 		log.Error(err, "Cannot find kubeadmcontrolplane")
 		return ctrl.Result{}, err
 	} else if err != nil {
@@ -519,7 +519,7 @@ func (r *ClusterManagerReconciler) UpgradeCluster(ctx context.Context, clusterMa
 	}
 
 	md := &capiV1alpha3.MachineDeployment{}
-	if err := r.Get(context.TODO(), key, md); errors.IsNotFound(err) {
+	if err := r.Client.Get(context.TODO(), key, md); errors.IsNotFound(err) {
 		return ctrl.Result{}, nil
 	} else if err != nil {
 		log.Error(err, "Failed to get machineDeployment")
@@ -558,7 +558,7 @@ func (r *ClusterManagerReconciler) UpgradeCluster(ctx context.Context, clusterMa
 	return ctrl.Result{}, nil
 }
 
-func (r *ClusterManagerReconciler) kubeadmControlPlaneUpdate(ctx context.Context, clusterManager *clusterV1alpha1.ClusterManager) (ctrl.Result, error) {
+func (r *ClusterManagerReconciler) KubeadmControlPlaneUpdate(ctx context.Context, clusterManager *clusterV1alpha1.ClusterManager) (ctrl.Result, error) {
 	log := r.Log.WithValues("clustermanager", clusterManager.GetNamespacedName())
 	log.Info("Start to reconcile phase for kubeadmControlPlaneUpdate")
 
@@ -567,7 +567,7 @@ func (r *ClusterManagerReconciler) kubeadmControlPlaneUpdate(ctx context.Context
 		Namespace: clusterManager.Namespace,
 	}
 	kcp := &controlplanev1.KubeadmControlPlane{}
-	if err := r.Get(context.TODO(), key, kcp); errors.IsNotFound(err) {
+	if err := r.Client.Get(context.TODO(), key, kcp); errors.IsNotFound(err) {
 		return ctrl.Result{}, nil
 	} else if err != nil {
 		log.Error(err, "Failed to get kubeadmControlPlane")
@@ -590,7 +590,7 @@ func (r *ClusterManagerReconciler) kubeadmControlPlaneUpdate(ctx context.Context
 	return ctrl.Result{}, nil
 }
 
-func (r *ClusterManagerReconciler) machineDeploymentUpdate(ctx context.Context, clusterManager *clusterV1alpha1.ClusterManager) (ctrl.Result, error) {
+func (r *ClusterManagerReconciler) MachineDeploymentUpdate(ctx context.Context, clusterManager *clusterV1alpha1.ClusterManager) (ctrl.Result, error) {
 	log := r.Log.WithValues("clustermanager", clusterManager.GetNamespacedName())
 	log.Info("Start to reconcile phase for machineDeploymentUpdate")
 
@@ -599,7 +599,7 @@ func (r *ClusterManagerReconciler) machineDeploymentUpdate(ctx context.Context, 
 		Namespace: clusterManager.Namespace,
 	}
 	md := &capiV1alpha3.MachineDeployment{}
-	if err := r.Get(context.TODO(), key, md); errors.IsNotFound(err) {
+	if err := r.Client.Get(context.TODO(), key, md); errors.IsNotFound(err) {
 		return ctrl.Result{}, nil
 	} else if err != nil {
 		log.Error(err, "Failed to get machineDeployment")
@@ -689,7 +689,7 @@ func (r *ClusterManagerReconciler) CreateArgocdResources(ctx context.Context, cl
 		Namespace: util.ArgoNamespace,
 	}
 	argocdClusterSecret := &coreV1.Secret{}
-	if err := r.Get(context.TODO(), key, argocdClusterSecret); errors.IsNotFound(err) {
+	if err := r.Client.Get(context.TODO(), key, argocdClusterSecret); errors.IsNotFound(err) {
 		argocdClusterSecret = &coreV1.Secret{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      key.Name,
@@ -736,12 +736,11 @@ func (r *ClusterManagerReconciler) CreateArgocdResources(ctx context.Context, cl
 		Name:      util.ArgoIngressName,
 		Namespace: util.ArgoNamespace,
 	}
-	if err := r.Get(context.TODO(), key, argoIngress); err != nil {
+	if err := r.Client.Get(context.TODO(), key, argoIngress); err != nil {
 		log.Error(err, "Can not get argocd ingress information.")
-	} else {
-		subdomain := strings.Split(argoIngress.Spec.Rules[0].Host, ".")[0]
-		SetApplicationLink(clusterManager, subdomain)
 	}
+	subdomain := strings.Split(argoIngress.Spec.Rules[0].Host, ".")[0]
+	SetApplicationLink(clusterManager, subdomain)
 
 	log.Info("Create argocd cluster secret successfully")
 	clusterManager.Status.ArgoReady = true
@@ -762,7 +761,7 @@ func (r *ClusterManagerReconciler) CreateGatewayResources(ctx context.Context, c
 		return ctrl.Result{RequeueAfter: requeueAfter10Second}, nil
 	}
 
-	remoteClientset, err := util.GetRemoteK8sClient(kubeconfigSecret)
+	remoteClient, err := util.GetRemoteK8sClient(kubeconfigSecret)
 	if err != nil {
 		log.Error(err, "Failed to get remoteK8sClient")
 		return ctrl.Result{}, err
@@ -770,7 +769,7 @@ func (r *ClusterManagerReconciler) CreateGatewayResources(ctx context.Context, c
 
 	// host domain or ip를 얻기 위해 single cluster의
 	// api-gateway-system 네임스페이스의 gateway service를 조회
-	gatewayService, err := remoteClientset.
+	gatewayService, err := remoteClient.
 		CoreV1().
 		Services(util.ApiGatewayNamespace).
 		Get(context.TODO(), "gateway", metav1.GetOptions{})
@@ -825,10 +824,6 @@ func (r *ClusterManagerReconciler) CreateGatewayResources(ctx context.Context, c
 	// }
 	// clusterManager.Status.TraefikReady = traefikReady
 
-	if err := r.DeleteDeprecatedPrometheusResources(clusterManager); err != nil {
-		return ctrl.Result{}, err
-	}
-
 	log.Info("Create gateway resources successfully")
 	clusterManager.Status.GatewayReady = true
 	return ctrl.Result{}, nil
@@ -847,7 +842,7 @@ func (r *ClusterManagerReconciler) CreateHyperAuthResources(ctx context.Context,
 		Namespace: "hyperauth",
 	}
 	secret := &coreV1.Secret{}
-	if err := r.Get(context.TODO(), key, secret); errors.IsNotFound(err) {
+	if err := r.Client.Get(context.TODO(), key, secret); errors.IsNotFound(err) {
 		log.Info("Hyperauth password secret is not found")
 		return ctrl.Result{}, err
 	} else if err != nil {

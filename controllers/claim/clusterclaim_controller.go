@@ -66,7 +66,7 @@ func (r *ClusterClaimReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	log := r.Log.WithValues("ClusterClaim", req.NamespacedName)
 
 	clusterClaim := &claimV1alpha1.ClusterClaim{}
-	if err := r.Get(context.TODO(), req.NamespacedName, clusterClaim); errors.IsNotFound(err) {
+	if err := r.Client.Get(context.TODO(), req.NamespacedName, clusterClaim); errors.IsNotFound(err) {
 		log.Info("ClusterClaim resource not found. Ignoring since object must be deleted")
 		return ctrl.Result{}, nil
 	} else if err != nil {
@@ -114,7 +114,7 @@ func (r *ClusterClaimReconciler) RequeueClusterClaimsForClusterManager(o client.
 		Name:      clm.Labels[clusterV1alpha1.LabelKeyClcName],
 		Namespace: clm.Namespace,
 	}
-	if err := r.Get(context.TODO(), key, cc); errors.IsNotFound(err) {
+	if err := r.Client.Get(context.TODO(), key, cc); errors.IsNotFound(err) {
 		log.Info("ClusterClaim resource not found. Ignoring since object must be deleted")
 		return nil
 	} else if err != nil {

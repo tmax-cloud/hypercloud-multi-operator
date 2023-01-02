@@ -94,7 +94,7 @@ func (r *ClusterManagerReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 
 	//get ClusterManager
 	clusterManager := &clusterV1alpha1.ClusterManager{}
-	if err := r.Get(context.TODO(), req.NamespacedName, clusterManager); errors.IsNotFound(err) {
+	if err := r.Client.Get(context.TODO(), req.NamespacedName, clusterManager); errors.IsNotFound(err) {
 		log.Info("ClusterManager resource not found. Ignoring since object must be deleted")
 		return ctrl.Result{}, nil
 	} else if err != nil {
@@ -151,9 +151,9 @@ func (r *ClusterManagerReconciler) reconcile(ctx context.Context, clusterManager
 			// cluster manager 가 바라봐야 할 cluster 의 endpoint 를 annotation 으로 달아준다.
 			r.SetEndpoint,
 			// cluster claim 을 통해, cluster 의 spec 을 변경한 경우, 그에 맞게 master 노드의 spec 을 업데이트 해준다.
-			r.kubeadmControlPlaneUpdate,
+			r.KubeadmControlPlaneUpdate,
 			// cluster claim 을 통해, cluster 의 spec 을 변경한 경우, 그에 맞게 worker 노드의 spec 을 업데이트 해준다.
-			r.machineDeploymentUpdate,
+			r.MachineDeploymentUpdate,
 		)
 	} else {
 		// cluster 를 등록한 경우에만 수행
@@ -232,7 +232,7 @@ func (r *ClusterManagerReconciler) reconcileDelete(ctx context.Context, clusterM
 	// 	Name:      clusterManager.Name + util.KubeconfigSuffix,
 	// 	Namespace: clusterManager.Namespace,
 	// }
-	// if err := r.Get(context.TODO(), key, kubeconfigSecret); err != nil && !errors.IsNotFound(err) {
+	// if err := r.Client.Get(context.TODO(), key, kubeconfigSecret); err != nil && !errors.IsNotFound(err) {
 	// 	log.Error(err, "Failed to get kubeconfig secret")
 	// 	return ctrl.Result{}, err
 	// }
@@ -262,7 +262,7 @@ func (r *ClusterManagerReconciler) reconcileDelete(ctx context.Context, clusterM
 		Namespace: clusterManager.Namespace,
 	}
 	serviceInstance := &servicecatalogv1beta1.ServiceInstance{}
-	if err := r.Get(context.TODO(), key, serviceInstance); errors.IsNotFound(err) {
+	if err := r.Client.Get(context.TODO(), key, serviceInstance); errors.IsNotFound(err) {
 		log.Info("ServiceInstance is already deleted. Waiting cluster to be deleted")
 	} else if err != nil {
 		log.Error(err, "Failed to get serviceInstance")
@@ -282,7 +282,7 @@ func (r *ClusterManagerReconciler) reconcileDelete(ctx context.Context, clusterM
 			Namespace: clusterManager.Namespace,
 		}
 		regKubeconfigSecret := &coreV1.Secret{}
-		if err := r.Get(context.TODO(), key, regKubeconfigSecret); errors.IsNotFound(err) {
+		if err := r.Client.Get(context.TODO(), key, regKubeconfigSecret); errors.IsNotFound(err) {
 			log.Info("Kubeconfig secret for cluster registration was deleted successfully")
 		} else if err != nil {
 			log.Error(err, "Failed to get kubeconfig secret for cluster registration")
@@ -298,7 +298,7 @@ func (r *ClusterManagerReconciler) reconcileDelete(ctx context.Context, clusterM
 
 	//delete handling
 	key = clusterManager.GetNamespacedName()
-	if err := r.Get(context.TODO(), key, &capiV1alpha3.Cluster{}); errors.IsNotFound(err) {
+	if err := r.Client.Get(context.TODO(), key, &capiV1alpha3.Cluster{}); errors.IsNotFound(err) {
 		if err := util.Delete(clusterManager.Namespace, clusterManager.Name); err != nil {
 			log.Error(err, "Failed to delete cluster info from cluster_member table")
 			return ctrl.Result{}, err
@@ -308,7 +308,7 @@ func (r *ClusterManagerReconciler) reconcileDelete(ctx context.Context, clusterM
 			Name:      clusterManager.Name + util.KubeconfigSuffix,
 			Namespace: clusterManager.Namespace,
 		}
-		if err := r.Get(context.TODO(), key, &coreV1.Secret{}); errors.IsNotFound(err) {
+		if err := r.Client.Get(context.TODO(), key, &coreV1.Secret{}); errors.IsNotFound(err) {
 			controllerutil.RemoveFinalizer(clusterManager, clusterV1alpha1.ClusterManagerFinalizer)
 			log.Info("Cluster manager was deleted successfully")
 			// 끝
@@ -527,7 +527,7 @@ func (r *ClusterManagerReconciler) SetupWithManager(mgr ctrl.Manager) error {
 // 		Namespace: clusterManager.Namespace,
 // 	}
 // 	kubeconfigSecret := &coreV1.Secret{}
-// 	if err := r.Get(context.TODO(), key, kubeconfigSecret); err != nil && !errors.IsNotFound(err) {
+// 	if err := r.Client.Get(context.TODO(), key, kubeconfigSecret); err != nil && !errors.IsNotFound(err) {
 // 		log.Error(err, "Failed to get kubeconfig Secret")
 // 		return ctrl.Result{}, err
 // 	} else if err == nil {

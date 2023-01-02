@@ -85,7 +85,7 @@ func (r *SecretReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ c
 
 	//get secret
 	secret := &coreV1.Secret{}
-	if err := r.Get(context.TODO(), key, secret); errors.IsNotFound(err) {
+	if err := r.Client.Get(context.TODO(), key, secret); errors.IsNotFound(err) {
 		log.Info("Secret resource not found. Ignoring since object must be deleted")
 		return ctrl.Result{}, nil
 	} else if err != nil {
@@ -178,7 +178,7 @@ func (r *SecretReconciler) reconcileDelete(ctx context.Context, secret *coreV1.S
 		Namespace: secret.Labels[clusterV1alpha1.LabelKeyClmNamespace],
 	}
 	clm := &clusterV1alpha1.ClusterManager{}
-	if err := r.Get(context.TODO(), key, clm); errors.IsNotFound(err) {
+	if err := r.Client.Get(context.TODO(), key, clm); errors.IsNotFound(err) {
 		log.Info("Not found cluster manager. Already deleted")
 		return ctrl.Result{}, nil
 	} else if err != nil {
@@ -193,7 +193,7 @@ func (r *SecretReconciler) reconcileDelete(ctx context.Context, secret *coreV1.S
 			Namespace: secret.Labels[clusterV1alpha1.LabelKeyClmNamespace],
 		}
 		clr := &clusterV1alpha1.ClusterRegistration{}
-		if err := r.Get(context.TODO(), key, clr); err != nil {
+		if err := r.Client.Get(context.TODO(), key, clr); err != nil {
 			log.Error(err, "Failed to get ClusterRegistration")
 			return ctrl.Result{}, err
 		}
@@ -227,7 +227,7 @@ func (r *SecretReconciler) reconcileDelete(ctx context.Context, secret *coreV1.S
 	// 			Namespace: secret.Labels[clusterV1alpha1.LabelKeyClmNamespace],
 	// 		}
 	// 		clr := &clusterV1alpha1.ClusterRegistration{}
-	// 		if err := r.Get(context.TODO(), key, clr); err != nil {
+	// 		if err := r.Client.Get(context.TODO(), key, clr); err != nil {
 	// 			log.Error(err, "Failed to get ClusterRegistration")
 	// 			return ctrl.Result{}, err
 	// 		}
@@ -433,7 +433,7 @@ func (r *SecretReconciler) reconcileDelete(ctx context.Context, secret *coreV1.S
 		Namespace: util.ArgoNamespace,
 	}
 	argoClusterSecret := &coreV1.Secret{}
-	if err := r.Get(context.TODO(), key, argoClusterSecret); errors.IsNotFound(err) {
+	if err := r.Client.Get(context.TODO(), key, argoClusterSecret); errors.IsNotFound(err) {
 		log.Info("Cannot find Secret for argocd external cluster [" + argoClusterSecret.Name + "]. Maybe already deleted")
 	} else if err != nil {
 		log.Error(err, "Failed to get Secret for argocd external cluster ["+argoClusterSecret.Name+"]")
@@ -454,7 +454,7 @@ func (r *SecretReconciler) reconcileDelete(ctx context.Context, secret *coreV1.S
 		Namespace: secret.Namespace,
 	}
 	saTokenSecret := &coreV1.Secret{}
-	if err := r.Get(context.TODO(), key, saTokenSecret); errors.IsNotFound(err) {
+	if err := r.Client.Get(context.TODO(), key, saTokenSecret); errors.IsNotFound(err) {
 		log.Info("Cannot find Secret for ServiceAccount [" + saTokenSecret.Name + "]. Maybe already deleted")
 	} else if err != nil {
 		log.Error(err, "Failed to get Secret for ServiceAccount ["+saTokenSecret.Name+"]")
@@ -473,7 +473,7 @@ func (r *SecretReconciler) reconcileDelete(ctx context.Context, secret *coreV1.S
 		Namespace: clm.Namespace,
 	}
 	kubeconfigSecret := &coreV1.Secret{}
-	if err := r.Get(context.TODO(), key, kubeconfigSecret); errors.IsNotFound(err) {
+	if err := r.Client.Get(context.TODO(), key, kubeconfigSecret); errors.IsNotFound(err) {
 		log.Info("Cannot find secret for secret [" + kubeconfigSecret.Name + "]. Maybe already deleted")
 	} else if err != nil {
 		log.Error(err, "Failed to get Secret for secret ["+kubeconfigSecret.Name+"]")

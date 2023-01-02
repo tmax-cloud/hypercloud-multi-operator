@@ -105,6 +105,7 @@ objects:
     name: '${ClusterName}-control-plane'
     namespace: '${Namespace}'
     labels:
+      cluster.x-k8s.io/cluster-name: '${ClusterName}'
       cluster.tmax.io/cluster-name: '${ClusterName}'
       cluster.tmax.io/controlplane: controlplane
   spec:

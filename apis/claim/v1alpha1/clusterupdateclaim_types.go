@@ -34,6 +34,15 @@ const (
 	ClusterUpdateClaimPhaseError = ClusterUpdateClaimPhase("Error")
 )
 
+type ClusterUpdateClaimReason string
+
+const (
+	ClusterUpdateClaimReasonClusterNotFound = ClusterUpdateClaimReason("Cluster not found")
+	ClusterUpdateClaimReasonClusterDeleted  = ClusterUpdateClaimReason("Cluster deleted")
+	ClusterUpdateClaimReasonAdminApproved   = ClusterUpdateClaimReason("Admin approved")
+	ClusterUpdateClaimReasonAdminRejected   = ClusterUpdateClaimReason("Admin rejected")
+)
+
 type ClusterUpdateType string
 
 const (
@@ -59,8 +68,8 @@ type ClusterUpdateClaimSpec struct {
 
 // ClusterUpdateClaimStatus defines the observed state of ClusterUpdateClaim
 type ClusterUpdateClaimStatus struct {
-	Message string `json:"message,omitempty" protobuf:"bytes,2,opt,name=message"`
-	Reason  string `json:"reason,omitempty" protobuf:"bytes,3,opt,name=reason"`
+	Message string                   `json:"message,omitempty" protobuf:"bytes,2,opt,name=message"`
+	Reason  ClusterUpdateClaimReason `json:"reason,omitempty" protobuf:"bytes,3,opt,name=reason"`
 
 	// +kubebuilder:validation:Enum=Awaiting;Approved;Rejected;Error;Cluster Deleted;
 	Phase ClusterUpdateClaimPhase `json:"phase,omitempty" protobuf:"bytes,4,opt,name=phase"`
@@ -99,7 +108,7 @@ func (c *ClusterUpdateClaimStatus) SetTypedPhase(p ClusterUpdateClaimPhase) {
 	c.Phase = p
 }
 
-func (c *ClusterUpdateClaimStatus) SetReason(r string) {
+func (c *ClusterUpdateClaimStatus) SetTypedReason(r ClusterUpdateClaimReason) {
 	c.Reason = r
 }
 

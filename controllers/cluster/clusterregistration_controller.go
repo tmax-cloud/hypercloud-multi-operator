@@ -51,7 +51,7 @@ func (r *ClusterRegistrationReconciler) Reconcile(ctx context.Context, req ctrl.
 
 	// get ClusterRegistration
 	clusterRegistration := &clusterV1alpha1.ClusterRegistration{}
-	if err := r.Get(context.TODO(), req.NamespacedName, clusterRegistration); errors.IsNotFound(err) {
+	if err := r.Client.Get(context.TODO(), req.NamespacedName, clusterRegistration); errors.IsNotFound(err) {
 		log.Info("ClusterRegistration not found. Ignoring since object must be deleted")
 		return ctrl.Result{}, nil
 	} else if err != nil {
@@ -127,7 +127,7 @@ func (r *ClusterRegistrationReconciler) requeueClusterRegistrationsForClusterMan
 		Namespace: clm.Namespace,
 	}
 	clr := &clusterV1alpha1.ClusterRegistration{}
-	if err := r.Get(context.TODO(), key, clr); errors.IsNotFound(err) {
+	if err := r.Client.Get(context.TODO(), key, clr); errors.IsNotFound(err) {
 		log.Info("ClusterRegistration resource not found. Ignoring since object must be deleted")
 		return nil
 	} else if err != nil {
