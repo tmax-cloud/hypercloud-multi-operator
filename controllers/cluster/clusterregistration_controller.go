@@ -64,13 +64,6 @@ func (r *ClusterRegistrationReconciler) Reconcile(ctx context.Context, req ctrl.
 		return ctrl.Result{}, err
 	}
 
-	// status.phase migration for old version
-	if clusterRegistration.Status.Phase == clusterV1alpha1.ClusterRegistrationDeprecatedPhaseSuccess {
-		clusterRegistration.Status.Phase = clusterV1alpha1.ClusterRegistrationPhaseRegistered
-	} else if clusterRegistration.Status.Phase == clusterV1alpha1.ClusterRegistrationDeprecatedPhaseDeleted {
-		clusterRegistration.Status.Phase = clusterV1alpha1.ClusterRegistrationPhaseClusterDeleted
-	}
-
 	defer func() {
 		// Always reconcile the Status.Phase field.
 		r.reconcilePhase(context.TODO(), clusterRegistration)

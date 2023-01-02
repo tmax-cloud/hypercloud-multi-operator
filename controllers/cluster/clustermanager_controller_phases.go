@@ -252,7 +252,7 @@ func (r *ClusterManagerReconciler) CreateServiceInstance(ctx context.Context, cl
 		Namespace: clusterManager.Namespace,
 	}
 
-	if err := r.Get(context.TODO(), key, &servicecatalogv1beta1.ServiceInstance{}); errors.IsNotFound(err) {
+	if err := r.Client.Get(context.TODO(), key, &servicecatalogv1beta1.ServiceInstance{}); errors.IsNotFound(err) {
 		clusterJson, err := Marshaling(&ClusterParameter{}, *clusterManager)
 		if err != nil {
 			log.Error(err, "Failed to marshal cluster parameters")
@@ -1000,10 +1000,6 @@ func (r *ClusterManagerReconciler) CreateTraefikResources(ctx context.Context, c
 	}
 	log := r.Log.WithValues("clustermanager", clusterManager.GetNamespacedName())
 	log.Info("Start to reconcile phase for CreateTraefikResources")
-
-	if err := r.CreateCertificate(clusterManager); err != nil {
-		return ctrl.Result{}, err
-	}
 
 	if err := r.CreateMiddleware(clusterManager); err != nil {
 		return ctrl.Result{}, err

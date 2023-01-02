@@ -237,7 +237,7 @@ func (r *ClusterManagerReconciler) reconcileDelete(ctx context.Context, clusterM
 	// 	return ctrl.Result{}, err
 	// }
 
-	// ArgoCD application이 모두 삭제되어 있는지 확인 
+	// ArgoCD application이 모두 삭제되어 있는지 확인
 	if err := r.CheckApplicationRemains(clusterManager); err != nil {
 		return ctrl.Result{RequeueAfter: requeueAfter10Second}, err
 	}
@@ -248,9 +248,9 @@ func (r *ClusterManagerReconciler) reconcileDelete(ctx context.Context, clusterM
 		return ctrl.Result{}, err
 	}
 
-	if err := r.DeleteTraefikResources(clusterManager); err != nil {
-		return ctrl.Result{}, err
-	}
+	// if err := r.DeleteTraefikResources(clusterManager); err != nil {
+	// 	return ctrl.Result{}, err
+	// }
 
 	if err := r.DeleteHyperAuthResourcesForSingleCluster(clusterManager); err != nil {
 		return ctrl.Result{}, err
@@ -311,6 +311,7 @@ func (r *ClusterManagerReconciler) reconcileDelete(ctx context.Context, clusterM
 		if err := r.Get(context.TODO(), key, &coreV1.Secret{}); errors.IsNotFound(err) {
 			controllerutil.RemoveFinalizer(clusterManager, clusterV1alpha1.ClusterManagerFinalizer)
 			log.Info("Cluster manager was deleted successfully")
+			// 끝
 			return ctrl.Result{}, nil
 		} else if err != nil {
 			log.Error(err, "Failed to get kubeconfig secret")

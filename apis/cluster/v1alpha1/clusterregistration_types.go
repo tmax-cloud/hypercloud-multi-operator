@@ -145,3 +145,10 @@ func (c *ClusterRegistration) GetNamespacedName() types.NamespacedName {
 		Namespace: c.Namespace,
 	}
 }
+
+func (c *ClusterRegistration) GetCluterManagerNamespacedName() types.NamespacedName {
+	return types.NamespacedName{
+		Name:      c.Spec.ClusterName,
+		Namespace: c.Namespace,
+	}
+}

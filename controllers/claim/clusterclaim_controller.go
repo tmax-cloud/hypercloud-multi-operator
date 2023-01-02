@@ -100,20 +100,6 @@ func (r *ClusterClaimReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		return ctrl.Result{}, nil
 	}
 
-	// status.phase migration for old version
-	// if clusterClaim.Status.Phase == claimV1alpha1.ClusterClaimDeprecatedPhaseClusterDeleted {
-	// 	clusterClaim.Status.Phase = claimV1alpha1.ClusterClaimPhaseClusterDeleted
-	// 	helper, err := patch.NewHelper(clusterClaim, r.Client)
-	// 	if err != nil {
-	// 		r.Log.Error(err, "error to set patch helper for clusterclaim")
-	// 		return ctrl.Result{}, err
-	// 	}
-	// 	if err := helper.Patch(context.TODO(), clusterClaim); err != nil {
-	// 		r.Log.Error(err, "cluster claim migration patch error")
-	// 		return ctrl.Result{}, err
-	// 	}
-	// }
-
 	return ctrl.Result{}, nil
 }
 

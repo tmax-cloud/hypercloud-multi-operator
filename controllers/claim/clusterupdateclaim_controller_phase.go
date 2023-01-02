@@ -55,7 +55,7 @@ func (r *ClusterUpdateClaimReconciler) RequeueClusterUpdateClaimsForClusterManag
 
 	log := r.Log.WithValues("objectMapper", "clusterManagerToClusterUpdateClaim", "clusterManager", clm.Name)
 	log.Info("Start to clusterManagerToClusterUpdateClaim mapping...")
-	
+
 	if err := r.List(context.TODO(), cucs, opts...); err != nil {
 		log.Error(err, "Failed to list clusterupdateclaims")
 		return nil
@@ -77,7 +77,7 @@ func (r *ClusterUpdateClaimReconciler) SetupClaimStatus(clusterUpdateClaim *clai
 	if clusterUpdateClaim.Labels == nil {
 		clusterUpdateClaim.Labels = map[string]string{}
 	}
-	
+
 	if _, ok := clusterUpdateClaim.Labels[LabelKeyClmName]; !ok {
 		clusterUpdateClaim.Labels[LabelKeyClmName] = clusterUpdateClaim.Spec.ClusterName
 	}

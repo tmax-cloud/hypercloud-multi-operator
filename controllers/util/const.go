@@ -111,7 +111,7 @@ const (
 	ArgoDescriptionHelmApiServerSubdomain       = "Helm api server의 Subdomain으로 변경 ex) helm"
 	ArgoDescriptionHyperregistryStorageClass    = "Hyperregistry가 사용할 StorageClass로 변경(aws의 경우 efs-sc-0, 그외에는 nfs)"
 	ArgoDescriptionHyperregistryDBStorageClass  = "Hyperregistry의 DB가 사용할 StorageClass로 변경(aws의 경우 efs-sc-999, 그외에는 nfs)"
-	ArgoDescriptionGitRepo                      = "Git repo 주소를 입력(gitlab의 경우 주소맨뒤에 .git을 입력)"
+	ArgoDescriptionGitRepo                      = "Git repo 주소를 입력(gitlab의 경우 주소맨뒤에 .git을 입력 ex) https://github.com/tmax/argocd.git"
 	ArgoDescriptionGitRevision                  = "Git target revision(branch, tag)를 입력 ex) main"
 )
 

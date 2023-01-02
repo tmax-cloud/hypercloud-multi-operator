@@ -352,13 +352,13 @@ func (r *ClusterManagerReconciler) CreateCertificate(clusterManager *clusterV1al
 				},
 			},
 		}
+		ctrl.SetControllerReference(clusterManager, certificate, r.Scheme)
 		if err := r.Create(context.TODO(), certificate); err != nil {
 			log.Error(err, "Failed to Create Certificate")
 			return err
 		}
 
 		log.Info("Create Certificate successfully")
-		ctrl.SetControllerReference(clusterManager, certificate, r.Scheme)
 		return nil
 	}
 
@@ -379,13 +379,14 @@ func (r *ClusterManagerReconciler) CreateIngress(clusterManager *clusterV1alpha1
 		prefixMiddleware := clusterManager.GetNamespacedPrefix() + "-prefix@kubernetescrd"
 		multiclusterDNS := "multicluster." + clusterManager.Annotations[clusterV1alpha1.AnnotationKeyClmDomain]
 		urlPath := "/api/" + clusterManager.Namespace + "/" + clusterManager.Name
+		middlwareAnnotations := "api-gateway-system-oauth2-proxy-forwardauth@kubernetescrd,api-gateway-system-jwt-decode-auth@kubernetescrd," + prefixMiddleware
 		ingress := &networkingv1.Ingress{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      key.Name,
 				Namespace: key.Namespace,
 				Annotations: map[string]string{
 					util.AnnotationKeyTraefikEntrypoints: "websecure",
-					util.AnnotationKeyTraefikMiddlewares: "api-gateway-system-jwt-decode-auth@kubernetescrd," + prefixMiddleware,
+					util.AnnotationKeyTraefikMiddlewares: middlwareAnnotations,
 					util.AnnotationKeyOwner:              clusterManager.Annotations[util.AnnotationKeyCreator],
 					util.AnnotationKeyCreator:            clusterManager.Annotations[util.AnnotationKeyCreator],
 				},
@@ -440,13 +441,13 @@ func (r *ClusterManagerReconciler) CreateIngress(clusterManager *clusterV1alpha1
 				},
 			},
 		}
+		ctrl.SetControllerReference(clusterManager, ingress, r.Scheme)
 		if err := r.Create(context.TODO(), ingress); err != nil {
 			log.Error(err, "Failed to Create Ingress")
 			return err
 		}
 
 		log.Info("Create Ingress successfully")
-		ctrl.SetControllerReference(clusterManager, ingress, r.Scheme)
 		return nil
 	}
 
@@ -488,68 +489,67 @@ func (r *ClusterManagerReconciler) CreateGatewayService(clusterManager *clusterV
 				Type: coreV1.ServiceTypeExternalName,
 			},
 		}
+		ctrl.SetControllerReference(clusterManager, service, r.Scheme)
 		if err := r.Create(context.TODO(), service); err != nil {
 			log.Error(err, "Failed to Create Service for gateway")
 			return err
 		}
-
 		log.Info("Create Service for gateway successfully")
-		ctrl.SetControllerReference(clusterManager, service, r.Scheme)
 		return nil
 	}
 
 	return err
 }
 
-func (r *ClusterManagerReconciler) CreateGatewayEndpoint(clusterManager *clusterV1alpha1.ClusterManager) error {
-	log := r.Log.WithValues("clustermanager", clusterManager.GetNamespacedName())
+// func (r *ClusterManagerReconciler) CreateGatewayEndpoint(clusterManager *clusterV1alpha1.ClusterManager) error {
+// 	log := r.Log.WithValues("clustermanager", clusterManager.GetNamespacedName())
 
-	key := types.NamespacedName{
-		Name:      clusterManager.Name + "-gateway-service",
-		Namespace: clusterManager.Namespace,
-	}
-	err := r.Get(context.TODO(), key, &coreV1.Endpoints{})
-	if errors.IsNotFound(err) {
-		endpoint := &coreV1.Endpoints{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      key.Name,
-				Namespace: key.Namespace,
-				Annotations: map[string]string{
-					util.AnnotationKeyOwner:   clusterManager.Annotations[util.AnnotationKeyCreator],
-					util.AnnotationKeyCreator: clusterManager.Annotations[util.AnnotationKeyCreator],
-				},
-				Labels: map[string]string{
-					clusterV1alpha1.LabelKeyClmName: clusterManager.Name,
-				},
-			},
-			Subsets: []coreV1.EndpointSubset{
-				{
-					Addresses: []coreV1.EndpointAddress{
-						{
-							IP: clusterManager.Annotations[clusterV1alpha1.AnnotationKeyClmGateway],
-						},
-					},
-					Ports: []coreV1.EndpointPort{
-						{
-							Port:     443,
-							Protocol: coreV1.ProtocolTCP,
-						},
-					},
-				},
-			},
-		}
-		if err := r.Create(context.TODO(), endpoint); err != nil {
-			log.Error(err, "Failed to Create Endpoint for gateway")
-			return err
-		}
+// 	key := types.NamespacedName{
+// 		Name:      clusterManager.Name + "-gateway-service",
+// 		Namespace: clusterManager.Namespace,
+// 	}
+// 	err := r.Get(context.TODO(), key, &coreV1.Endpoints{})
+// 	if errors.IsNotFound(err) {
+// 		endpoint := &coreV1.Endpoints{
+// 			ObjectMeta: metav1.ObjectMeta{
+// 				Name:      key.Name,
+// 				Namespace: key.Namespace,
+// 				Annotations: map[string]string{
+// 					util.AnnotationKeyOwner:   clusterManager.Annotations[util.AnnotationKeyCreator],
+// 					util.AnnotationKeyCreator: clusterManager.Annotations[util.AnnotationKeyCreator],
+// 				},
+// 				Labels: map[string]string{
+// 					clusterV1alpha1.LabelKeyClmName: clusterManager.Name,
+// 				},
+// 			},
+// 			Subsets: []coreV1.EndpointSubset{
+// 				{
+// 					Addresses: []coreV1.EndpointAddress{
+// 						{
+// 							IP: clusterManager.Annotations[clusterV1alpha1.AnnotationKeyClmGateway],
+// 						},
+// 					},
+// 					Ports: []coreV1.EndpointPort{
+// 						{
+// 							Port:     443,
+// 							Protocol: coreV1.ProtocolTCP,
+// 						},
+// 					},
+// 				},
+// 			},
+// 		}
+// 		if err := r.Create(context.TODO(), endpoint); err != nil {
+// 			log.Error(err, "Failed to Create Endpoint for gateway")
+// 			return err
+// 		}
 
-		log.Info("Create Endpoint for gateway successfully")
-		ctrl.SetControllerReference(clusterManager, endpoint, r.Scheme)
-		return nil
-	}
+// 		log.Info("Create Endpoint for gateway successfully")
+// 		ctrl.SetControllerReference(clusterManager, endpoint, r.Scheme)
+// 		return nil
+// 	}
 
-	return err
-}
+// 	return err
+// }
 
 func (r *ClusterManagerReconciler) CreateMiddleware(clusterManager *clusterV1alpha1.ClusterManager) error {
 	log := r.Log.WithValues("clustermanager", clusterManager.GetNamespacedName())
@@ -580,13 +580,13 @@ func (r *ClusterManagerReconciler) CreateMiddleware(clusterManager *clusterV1alp
 				},
 			},
 		}
+		ctrl.SetControllerReference(clusterManager, middleware, r.Scheme)
 		if err := r.Create(context.TODO(), middleware); err != nil {
 			log.Error(err, "Failed to Create Middleware")
 			return err
 		}
 
 		log.Info("Create Middleware successfully")
-		ctrl.SetControllerReference(clusterManager, middleware, r.Scheme)
 		return nil
 	}
 
@@ -656,13 +656,13 @@ func (r *ClusterManagerReconciler) CreateServiceAccountSecret(clusterManager *cl
 				"token": tokenSecret.Data["token"],
 			},
 		}
+		ctrl.SetControllerReference(clusterManager, secret, r.Scheme)
 		if err := r.Create(context.TODO(), secret); err != nil {
 			log.Error(err, "Failed to Create Secret for ServiceAccount token")
 			return err
 		}
 
 		log.Info("Create Secret for ServiceAccount token successfully")
-		ctrl.SetControllerReference(clusterManager, secret, r.Scheme)
 		return nil
 	}
 
