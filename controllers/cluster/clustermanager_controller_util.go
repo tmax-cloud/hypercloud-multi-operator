@@ -163,7 +163,7 @@ func Marshaling(parameter Parameters, clusterManager clusterV1alpha1.ClusterMana
 	return json.Marshal(parameter)
 }
 
-func MakeServiceInstance(clusterManager *clusterV1alpha1.ClusterManager, serviceInstanceName string, json []byte, upgrade bool) *servicecatalogv1beta1.ServiceInstance {
+func ConstructServiceInstance(clusterManager *clusterV1alpha1.ClusterManager, serviceInstanceName string, json []byte, upgrade bool) *servicecatalogv1beta1.ServiceInstance {
 	templateName := ""
 	if upgrade {
 		// vsphere upgrade에 대해서만 serviceinstance를 생성하므로

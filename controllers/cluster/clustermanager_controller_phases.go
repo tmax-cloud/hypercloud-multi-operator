@@ -276,7 +276,7 @@ func (r *ClusterManagerReconciler) CreateServiceInstance(ctx context.Context, cl
 		clusterJson = util.MergeJson(clusterJson, providerJson)
 		generatedSuffix := util.CreateSuffixString()
 		serviceInstanceName := clusterManager.Name + "-" + generatedSuffix
-		serviceInstance := MakeServiceInstance(clusterManager, serviceInstanceName, clusterJson, false)
+		serviceInstance := ConstructServiceInstance(clusterManager, serviceInstanceName, clusterJson, false)
 		if err = r.Create(context.TODO(), serviceInstance); err != nil {
 			log.Error(err, "Failed to create ServiceInstance")
 			return ctrl.Result{}, err
@@ -311,7 +311,7 @@ func (r *ClusterManagerReconciler) CreateUpgradeServiceInstance(ctx context.Cont
 		if err != nil {
 			log.Error(err, "Failed to marshal upgrade parameters")
 		}
-		serviceInstance := MakeServiceInstance(clusterManager, serviceInstanceName, upgradeJson, true)
+		serviceInstance := ConstructServiceInstance(clusterManager, serviceInstanceName, upgradeJson, true)
 		ctrl.SetControllerReference(clusterManager, serviceInstance, r.Scheme)
 		if err = r.Create(context.TODO(), serviceInstance); err != nil {
 			log.Error(err, "Failed to create ServiceInstance")
@@ -352,7 +352,7 @@ func (r *ClusterManagerReconciler) SetEndpoint(ctx context.Context, clusterManag
 }
 
 // controlplane을 scaling한다.
-func (r *ClusterManagerReconciler) ControlplaneScaling(ctx context.Context, clusterManager *clusterV1alpha1.ClusterManager) (ctrl.Result, error) {
+func (r *ClusterManagerReconciler) ScaleControlplane(ctx context.Context, clusterManager *clusterV1alpha1.ClusterManager) (ctrl.Result, error) {
 	log := r.Log.WithValues("clustermanager", clusterManager.GetNamespacedName())
 	log.Info("Start to reconcile phase for ControlplaneScaling")
 
@@ -394,7 +394,7 @@ func (r *ClusterManagerReconciler) ControlplaneScaling(ctx context.Context, clus
 }
 
 // worker를 scaling한다.
-func (r *ClusterManagerReconciler) WorkerScaling(ctx context.Context, clusterManager *clusterV1alpha1.ClusterManager) (ctrl.Result, error) {
+func (r *ClusterManagerReconciler) ScaleWorker(ctx context.Context, clusterManager *clusterV1alpha1.ClusterManager) (ctrl.Result, error) {
 	log := r.Log.WithValues("clustermanager", clusterManager.GetNamespacedName())
 	log.Info("Start to reconcile phase for WorkerScaling")
 
@@ -435,7 +435,7 @@ func (r *ClusterManagerReconciler) WorkerScaling(ctx context.Context, clusterMan
 }
 
 // cluster를 upgrade한다. vsphere의 경우, serviceinstance 생성이 필요하다.
-func (r *ClusterManagerReconciler) ClusterUpgrade(ctx context.Context, clusterManager *clusterV1alpha1.ClusterManager) (ctrl.Result, error) {
+func (r *ClusterManagerReconciler) UpgradeCluster(ctx context.Context, clusterManager *clusterV1alpha1.ClusterManager) (ctrl.Result, error) {
 	log := r.Log.WithValues("clustermanager", clusterManager.GetNamespacedName())
 	log.Info("Start to reconcile phase for ClusterUpgrade")
 

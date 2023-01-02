@@ -65,7 +65,6 @@ func (r *ClusterClaimReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	_ = context.Background()
 	log := r.Log.WithValues("ClusterClaim", req.NamespacedName)
 
-	// get ClusterClaim
 	clusterClaim := &claimV1alpha1.ClusterClaim{}
 	if err := r.Get(context.TODO(), req.NamespacedName, clusterClaim); errors.IsNotFound(err) {
 		log.Info("ClusterClaim resource not found. Ignoring since object must be deleted")
@@ -76,9 +75,8 @@ func (r *ClusterClaimReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	}
 
 	if !AutoAdmit {
-		NotInitialized := clusterClaim.Status.Phase == ""
 		Awaiting := clusterClaim.Status.Phase == claimV1alpha1.ClusterClaimPhaseAwaiting
-		if NotInitialized {
+		if clusterClaim.Status.Phase == "" {
 			clusterClaim.Status.SetTypedPhase(claimV1alpha1.ClusterClaimPhaseAwaiting)
 			clusterClaim.Status.SetReason("Waiting for admin approval")
 			err := r.Status().Update(context.TODO(), clusterClaim)

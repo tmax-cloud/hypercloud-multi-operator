@@ -90,7 +90,6 @@ func (r *ClusterUpdateClaimReconciler) reconcile(ctx context.Context, cuc *claim
 
 	if err := r.Get(context.TODO(), clmKey, clm); errors.IsNotFound(err) {
 
-		// clm이 없을 때
 		isInvalid := cuc.Status.Phase == ""
 		isDeleting := cuc.Status.Phase == claimV1alpha1.ClusterUpdateClaimPhaseAwaiting
 
