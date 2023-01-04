@@ -1104,14 +1104,40 @@ func (r *ClusterManagerReconciler) DeleteDeprecatedPrometheusResources(clusterMa
 	return nil
 }
 
-func (r *ClusterManagerReconciler) CheckApplicationRemains(clusterManager *clusterV1alpha1.ClusterManager) error {
+func (r *ClusterManagerReconciler) FetchApplications(clm *clusterV1alpha1.ClusterManager) ([]argocdV1alpha1.Application, error) {
+	matchLabels := client.MatchingLabels{util.LabelKeyArgoTargetCluster: clm.GetNamespacedPrefix()}
 	appList := &argocdV1alpha1.ApplicationList{}
-	if err := r.List(context.TODO(), appList); err != nil {
+	if err := r.List(context.TODO(), appList, client.InNamespace("argocd"), matchLabels); err != nil {
+		return nil, err
+	}
+
+	return appList.Items, nil
+}
+
+func (r *ClusterManagerReconciler) CheckApplicationRemains(clm *clusterV1alpha1.ClusterManager) error {
+	apps, err := r.FetchApplications(clm)
+	if err != nil {
 		return err
 	}
-	for _, app := range appList.Items {
-		if app.Labels[util.LabelKeyArgoTargetCluster] == clusterManager.GetNamespacedPrefix() {
-			return fmt.Errorf("application still remains")
+
+	if len(apps) > 0 {
+		return fmt.Errorf("Application still remains")
+	}
+
+	return nil
+}
+
+// application 비동기 삭제
+func (r *ClusterManagerReconciler) DeleteApplicationRemains(clm *clusterV1alpha1.ClusterManager) error {
+	apps, err := r.FetchApplications(clm)
+	if err != nil {
+		return err
+	}
+
+	if len(apps) > 0 {
+		matchLabels := client.MatchingLabels{util.LabelKeyArgoTargetCluster: clm.GetNamespacedPrefix()}
+		if err := r.Client.DeleteAllOf(context.TODO(), &argocdV1alpha1.Application{}, client.InNamespace("argocd"), matchLabels); err != nil {
+			return err
 		}
 	}
 

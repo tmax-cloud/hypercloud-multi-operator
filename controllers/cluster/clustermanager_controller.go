@@ -86,7 +86,7 @@ const (
 // +kubebuilder:rbac:groups="",resources=services;endpoints,verbs=create;delete;get;list;patch;update;watch
 // +kubebuilder:rbac:groups=traefik.containo.us,resources=middlewares,verbs=create;delete;get;list;patch;update;watch
 // +kubebuilder:rbac:groups=coordination.k8s.io,resources=leases,verbs=create;delete;get;list;patch;update;watch
-// +kubebuilder:rbac:groups=argoproj.io,resources=applications,verbs=create;delete;get;list;patch;update;watch
+// +kubebuilder:rbac:groups=argoproj.io,resources=applications,verbs=create;delete;deletecollection;get;list;patch;update;watch
 
 func (r *ClusterManagerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ ctrl.Result, reterr error) {
 	_ = context.Background()
@@ -142,7 +142,7 @@ func (r *ClusterManagerReconciler) reconcile(ctx context.Context, clusterManager
 	phases := []phaseFunc{}
 	phases = append(phases, r.ReadyReconcilePhase)
 
-	if clusterManager.Labels[clusterV1alpha1.LabelKeyClmClusterType] == clusterV1alpha1.ClusterTypeCreated {
+	if clusterManager.GetClusterType() == clusterV1alpha1.ClusterTypeCreated {
 		// cluster claim 으로 cluster 를 생성한 경우에만 수행
 		phases = append(
 			phases,
@@ -184,7 +184,7 @@ func (r *ClusterManagerReconciler) reconcile(ctx context.Context, clusterManager
 	)
 
 	// special case- capi upgrade/master scaling/worker scaling
-	if clusterManager.Labels[clusterV1alpha1.LabelKeyClmClusterType] == clusterV1alpha1.ClusterTypeCreated {
+	if clusterManager.GetClusterType() == clusterV1alpha1.ClusterTypeCreated {
 		if clusterManager.Status.Version != "" && clusterManager.Spec.Version != clusterManager.Status.Version {
 			phases = []phaseFunc{}
 			if clusterManager.Spec.Provider == clusterV1alpha1.ProviderVSphere {
@@ -227,19 +227,14 @@ func (r *ClusterManagerReconciler) reconcileDelete(ctx context.Context, clusterM
 	log := r.Log.WithValues("clustermanager", clusterManager.GetNamespacedName())
 	log.Info("Start reconcile phase for delete")
 
-	// sjoh - kubeconfig가 없으면 cluster가 삭제된 것을 가정, 없으면 skip한다.
-	// key := types.NamespacedName{
-	// 	Name:      clusterManager.Name + util.KubeconfigSuffix,
-	// 	Namespace: clusterManager.Namespace,
-	// }
-	// if err := r.Client.Get(context.TODO(), key, kubeconfigSecret); err != nil && !errors.IsNotFound(err) {
-	// 	log.Error(err, "Failed to get kubeconfig secret")
-	// 	return ctrl.Result{}, err
+	// ArgoCD application이 모두 삭제되어 있는지 확인
+
+	// if err := r.DeleteApplicationRemains(clusterManager); err != nil {
+	// 	return ctrl.Result{RequeueAfter: requeueAfter10Second}, nil
 	// }
 
-	// ArgoCD application이 모두 삭제되어 있는지 확인
-	if err := r.CheckApplicationRemains(clusterManager); err != nil {
-		return ctrl.Result{RequeueAfter: requeueAfter10Second}, err
+	if err := r.DeleteApplicationRemains(clusterManager); err != nil {
+		return ctrl.Result{RequeueAfter: requeueAfter10Second}, nil
 	}
 
 	// ClusterAPI-provider-aws의 경우, lb type의 svc가 남아있으면 infra nlb deletion이 stuck걸리면서 클러스터가 지워지지 않는 버그가 있음
@@ -276,7 +271,7 @@ func (r *ClusterManagerReconciler) reconcileDelete(ctx context.Context, clusterM
 
 	// capi가 생성한 kubeconfig는 service instance를 지우면서 삭제되었으므로, registration으로 생성한 경우 또한 kubeconfig를 이 시점에서 삭제한다.
 	// kubeconfig가 없으면 skip 한다.
-	if clusterManager.Labels[clusterV1alpha1.LabelKeyClmClusterType] == clusterV1alpha1.ClusterTypeRegistered {
+	if clusterManager.GetClusterType() == clusterV1alpha1.ClusterTypeRegistered {
 		key := types.NamespacedName{
 			Name:      clusterManager.Name + util.KubeconfigSuffix,
 			Namespace: clusterManager.Namespace,
@@ -392,10 +387,10 @@ func (r *ClusterManagerReconciler) SetupWithManager(mgr ctrl.Manager) error {
 					if isDelete || isControlPlaneEndpointUpdate || isFinalized || isUpgrade || isScaling {
 						return true
 					} else {
-						if newclm.Labels[clusterV1alpha1.LabelKeyClmClusterType] == clusterV1alpha1.ClusterTypeCreated {
+						if newclm.GetClusterType() == clusterV1alpha1.ClusterTypeCreated {
 							return true
 						}
-						if newclm.Labels[clusterV1alpha1.LabelKeyClmClusterType] == clusterV1alpha1.ClusterTypeRegistered {
+						if newclm.GetClusterType() == clusterV1alpha1.ClusterTypeRegistered {
 							return isSubResourceNotReady
 						}
 					}

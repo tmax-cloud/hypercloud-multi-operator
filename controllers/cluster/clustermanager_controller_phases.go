@@ -47,12 +47,6 @@ func (r *ClusterManagerReconciler) ReadyReconcilePhase(ctx context.Context, clus
 	log := r.Log.WithValues("clustermanager", clusterManager.GetNamespacedName())
 	log.Info("Start to reconcile phase for ReadyReconcilePhase")
 
-	// Label migration for old version
-	if _, ok := clusterManager.GetLabels()[clusterV1alpha1.LabelKeyClmClusterTypeDefunct]; ok {
-		clusterManager.Labels[clusterV1alpha1.LabelKeyClmClusterType] =
-			clusterManager.Labels[clusterV1alpha1.LabelKeyClmClusterTypeDefunct]
-	}
-
 	// Status migration for old version
 	if !clusterManager.Status.GatewayReadyMigration {
 		clusterManager.Status.GatewayReady = clusterManager.Status.PrometheusReady

@@ -273,7 +273,7 @@ func (r *SecretReconciler) reconcileDelete(ctx context.Context, secret *coreV1.S
 
 	// registration인 경우, single cluster 내부에 설치된 리소스를 삭제한다.
 	// capi를 통해서 생성한 single cluster의 경우, 내부에 설치된 리소스들은 무시한다.
-	if clm.Labels[clusterV1alpha1.LabelKeyClmClusterType] == clusterV1alpha1.ClusterTypeRegistered {
+	if clm.GetClusterType() == clusterV1alpha1.ClusterTypeRegistered {
 		remoteClientset, err := util.GetRemoteK8sClient(secret)
 		if err != nil {
 			log.Error(err, "Failed to get remoteK8sClient")

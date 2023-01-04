@@ -270,3 +270,10 @@ func (c *ClusterManager) GetNamespacedName() types.NamespacedName {
 func (c *ClusterManager) GetNamespacedPrefix() string {
 	return strings.Join([]string{c.Namespace, c.Name}, "-")
 }
+
+func (c *ClusterManager) GetClusterType() string {
+	if v, ok := c.Labels[LabelKeyClmClusterType]; ok {
+		return v
+	}
+	return ""
+}
