@@ -106,8 +106,6 @@ objects:
     namespace: '${Namespace}'
     labels:
       cluster.x-k8s.io/cluster-name: '${ClusterName}'
-      cluster.tmax.io/cluster-name: '${ClusterName}'
-      cluster.tmax.io/controlplane: controlplane
   spec:
     infrastructureTemplate:
       apiVersion: infrastructure.cluster.x-k8s.io/v1alpha3
@@ -341,8 +339,7 @@ objects:
   kind: MachineDeployment
   metadata:
     labels:
-      cluster.tmax.io/cluster-name: '${ClusterName}'
-      cluster.tmax.io/worker: worker
+      cluster.x-k8s.io/cluster-name: '${ClusterName}'
     name: '${ClusterName}-md-0'
     namespace: '${Namespace}'
   spec:

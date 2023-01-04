@@ -200,6 +200,7 @@ func (r *ClusterManagerReconciler) GetMachineList(clusterManager *clusterV1alpha
 
 	opts := []client.ListOption{client.InNamespace(clusterManager.Namespace),
 		client.MatchingLabels{CAPI_CLUSTER_LABEL_KEY: clusterManager.Name}}
+
 	if controlplane {
 		opts = append(opts, client.MatchingLabels{CAPI_CONTROLPLANE_LABEL_KEY: ""})
 	} else {
