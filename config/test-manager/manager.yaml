@@ -28,6 +28,10 @@ spec:
           value: tmax_client_secret
         - name: AUTH_SUBDOMAIN
           value: hyperauth
+        - name: ARGO_APP_DELETE
+          value: "true"
+        - name: DEV_MODE
+          value: "true"
         image: controller:latest
         name: manager
         resources:

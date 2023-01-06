@@ -102,8 +102,7 @@ func (r *ClusterManagerReconciler) UpdateClusterManagerStatus(ctx context.Contex
 
 	// cluster registration의 경우에는 k8s version을 parameter로 받지 않기 때문에,
 	// k8s version을 single cluster의 kube-system 네임스페이스의 kubeadm-config ConfigMap으로 부터 조회
-	kubeadmConfig, err := remoteClientset.
-		CoreV1().
+	kubeadmConfig, err := remoteClientset.CoreV1().
 		ConfigMaps(util.KubeNamespace).
 		Get(context.TODO(), "kubeadm-config", metav1.GetOptions{})
 	if err != nil {
@@ -717,8 +716,6 @@ func (r *ClusterManagerReconciler) CreateArgocdResources(ctx context.Context, cl
 	} else if err != nil {
 		log.Error(err, "Failed to get Argocd Secret for remote cluster")
 		return ctrl.Result{}, err
-	} else if !argocdClusterSecret.GetDeletionTimestamp().IsZero() {
-		return ctrl.Result{Requeue: true}, nil
 	}
 
 	if err := r.CreateApplication(clusterManager); err != nil {

@@ -33,6 +33,7 @@ import (
 	capiV1alpha3 "sigs.k8s.io/cluster-api/api/v1alpha3"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	servicecatalogv1beta1 "github.com/kubernetes-sigs/service-catalog/pkg/apis/servicecatalog/v1beta1"
 	coreV1 "k8s.io/api/core/v1"
@@ -678,15 +679,16 @@ func (r *ClusterManagerReconciler) CreateApplication(clusterManager *clusterV1al
 	log := r.Log.WithValues("clustermanager", clusterManager.GetNamespacedName())
 
 	key := types.NamespacedName{
-		Name:      clusterManager.GetNamespacedPrefix() + "-applications",
+		Name:      clusterManager.GetApplicationName(),
 		Namespace: util.ArgoNamespace,
 	}
 	err := r.Client.Get(context.TODO(), key, &argocdV1alpha1.Application{})
 	if errors.IsNotFound(err) {
 		application := &argocdV1alpha1.Application{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      key.Name,
-				Namespace: key.Namespace,
+				Name:       key.Name,
+				Namespace:  key.Namespace,
+				Finalizers: []string{util.ArgoResourceFinalizers},
 				Labels: map[string]string{
 					util.LabelKeyArgoTargetCluster: clusterManager.GetNamespacedPrefix(),
 					util.LabelKeyArgoAppType:       util.ArgoAppTypeAppOfApp,
@@ -1107,41 +1109,95 @@ func (r *ClusterManagerReconciler) DeleteDeprecatedPrometheusResources(clusterMa
 func (r *ClusterManagerReconciler) FetchApplications(clm *clusterV1alpha1.ClusterManager) ([]argocdV1alpha1.Application, error) {
 	matchLabels := client.MatchingLabels{util.LabelKeyArgoTargetCluster: clm.GetNamespacedPrefix()}
 	appList := &argocdV1alpha1.ApplicationList{}
-	if err := r.List(context.TODO(), appList, client.InNamespace("argocd"), matchLabels); err != nil {
+	if err := r.List(context.TODO(), appList, client.InNamespace(util.ArgoNamespace), matchLabels); err != nil {
 		return nil, err
 	}
 
 	return appList.Items, nil
 }
 
+// root application이 삭제되면 하위의 모든 application이 삭제되므로 root의 경우에 대해서만 검사한다.
 func (r *ClusterManagerReconciler) CheckApplicationRemains(clm *clusterV1alpha1.ClusterManager) error {
+
 	apps, err := r.FetchApplications(clm)
 	if err != nil {
 		return err
 	}
 
-	if len(apps) > 0 {
-		return fmt.Errorf("Application still remains")
+	if len(apps) <= 0 {
+		return nil
 	}
 
-	return nil
+	return fmt.Errorf("Applications still remains. Please delete applications which remain")
 }
 
-// application 비동기 삭제
+// root application을 삭제한다.
+// 하위의 application도 함께 삭제될 수 있도록 필요한 세팅을 추가한다.
 func (r *ClusterManagerReconciler) DeleteApplicationRemains(clm *clusterV1alpha1.ClusterManager) error {
+	log := r.Log.WithValues("clustermanager", clm.GetNamespacedName())
+	requireRequeue := fmt.Errorf("not error. just for requeue")
+
+	key := types.NamespacedName{
+		Name:      clm.GetApplicationName(),
+		Namespace: util.ArgoNamespace,
+	}
+
+	app := &argocdV1alpha1.Application{}
+	if err := r.Client.Get(context.TODO(), key, app); errors.IsNotFound(err) {
+		log.Info("Deleted root application successfully")
+		return nil // 끝
+	} else if err != nil {
+		return err
+	}
+
 	apps, err := r.FetchApplications(clm)
 	if err != nil {
 		return err
 	}
 
-	if len(apps) > 0 {
-		matchLabels := client.MatchingLabels{util.LabelKeyArgoTargetCluster: clm.GetNamespacedPrefix()}
-		if err := r.Client.DeleteAllOf(context.TODO(), &argocdV1alpha1.Application{}, client.InNamespace("argocd"), matchLabels); err != nil {
+	for _, app := range apps {
+		if app.Name == clm.GetApplicationName() {
+			// root app은 pass한다.
+			continue
+		}
+
+		exist := &argocdV1alpha1.Application{}
+		key := types.NamespacedName{
+			Name:      app.Name,
+			Namespace: app.Namespace,
+		}
+		if err := r.Client.Get(context.TODO(), key, exist); err != nil {
 			return err
 		}
+
+		// autosync 제거
+		if exist.Spec.SyncPolicy != nil && exist.Spec.SyncPolicy.Automated != nil {
+			exist.Spec.SyncPolicy.Automated = nil
+		}
+
+		// sync wave 제거
+		if _, ok := exist.Annotations[util.AnnotationKeyArgoSyncWave]; ok {
+			delete(exist.Annotations, util.AnnotationKeyArgoSyncWave)
+		}
+
+		// finalizer 추가
+		controllerutil.AddFinalizer(exist, util.ArgoResourceFinalizers)
+		if err := r.Update(context.TODO(), exist); err != nil {
+			return err
+		}
+
 	}
 
-	return nil
+	if !app.GetDeletionTimestamp().IsZero() {
+		log.Info("Wait for application to be deleted")
+		return fmt.Errorf("Wait for application to be deleted")
+	}
+
+	if err := r.Client.Delete(context.TODO(), app); err != nil {
+		return err
+	}
+
+	return requireRequeue
 }
 
 func (r *ClusterManagerReconciler) DeleteLoadBalancerServices(clusterManager *clusterV1alpha1.ClusterManager) error {

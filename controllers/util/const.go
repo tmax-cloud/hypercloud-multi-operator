@@ -71,6 +71,7 @@ const (
 
 	AnnotationKeyArgoClusterSecret = "argocd.argoproj.io/cluster.secret"
 	AnnotationKeyArgoManagedBy     = "managed-by"
+	AnnotationKeyArgoSyncWave      = "argocd.argoproj.io/sync-wave"
 
 	AnnotationKeyTraefikServerTransport = "traefik.ingress.kubernetes.io/service.serverstransport"
 	AnnotationKeyTraefikEntrypoints     = "traefik.ingress.kubernetes.io/router.entrypoints"
@@ -89,6 +90,11 @@ const (
 	// LabelKeyArgoTargetCluster = "cluster.tmax.io/cluster"
 	LabelKeyArgoTargetCluster = "cluster"
 	LabelKeyArgoAppType       = "appType"
+	LabelKeyArgoAppInstance   = "app.kubernetes.io/instance"
+)
+
+const (
+	ArgoResourceFinalizers = "resources-finalizer.argocd.argoproj.io"
 )
 
 const (
@@ -122,6 +128,10 @@ const (
 	AUTH_CLIENT_SECRET = "AUTH_CLIENT_SECRET"
 	AUTH_SUBDOMAIN     = "AUTH_SUBDOMAIN"
 	// AUDIT_WEBHOOK_SERVER_PATH = "AUDIT_WEBHOOK_SERVER_PATH"
+
+	// optional 환경 변수
+	ARGO_APP_DELETE = "ARGO_APP_DELETE"
+	DEV_MODE        = "DEV_MODE"
 )
 
 func GetRequiredEnvPreset() []string {

@@ -28,6 +28,10 @@ spec:
           value: ${auth_client_secret}
         - name: AUTH_SUBDOMAIN
           value: ${auth_subdomain}
+        - name: ARGO_APP_DELETE
+          value: "true"
+        - name: DEV_MODE
+          value: "false"
         image: controller:latest
         name: manager
         resources:

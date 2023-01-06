@@ -16,6 +16,7 @@ package controllers
 
 import (
 	"context"
+	"os"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -86,7 +87,7 @@ const (
 // +kubebuilder:rbac:groups="",resources=services;endpoints,verbs=create;delete;get;list;patch;update;watch
 // +kubebuilder:rbac:groups=traefik.containo.us,resources=middlewares,verbs=create;delete;get;list;patch;update;watch
 // +kubebuilder:rbac:groups=coordination.k8s.io,resources=leases,verbs=create;delete;get;list;patch;update;watch
-// +kubebuilder:rbac:groups=argoproj.io,resources=applications,verbs=create;delete;deletecollection;get;list;patch;update;watch
+// +kubebuilder:rbac:groups=argoproj.io,resources=applications,verbs=create;delete;get;list;patch;update;watch
 
 func (r *ClusterManagerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ ctrl.Result, reterr error) {
 	_ = context.Background()
@@ -227,14 +228,15 @@ func (r *ClusterManagerReconciler) reconcileDelete(ctx context.Context, clusterM
 	log := r.Log.WithValues("clustermanager", clusterManager.GetNamespacedName())
 	log.Info("Start reconcile phase for delete")
 
-	// ArgoCD application이 모두 삭제되어 있는지 확인
-
-	// if err := r.DeleteApplicationRemains(clusterManager); err != nil {
-	// 	return ctrl.Result{RequeueAfter: requeueAfter10Second}, nil
-	// }
-
-	if err := r.DeleteApplicationRemains(clusterManager); err != nil {
-		return ctrl.Result{RequeueAfter: requeueAfter10Second}, nil
+	ARGO_APP_DELETE := os.Getenv(util.ARGO_APP_DELETE)
+	if util.IsTrue(ARGO_APP_DELETE) {
+		if err := r.DeleteApplicationRemains(clusterManager); err != nil {
+			return ctrl.Result{RequeueAfter: requeueAfter10Second}, nil
+		}
+	} else {
+		if err := r.CheckApplicationRemains(clusterManager); err != nil {
+			return ctrl.Result{RequeueAfter: requeueAfter10Second}, nil
+		}
 	}
 
 	// ClusterAPI-provider-aws의 경우, lb type의 svc가 남아있으면 infra nlb deletion이 stuck걸리면서 클러스터가 지워지지 않는 버그가 있음

@@ -156,3 +156,11 @@ func CheckRequiredEnvPreset() error {
 	}
 	return nil
 }
+
+func IsTrue(str string) bool {
+	str = strings.ToUpper(str)
+	if str == "TRUE" {
+		return true
+	}
+	return false
+}

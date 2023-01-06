@@ -277,3 +277,8 @@ func (c *ClusterManager) GetClusterType() string {
 	}
 	return ""
 }
+
+// single app of apps application name
+func (c *ClusterManager) GetApplicationName() string {
+	return c.GetNamespacedPrefix() + "-applications"
+}
