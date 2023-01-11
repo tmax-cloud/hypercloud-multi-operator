@@ -287,29 +287,49 @@ func (r *ClusterManagerReconciler) CreateUpgradeServiceInstance(ctx context.Cont
 	log := r.Log.WithValues("clustermanager", clusterManager.GetNamespacedName())
 	log.Info("Start to reconcile phase for CreateUpgradeServiceInstance")
 
-	clmSuffix, ok := clusterManager.Annotations[clusterV1alpha1.AnnotationKeyClmSuffix]
-	if !ok {
-		err := fmt.Errorf("Cannot find cluster suffix from cluster manager")
-		log.Error(err, "failed to upgrade vsphere cluster")
-		return ctrl.Result{}, err
-	}
-	serviceInstanceName := fmt.Sprintf("%s-%s-%s", clusterManager.Name, clmSuffix, clusterManager.Spec.Version)
+	// controlplane service instance 생성
+	controlplaneInstanceName := fmt.Sprintf("%s-controlplane-%s", clusterManager.Name, clusterManager.Spec.Version)
 	key := types.NamespacedName{
-		Name:      serviceInstanceName,
+		Name:      controlplaneInstanceName,
 		Namespace: clusterManager.Namespace,
 	}
 
 	if err := r.Client.Get(context.TODO(), key, &servicecatalogv1beta1.ServiceInstance{}); errors.IsNotFound(err) {
-		upgradeJson, err := Marshaling(&VsphereUpgradeParameter{}, *clusterManager)
+		upgradeJson, err := Marshaling(&VsphereUpgradeParameter{controlPlane: true}, *clusterManager)
 		if err != nil {
 			log.Error(err, "Failed to marshal upgrade parameters")
 		}
-		serviceInstance := ConstructServiceInstance(clusterManager, serviceInstanceName, upgradeJson, true)
+		serviceInstance := ConstructServiceInstance(clusterManager, controlplaneInstanceName, upgradeJson, true)
 		ctrl.SetControllerReference(clusterManager, serviceInstance, r.Scheme)
 		if err = r.Create(context.TODO(), serviceInstance); err != nil {
 			log.Error(err, "Failed to create ServiceInstance")
 			return ctrl.Result{}, err
 		}
+		log.Info("Created UpgradeServiceInstance for controlplane successfully")
+	} else if err != nil {
+		log.Error(err, "Failed to get ServiceInstance")
+		return ctrl.Result{}, err
+	}
+
+	// worker service instance 생성
+	workerInstanceName := fmt.Sprintf("%s-worker-%s", clusterManager.Name, clusterManager.Spec.Version)
+	key = types.NamespacedName{
+		Name:      workerInstanceName,
+		Namespace: clusterManager.Namespace,
+	}
+
+	if err := r.Client.Get(context.TODO(), key, &servicecatalogv1beta1.ServiceInstance{}); errors.IsNotFound(err) {
+		upgradeJson, err := Marshaling(&VsphereUpgradeParameter{controlPlane: false}, *clusterManager)
+		if err != nil {
+			log.Error(err, "Failed to marshal upgrade parameters")
+		}
+		serviceInstance := ConstructServiceInstance(clusterManager, workerInstanceName, upgradeJson, true)
+		ctrl.SetControllerReference(clusterManager, serviceInstance, r.Scheme)
+		if err = r.Create(context.TODO(), serviceInstance); err != nil {
+			log.Error(err, "Failed to create ServiceInstance")
+			return ctrl.Result{}, err
+		}
+		log.Info("Created UpgradeServiceInstance for worker successfully")
 	} else if err != nil {
 		log.Error(err, "Failed to get ServiceInstance")
 		return ctrl.Result{}, err
@@ -433,15 +453,8 @@ func (r *ClusterManagerReconciler) UpgradeCluster(ctx context.Context, clusterMa
 	log.Info("Start to reconcile phase for ClusterUpgrade")
 
 	if clusterManager.Spec.Provider == clusterV1alpha1.ProviderVSphere {
-		// service instance 체크
-		clmSuffix, ok := clusterManager.Annotations[clusterV1alpha1.AnnotationKeyClmSuffix]
-		if !ok {
-			err := fmt.Errorf("Cannot find cluster suffix from cluster manager")
-			log.Error(err, "failed to upgrade vsphere cluster")
-			return ctrl.Result{}, err
-		}
-		serviceInstanceName := fmt.Sprintf("%s-%s-%s", clusterManager.Name, clmSuffix, clusterManager.Spec.Version)
-
+		// service instance 체크 for controlplane
+		serviceInstanceName := fmt.Sprintf("%s-controlplane-%s", clusterManager.Name, clusterManager.Spec.Version)
 		key := types.NamespacedName{
 			Name:      serviceInstanceName,
 			Namespace: clusterManager.Namespace,
@@ -449,7 +462,7 @@ func (r *ClusterManagerReconciler) UpgradeCluster(ctx context.Context, clusterMa
 
 		serviceinstance := &servicecatalogv1beta1.ServiceInstance{}
 		if err := r.Client.Get(context.TODO(), key, serviceinstance); errors.IsNotFound(err) {
-			log.Info("Waiting for vsphere upgrade service instance to be created")
+			log.Info("Waiting for vsphere upgrade service instance(controlplane) to be created")
 			return ctrl.Result{RequeueAfter: requeueAfter10Second}, nil
 		} else if err != nil {
 			log.Error(err, "Failed to get service instance")
@@ -457,12 +470,33 @@ func (r *ClusterManagerReconciler) UpgradeCluster(ctx context.Context, clusterMa
 		}
 
 		if serviceinstance.Status.ProvisionStatus != servicecatalogv1beta1.ServiceInstanceProvisionStatusProvisioned {
-			log.Info("Waiting for vsphere upgrade service instance to be provisioned")
+			log.Info("Waiting for vsphere upgrade service instance(controlplane) to be provisioned")
+			return ctrl.Result{RequeueAfter: requeueAfter10Second}, nil
+		}
+
+		// service instance 체크 for worker
+		serviceInstanceName = fmt.Sprintf("%s-worker-%s", clusterManager.Name, clusterManager.Spec.Version)
+		key = types.NamespacedName{
+			Name:      serviceInstanceName,
+			Namespace: clusterManager.Namespace,
+		}
+
+		serviceinstance = &servicecatalogv1beta1.ServiceInstance{}
+		if err := r.Client.Get(context.TODO(), key, serviceinstance); errors.IsNotFound(err) {
+			log.Info("Waiting for vsphere upgrade service instance(worker) to be created")
+			return ctrl.Result{RequeueAfter: requeueAfter10Second}, nil
+		} else if err != nil {
+			log.Error(err, "Failed to get service instance")
+			return ctrl.Result{}, err
+		}
+
+		if serviceinstance.Status.ProvisionStatus != servicecatalogv1beta1.ServiceInstanceProvisionStatusProvisioned {
+			log.Info("Waiting for vsphere upgrade service instance(worker) to be provisioned")
 			return ctrl.Result{RequeueAfter: requeueAfter10Second}, nil
 		}
 	}
 
-	// kcp 업데이트
+	// 1. kcp 업데이트
 	key := types.NamespacedName{
 		Name:      clusterManager.Name + "-control-plane",
 		Namespace: clusterManager.Namespace,
@@ -481,7 +515,7 @@ func (r *ClusterManagerReconciler) UpgradeCluster(ctx context.Context, clusterMa
 	if kcp.Spec.Version != clusterManager.Spec.Version {
 		kcp.Spec.Version = clusterManager.Spec.Version
 		if clusterManager.Spec.Provider == clusterV1alpha1.ProviderVSphere {
-			kcp.Spec.InfrastructureTemplate.Name = fmt.Sprintf("%s-%s", clusterManager.Name, clusterManager.Spec.Version)
+			kcp.Spec.InfrastructureTemplate.Name = fmt.Sprintf("%s-controlplane-%s", clusterManager.Name, clusterManager.Spec.Version)
 		}
 		if err := r.Update(context.TODO(), kcp); err != nil {
 			log.Error(err, "Failed to update kubeadmcontrolplane")
@@ -505,7 +539,7 @@ func (r *ClusterManagerReconciler) UpgradeCluster(ctx context.Context, clusterMa
 		return ctrl.Result{RequeueAfter: requeueAfter1Minute}, nil
 	}
 
-	// machineDeployment 업데이트
+	// 2. machineDeployment 업데이트
 	key = types.NamespacedName{
 		Name:      clusterManager.Name + "-md-0",
 		Namespace: clusterManager.Namespace,
@@ -522,7 +556,7 @@ func (r *ClusterManagerReconciler) UpgradeCluster(ctx context.Context, clusterMa
 	if *md.Spec.Template.Spec.Version != clusterManager.Spec.Version {
 		*md.Spec.Template.Spec.Version = clusterManager.Spec.Version
 		if clusterManager.Spec.Provider == clusterV1alpha1.ProviderVSphere {
-			md.Spec.Template.Spec.InfrastructureRef.Name = fmt.Sprintf("%s-%s", clusterManager.Name, clusterManager.Spec.Version)
+			md.Spec.Template.Spec.InfrastructureRef.Name = fmt.Sprintf("%s-worker-%s", clusterManager.Name, clusterManager.Spec.Version)
 		}
 		if err := r.Update(context.TODO(), md); err != nil {
 			log.Error(err, "Failed to update machinedeployment")

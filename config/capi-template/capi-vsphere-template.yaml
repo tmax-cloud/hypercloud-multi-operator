@@ -1089,6 +1089,12 @@ parameters:
   required: false
   value: 2
   valueType: number
+- description: Worker Number of CPUs
+  displayName: Worker Number of CPUs
+  name: WORKER_CPU_NUM
+  required: false
+  value: 2
+  valueType: number
 - description: Worker VM Disk Size
   displayName: Worker Disk Size
   name: WORKER_DISK_SIZE
@@ -1097,15 +1103,9 @@ parameters:
   valueType: number
 - description: Worker VM Memory Size
   displayName: Worker Memory Size
-  name: MASTER_MEM_SIZE
+  name: WORKER_MEM_SIZE
   required: false
   value: 8192
-  valueType: number
-- description: Worker Number of CPUs
-  displayName: Worker Number of CPUs
-  name: WORKER_CPU_NUM
-  required: false
-  value: 2
   valueType: number
 - description: Target Template Name
   displayName: Template Name

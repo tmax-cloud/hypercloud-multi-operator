@@ -50,33 +50,33 @@ type Parameters interface {
 }
 
 type ClusterParameter struct {
-	Namespace         string
-	ClusterName       string
-	MasterNum         int
-	WorkerNum         int
-	Owner             string
-	KubernetesVersion string
-	HyperAuthUrl      string
+	Namespace         string `json:"NAMESPACE"`
+	ClusterName       string `json:"CLUSTER_NAME"`
+	MasterNum         int    `json:"CONTROL_PLANE_MACHINE_COUNT"`
+	WorkerNum         int    `json:"WORKER_MACHINE_COUNT"`
+	Owner             string `json:"OWNER"`
+	KubernetesVersion string `json:"KUBERNETES_VERSION"`
+	// HyperAuthUrl      string
 }
 
 func (p *ClusterParameter) SetParameter(clusterManager clusterV1alpha1.ClusterManager) {
-	hyperauthDomain := "https://" + os.Getenv("AUTH_SUBDOMAIN") + "." + os.Getenv("HC_DOMAIN") + "/auth/realms/tmax"
 	p.Namespace = clusterManager.Namespace
 	p.ClusterName = clusterManager.Name
 	p.Owner = clusterManager.Annotations[util.AnnotationKeyOwner]
 	p.KubernetesVersion = clusterManager.Spec.Version
 	p.MasterNum = clusterManager.Spec.MasterNum
 	p.WorkerNum = clusterManager.Spec.WorkerNum
-	p.HyperAuthUrl = hyperauthDomain
+	// hyperauthDomain := "https://" + os.Getenv("AUTH_SUBDOMAIN") + "." + os.Getenv("HC_DOMAIN") + "/auth/realms/tmax"
+	// p.HyperAuthUrl = hyperauthDomain
 }
 
 type AwsParameter struct {
-	SshKey         string
-	Region         string
-	MasterType     string
-	WorkerType     string
-	MasterDiskSize int
-	WorkerDiskSize int
+	SshKey         string `json:"AWS_SSH_KEY_NAME"`
+	Region         string `json:"AWS_REGION"`
+	MasterType     string `json:"AWS_CONTROL_PLANE_MACHINE_TYPE"`
+	WorkerType     string `json:"AWS_NODE_MACHINE_TYPE"`
+	MasterDiskSize int    `json:"MASTER_DISK_SIZE"`
+	WorkerDiskSize int    `json:"WORKER_DISK_SIZE"`
 }
 
 func (p *AwsParameter) SetParameter(clusterManager clusterV1alpha1.ClusterManager) {
@@ -89,21 +89,24 @@ func (p *AwsParameter) SetParameter(clusterManager clusterV1alpha1.ClusterManage
 }
 
 type VsphereParameter struct {
-	PodCidr             string
-	VcenterIp           string
-	VcenterId           string
-	VcenterPassword     string
-	VcenterThumbprint   string
-	VcenterNetwork      string
-	VcenterDataCenter   string
-	VcenterDataStore    string
-	VcenterFolder       string
-	VcenterResourcePool string
-	VcenterKcpIp        string
-	VcenterCpuNum       int
-	VcenterMemSize      int
-	VcenterDiskSize     int
-	VcenterTemplate     string
+	PodCidr             string `json:"POD_CIDR"`
+	VcenterIp           string `json:"VSPHERE_SERVER"`
+	VcenterId           string `json:"VSPHERE_USERNAME"`
+	VcenterPassword     string `json:"VSPHERE_PASSWORD"`
+	VcenterThumbprint   string `json:"VSPHERE_TLS_THUMBPRINT"`
+	VcenterNetwork      string `json:"VSPHERE_NETWORK"`
+	VcenterDataCenter   string `json:"VSPHERE_DATACENTER"`
+	VcenterDataStore    string `json:"VSPHERE_DATASTORE"`
+	VcenterFolder       string `json:"VSPHERE_FOLDER"`
+	VcenterResourcePool string `json:"VSPHERE_RESOURCE_POOL"`
+	VcenterKcpIp        string `json:"CONTROL_PLANE_ENDPOINT_IP"`
+	MasterCpuNum        int    `json:"MASTER_CPU_NUM"`
+	MasterMemSize       int    `json:"MASTER_MEM_SIZE"`
+	MasterDiskSize      int    `json:"MASTER_DISK_SIZE"`
+	WorkerCpuNum        int    `json:"WORKER_CPU_NUM"`
+	WorkerMemSize       int    `json:"WORKER_MEM_SIZE"`
+	WorkerDiskSize      int    `json:"WORKER_DISK_SIZE"`
+	VcenterTemplate     string `json:"VSPHERE_TEMPLATE"`
 }
 
 func (p *VsphereParameter) SetParameter(clusterManager clusterV1alpha1.ClusterManager) {
@@ -118,33 +121,44 @@ func (p *VsphereParameter) SetParameter(clusterManager clusterV1alpha1.ClusterMa
 	p.VcenterFolder = clusterManager.VsphereSpec.VcenterFolder
 	p.VcenterResourcePool = clusterManager.VsphereSpec.VcenterResourcePool
 	p.VcenterKcpIp = clusterManager.VsphereSpec.VcenterKcpIp
-	p.VcenterCpuNum = clusterManager.VsphereSpec.VcenterCpuNum
-	p.VcenterMemSize = clusterManager.VsphereSpec.VcenterMemSize
-	p.VcenterDiskSize = clusterManager.VsphereSpec.VcenterDiskSize
+	// todo master worker 분리 필요
+	p.MasterCpuNum = clusterManager.VsphereSpec.VcenterCpuNum
+	p.MasterMemSize = clusterManager.VsphereSpec.VcenterMemSize
+	p.MasterDiskSize = clusterManager.VsphereSpec.VcenterDiskSize
+	p.WorkerCpuNum = clusterManager.VsphereSpec.VcenterCpuNum
+	p.WorkerMemSize = clusterManager.VsphereSpec.VcenterMemSize
+	p.WorkerDiskSize = clusterManager.VsphereSpec.VcenterDiskSize
 	p.VcenterTemplate = clusterManager.VsphereSpec.VcenterTemplate
 }
 
 type VsphereUpgradeParameter struct {
-	Namespace           string
-	ClusterName         string
-	VcenterIp           string
-	VcenterThumbprint   string
-	VcenterNetwork      string
-	VcenterDataCenter   string
-	VcenterDataStore    string
-	VcenterFolder       string
-	VcenterResourcePool string
-	VcenterCpuNum       int
-	VcenterMemSize      int
-	VcenterDiskSize     int
-	VcenterTemplate     string
-	KubernetesVersion   string
+	controlPlane        bool
+	Namespace           string `json:"NAMESPACE"`
+	UpgradeTemplateName string `json:"UPGRADE_TEMPLATE_NAME"`
+	VcenterIp           string `json:"VSPHERE_SERVER"`
+	VcenterThumbprint   string `json:"VSPHERE_TLS_THUMBPRINT"`
+	VcenterNetwork      string `json:"VSPHERE_NETWORK"`
+	VcenterDataCenter   string `json:"VSPHERE_DATACENTER"`
+	VcenterDataStore    string `json:"VSPHERE_DATASTORE"`
+	VcenterFolder       string `json:"VSPHERE_FOLDER"`
+	VcenterResourcePool string `json:"VSPHERE_RESOURCE_POOL"`
+	VcenterCpuNum       int    `json:"CPU_NUM"`
+	VcenterMemSize      int    `json:"MEM_SIZE"`
+	VcenterDiskSize     int    `json:"DISK_SIZE"`
+	VcenterTemplate     string `json:"VSPHERE_TEMPLATE"`
+	KubernetesVersion   string `json:"KUBERNETES_VERSION"`
 }
 
 func (p *VsphereUpgradeParameter) SetParameter(clusterManager clusterV1alpha1.ClusterManager) {
+	if p.controlPlane {
+		p.UpgradeTemplateName = fmt.Sprintf("%s-controlplane-%s", clusterManager.Name, clusterManager.Spec.Version)
+	} else {
+		p.UpgradeTemplateName = fmt.Sprintf("%s-worker-%s", clusterManager.Name, clusterManager.Spec.Version)
+	}
+
+	p.UpgradeTemplateName = fmt.Sprintf("%s-%s", clusterManager.Name, clusterManager.Spec.Version)
 	p.Namespace = clusterManager.Namespace
 	p.KubernetesVersion = clusterManager.Spec.Version
-	p.ClusterName = clusterManager.Name
 	p.VcenterIp = clusterManager.VsphereSpec.VcenterIp
 	p.VcenterThumbprint = clusterManager.VsphereSpec.VcenterThumbprint
 	p.VcenterNetwork = clusterManager.VsphereSpec.VcenterNetwork
