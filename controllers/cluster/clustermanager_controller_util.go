@@ -509,7 +509,7 @@ func (r *ClusterManagerReconciler) CreateIngress(clusterManager *clusterV1alpha1
 	return err
 }
 
-func (r *ClusterManagerReconciler) CreateGatewayService(clusterManager *clusterV1alpha1.ClusterManager, annotationKey string) error {
+func (r *ClusterManagerReconciler) CreateExternalNameService(clusterManager *clusterV1alpha1.ClusterManager, annotationKey string) error {
 	log := r.Log.WithValues("clustermanager", clusterManager.GetNamespacedName())
 
 	key := types.NamespacedName{
@@ -655,8 +655,9 @@ func (r *ClusterManagerReconciler) CreateServiceAccountSecret(clusterManager *cl
 	email := clusterManager.Annotations[util.AnnotationKeyOwner]
 	adminServiceAccountName := re.ReplaceAllString(strings.Replace(email, "@", "-at-", -1), "-")
 	kubeconfigSecret, err := r.GetKubeconfigSecret(clusterManager)
-	if err != nil {
-		log.Error(err, "Failed to get kubeconfig secret")
+	if errors.IsNotFound(err) {
+		return nil
+	} else if err != nil {
 		return err
 	}
 
@@ -1258,10 +1259,8 @@ func (r *ClusterManagerReconciler) DeleteLoadBalancerServices(clusterManager *cl
 
 	kubeconfigSecret, err := r.GetKubeconfigSecret(clusterManager)
 	if errors.IsNotFound(err) {
-		log.Info("Cluster is already deleted")
 		return nil
 	} else if err != nil {
-		log.Error(err, "Failed to get kubeconfig secret")
 		return err
 	}
 
@@ -1310,38 +1309,75 @@ func (r *ClusterManagerReconciler) DeleteLoadBalancerServices(clusterManager *cl
 	return nil
 }
 
-func (r *ClusterManagerReconciler) DeleteTraefikResources(clusterManager *clusterV1alpha1.ClusterManager) error {
+func (r *ClusterManagerReconciler) DeleteIngressRoute(clusterManager *clusterV1alpha1.ClusterManager) error {
 	log := r.Log.WithValues("clustermanager", clusterManager.GetNamespacedName())
-
-	if err := r.DeleteCertificate(clusterManager); err != nil {
+	kubeconfigSecret, err := r.GetKubeconfigSecret(clusterManager)
+	if errors.IsNotFound(err) {
+		return nil
+	} else if err != nil {
 		return err
 	}
 
-	if err := r.DeleteCertSecret(clusterManager); err != nil {
+	remoteClient, err := util.GetRemoteK8sTraefikClient(kubeconfigSecret)
+	if err != nil {
+		log.Error(err, "Failed to get remoteK8sClient")
 		return err
 	}
 
-	if err := r.DeleteIngress(clusterManager); err != nil {
+	_, err = remoteClient.
+		IngressRoutes(util.ApiGatewayNamespace).
+		Get(context.TODO(), util.MonitoringIngressRoute, metav1.GetOptions{})
+
+	if errors.IsNotFound(err) {
+		log.Info("Deleted ingressroute successfully in workload cluster")
+		return nil
+	} else if err != nil {
+		log.Error(err, "Failed to get ingressroute in workload cluster")
 		return err
 	}
-
-	if err := r.DeleteMiddleware(clusterManager); err != nil {
+	if err = remoteClient.
+		IngressRoutes(util.ApiGatewayNamespace).
+		Delete(context.TODO(), util.MonitoringIngressRoute, metav1.DeleteOptions{}); err != nil {
+		log.Error(err, "Failed to delete ingressroute in workload cluster")
 		return err
 	}
+	log.Info("Deleted ingressroute successfully in workload cluster")
 
-	if err := r.DeleteGatewayService(clusterManager); err != nil {
-		return err
-	}
-
-	if err := r.DeleteGatewayEndpoint(clusterManager); err != nil {
-		return err
-	}
-
-	log.Info("Delete traefik resources successfully")
 	return nil
 }
 
-func (r *ClusterManagerReconciler) DeleteHyperAuthResourcesForSingleCluster(clusterManager *clusterV1alpha1.ClusterManager) error {
+// func (r *ClusterManagerReconciler) DeleteTraefikResources(clusterManager *clusterV1alpha1.ClusterManager) error {
+// 	log := r.Log.WithValues("clustermanager", clusterManager.GetNamespacedName())
+
+// 	if err := r.DeleteCertificate(clusterManager); err != nil {
+// 		return err
+// 	}
+
+// 	if err := r.DeleteCertSecret(clusterManager); err != nil {
+// 		return err
+// 	}
+
+// 	if err := r.DeleteIngress(clusterManager); err != nil {
+// 		return err
+// 	}
+
+// 	if err := r.DeleteMiddleware(clusterManager); err != nil {
+// 		return err
+// 	}
+
+// 	if err := r.DeleteGatewayService(clusterManager); err != nil {
+// 		return err
+// 	}
+
+// 	if err := r.DeleteGatewayEndpoint(clusterManager); err != nil {
+// 		return err
+// 	}
+
+// 	log.Info("Delete traefik resources successfully")
+// 	return nil
+// }
+
+func (r *ClusterManagerReconciler) DeleteHyperAuthResources(clusterManager *clusterV1alpha1.ClusterManager) error {
 	log := r.Log.WithValues("clustermanager", clusterManager.GetNamespacedName())
 	key := types.NamespacedName{
 		Name:      "passwords",

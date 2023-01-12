@@ -27,7 +27,8 @@ const (
 	// defunct
 	// MultiApiServerServiceSelectorKey   = "hypercloud4"
 	// MultiApiServerServiceSelectorValue = "multi-api-server"
-	IngressNginxName = "ingress-nginx-controller"
+	IngressNginxName       = "ingress-nginx-controller"
+	MonitoringIngressRoute = "monitoring-ingressroute"
 )
 
 const (

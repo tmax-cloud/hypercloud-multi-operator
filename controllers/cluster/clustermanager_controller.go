@@ -88,7 +88,7 @@ const (
 // +kubebuilder:rbac:groups=traefik.containo.us,resources=middlewares,verbs=create;delete;get;list;patch;update;watch
 // +kubebuilder:rbac:groups=coordination.k8s.io,resources=leases,verbs=create;delete;get;list;patch;update;watch
 // +kubebuilder:rbac:groups=argoproj.io,resources=applications,verbs=create;delete;get;list;patch;update;watch
-// +kubebuilder:rbac:groups="",resources=nodes,verbs=list;get
+// +kubebuilder:rbac:groups="",resources=nodes,verbs=get;list;patch;update;watch
 
 func (r *ClusterManagerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ ctrl.Result, reterr error) {
 	_ = context.Background()
@@ -246,11 +246,11 @@ func (r *ClusterManagerReconciler) reconcileDelete(ctx context.Context, clusterM
 		return ctrl.Result{}, err
 	}
 
-	// if err := r.DeleteTraefikResources(clusterManager); err != nil {
-	// 	return ctrl.Result{}, err
-	// }
+	if err := r.DeleteIngressRoute(clusterManager); err != nil {
+		return ctrl.Result{}, err
+	}
 
-	if err := r.DeleteHyperAuthResourcesForSingleCluster(clusterManager); err != nil {
+	if err := r.DeleteHyperAuthResources(clusterManager); err != nil {
 		return ctrl.Result{}, err
 	}
 

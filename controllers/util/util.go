@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	traefikv1alpha1 "github.com/traefik/traefik/v2/pkg/provider/kubernetes/crd/generated/clientset/versioned/typed/traefik/v1alpha1"
 	coreV1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/client-go/kubernetes"
@@ -54,6 +55,31 @@ func GetRemoteK8sClient(secret *coreV1.Secret) (*kubernetes.Clientset, error) {
 	}
 
 	remoteClientset, err := kubernetes.NewForConfig(remoteRestConfig)
+	if err != nil {
+		return nil, err
+	}
+
+	return remoteClientset, nil
+}
+
+func GetRemoteK8sTraefikClient(secret *coreV1.Secret) (*traefikv1alpha1.TraefikV1alpha1Client, error) {
+	value, ok := secret.Data["value"]
+	if !ok {
+		err := errors.NewBadRequest("secret does not have a value")
+		return nil, err
+	}
+
+	remoteClientConfig, err := clientcmd.NewClientConfigFromBytes(value)
+	if err != nil {
+		return nil, err
+	}
+
+	remoteRestConfig, err := remoteClientConfig.ClientConfig()
+	if err != nil {
+		return nil, err
+	}
+
+	remoteClientset, err := traefikv1alpha1.NewForConfig(remoteRestConfig)
 	if err != nil {
 		return nil, err
 	}

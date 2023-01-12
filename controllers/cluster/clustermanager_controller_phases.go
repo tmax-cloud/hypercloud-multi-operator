@@ -26,12 +26,13 @@ import (
 	clusterV1alpha1 "github.com/tmax-cloud/hypercloud-multi-operator/apis/cluster/v1alpha1"
 	hyperauthCaller "github.com/tmax-cloud/hypercloud-multi-operator/controllers/hyperAuth"
 	util "github.com/tmax-cloud/hypercloud-multi-operator/controllers/util"
-
+	traefikV1alpha1 "github.com/traefik/traefik/v2/pkg/provider/kubernetes/crd/traefik/v1alpha1"
 	coreV1 "k8s.io/api/core/v1"
 	networkingV1 "k8s.io/api/networking/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/tools/clientcmd"
 
 	// cpavV1alpha3 "sigs.k8s.io/cluster-api-provider-vsphere/apis/v1alpha3"
@@ -798,6 +799,7 @@ func (r *ClusterManagerReconciler) CreateArgocdResources(ctx context.Context, cl
 	return ctrl.Result{}, nil
 }
 
+// master cluster에서 single cluster로 가기위한 ExternalNameService 생성
 func (r *ClusterManagerReconciler) CreateGatewayResources(ctx context.Context, clusterManager *clusterV1alpha1.ClusterManager) (reconcile.Result, error) {
 	if !clusterManager.Status.ArgoReady || clusterManager.Status.GatewayReady {
 		return ctrl.Result{}, nil
@@ -856,27 +858,129 @@ func (r *ClusterManagerReconciler) CreateGatewayResources(ctx context.Context, c
 		annotationKey = clusterV1alpha1.AnnotationKeyClmGateway
 	}
 
-	// master cluster에 service 생성
 	// single cluster의 gateway service로 연결시켜줄 external name type의 service
 	// 앞에서 받은 annotation key를 이용하여 service의 endpoint가 설정 됨
 	// ip address의 경우 k8s 기본 정책상으로는 endpoint resource로 생성하여 연결을 하는게 일반적인데
 	// ip address도 external name type service의 external name의 value로 넣을 수 있기 때문에
 	// 리소스 관리를 최소화 하기 위해 external name type으로 동일하게 생성
-	if err := r.CreateGatewayService(clusterManager, annotationKey); err != nil {
+	if err := r.CreateExternalNameService(clusterManager, annotationKey); err != nil {
 		return ctrl.Result{}, err
 	}
 
-	// For migration from b5.0.26.6 > b5.0.26.7
-	// 리소스 이름 및 status 이름 변경에 대응하기 위한 migration 코드
-	// traefikReady, err := r.DeleteDeprecatedTraefikResources(clusterManager)
-	// if err != nil {
-	// 	return ctrl.Result{}, err
-	// }
-	// clusterManager.Status.TraefikReady = traefikReady
+	remoteTraefikClient, err := util.GetRemoteK8sTraefikClient(kubeconfigSecret)
+	if err != nil {
+		log.Error(err, "Failed to get remoteK8sClient")
+		return ctrl.Result{}, err
+	}
 
-	log.Info("Create gateway resources successfully")
+	// single cluster에 ingressroute 생성
+	_, err = remoteTraefikClient.
+		IngressRoutes(util.ApiGatewayNamespace).
+		Get(context.TODO(), util.MonitoringIngressRoute, metav1.GetOptions{})
+
+	if errors.IsNotFound(err) {
+		ingressRoute := ConstructMonitoringIngressRoute()
+		if _, err = remoteTraefikClient.
+			IngressRoutes(util.ApiGatewayNamespace).
+			Create(context.TODO(), &ingressRoute, metav1.CreateOptions{}); err != nil {
+			log.Error(err, "Failed to create ingressroute in workload cluster")
+			return ctrl.Result{}, err
+		}
+		log.Info("Created ingressroute successfully in workload cluster")
+	} else if err != nil {
+		log.Error(err, "Failed to get Service for gateway")
+		return ctrl.Result{}, err
+	}
+
 	clusterManager.Status.GatewayReady = true
 	return ctrl.Result{}, nil
+}
+
+func ConstructMonitoringIngressRoute() traefikV1alpha1.IngressRoute {
+	ingressRoute := traefikV1alpha1.IngressRoute{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      util.MonitoringIngressRoute,
+			Namespace: util.ApiGatewayNamespace,
+		},
+		Spec: traefikV1alpha1.IngressRouteSpec{
+			EntryPoints: []string{"websecure"},
+			Routes: []traefikV1alpha1.Route{
+				{
+					Kind:  "Rule",
+					Match: "PathPrefix(`/api/kubernetes`)",
+					Middlewares: []traefikV1alpha1.MiddlewareRef{
+						{Name: "kubernetes-stripprefix@file"},
+					},
+					Services: []traefikV1alpha1.Service{
+						{
+							LoadBalancerSpec: traefikV1alpha1.LoadBalancerSpec{
+								Name:             "kubernetes",
+								Namespace:        "default",
+								Port:             intstr.IntOrString{IntVal: 443},
+								Scheme:           "https",
+								ServersTransport: "kubernetes@file",
+							},
+						},
+					},
+				},
+				{
+					Kind:  "Rule",
+					Match: "PathPrefix(`/api/prometheus-tenancy/api`)",
+					Middlewares: []traefikV1alpha1.MiddlewareRef{
+						{Name: "api-gateway-system-jwt-decode-auth@kubernetescrd"},
+						{Name: "monitoring-stripprefix-tenancy@file"},
+					},
+					Services: []traefikV1alpha1.Service{
+						{
+							LoadBalancerSpec: traefikV1alpha1.LoadBalancerSpec{
+								Name:      "prometheus-k8s",
+								Namespace: "monitoring",
+								Port:      intstr.IntOrString{IntVal: 80},
+								Scheme:    "http",
+							},
+						},
+					},
+				},
+				{
+					Kind:  "Rule",
+					Match: "PathPrefix(`/api/prometheus/api`)",
+					Middlewares: []traefikV1alpha1.MiddlewareRef{
+						{Name: "api-gateway-system-jwt-decode-auth@kubernetescrd"},
+						{Name: "monitoring-stripprefix@file"},
+					},
+					Services: []traefikV1alpha1.Service{
+						{
+							LoadBalancerSpec: traefikV1alpha1.LoadBalancerSpec{
+								Name:      "prometheus-k8s",
+								Namespace: "monitoring",
+								Port:      intstr.IntOrString{IntVal: 80},
+								Scheme:    "http",
+							},
+						},
+					},
+				},
+				{
+					Kind:  "Rule",
+					Match: "PathPrefix(`/api/alertmanager/api`)",
+					Middlewares: []traefikV1alpha1.MiddlewareRef{
+						{Name: "api-gateway-system-jwt-decode-auth@kubernetescrd"},
+						{Name: "monitoring-stripprefix@file"},
+					},
+					Services: []traefikV1alpha1.Service{
+						{
+							LoadBalancerSpec: traefikV1alpha1.LoadBalancerSpec{
+								Name:      "alertmanager-main",
+								Namespace: "monitoring",
+								Port:      intstr.IntOrString{IntVal: 80},
+								Scheme:    "http",
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+	return ingressRoute
 }
 
 func (r *ClusterManagerReconciler) CreateHyperAuthResources(ctx context.Context, clusterManager *clusterV1alpha1.ClusterManager) (reconcile.Result, error) {
