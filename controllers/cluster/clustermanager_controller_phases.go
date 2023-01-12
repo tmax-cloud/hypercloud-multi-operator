@@ -78,6 +78,19 @@ func (r *ClusterManagerReconciler) ReadyReconcilePhase(ctx context.Context, clus
 		clusterManager.Status.WorkerNum = clusterManager.Spec.WorkerNum
 	}
 
+	// get management cluster version
+	if _, ok := clusterManager.Annotations[clusterV1alpha1.AnnotationKeyClmMgmtK8SVersion]; !ok {
+		version, err := r.FetchMgmtK8SVersion()
+		if err != nil {
+			return ctrl.Result{}, err
+		}
+		if version == "" {
+			clusterManager.Annotations[clusterV1alpha1.AnnotationKeyClmMgmtK8SVersion] = "empty"
+		} else {
+			clusterManager.Annotations[clusterV1alpha1.AnnotationKeyClmMgmtK8SVersion] = version
+		}
+	}
+
 	return ctrl.Result{}, nil
 }
 
@@ -269,7 +282,11 @@ func (r *ClusterManagerReconciler) CreateServiceInstance(ctx context.Context, cl
 		clusterJson = util.MergeJson(clusterJson, providerJson)
 		generatedSuffix := util.CreateSuffixString()
 		serviceInstanceName := clusterManager.Name + "-" + generatedSuffix
-		serviceInstance := ConstructServiceInstance(clusterManager, serviceInstanceName, clusterJson, false)
+		serviceInstance, err := ConstructServiceInstance(clusterManager, serviceInstanceName, clusterJson, false)
+		if err != nil {
+			log.Error(err, "Failed to create ServiceInstance")
+			return ctrl.Result{}, err
+		}
 		if err = r.Create(context.TODO(), serviceInstance); err != nil {
 			log.Error(err, "Failed to create ServiceInstance")
 			return ctrl.Result{}, err
@@ -299,7 +316,11 @@ func (r *ClusterManagerReconciler) CreateUpgradeServiceInstance(ctx context.Cont
 		if err != nil {
 			log.Error(err, "Failed to marshal upgrade parameters")
 		}
-		serviceInstance := ConstructServiceInstance(clusterManager, controlplaneInstanceName, upgradeJson, true)
+		serviceInstance, err := ConstructServiceInstance(clusterManager, controlplaneInstanceName, upgradeJson, true)
+		if err != nil {
+			log.Error(err, "Failed to create ServiceInstance")
+			return ctrl.Result{}, err
+		}
 		ctrl.SetControllerReference(clusterManager, serviceInstance, r.Scheme)
 		if err = r.Create(context.TODO(), serviceInstance); err != nil {
 			log.Error(err, "Failed to create ServiceInstance")
@@ -323,7 +344,11 @@ func (r *ClusterManagerReconciler) CreateUpgradeServiceInstance(ctx context.Cont
 		if err != nil {
 			log.Error(err, "Failed to marshal upgrade parameters")
 		}
-		serviceInstance := ConstructServiceInstance(clusterManager, workerInstanceName, upgradeJson, true)
+		serviceInstance, err := ConstructServiceInstance(clusterManager, workerInstanceName, upgradeJson, true)
+		if err != nil {
+			log.Error(err, "Failed to create ServiceInstance")
+			return ctrl.Result{}, err
+		}
 		ctrl.SetControllerReference(clusterManager, serviceInstance, r.Scheme)
 		if err = r.Create(context.TODO(), serviceInstance); err != nil {
 			log.Error(err, "Failed to create ServiceInstance")

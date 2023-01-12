@@ -1137,12 +1137,12 @@ parameters:
   required: false
   value: 2
   valueType: number
-- description: HyperAuth url for open id connect
-  displayName: HyperAuth URL
-  name: HYPERAUTH_URL
-  required: false
-  value: hyperauth.tmax.co.kr
-  valueType: string
+# - description: HyperAuth url for open id connect
+#   displayName: HyperAuth URL
+#   name: HYPERAUTH_URL
+#   required: false
+#   value: hyperauth.tmax.co.kr
+#   valueType: string
 recommend: true
 shortDescription: Cluster template for CAPI provider vSphere
 urlDescription: ""

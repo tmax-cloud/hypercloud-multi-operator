@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"os"
 	"regexp"
+	"strconv"
 	"strings"
 
 	argocdV1alpha1 "github.com/argoproj/argo-cd/v2/pkg/apis/application/v1alpha1"
@@ -178,13 +179,40 @@ func Marshaling(parameter Parameters, clusterManager clusterV1alpha1.ClusterMana
 	return json.Marshal(parameter)
 }
 
-func ConstructServiceInstance(clusterManager *clusterV1alpha1.ClusterManager, serviceInstanceName string, json []byte, upgrade bool) *servicecatalogv1beta1.ServiceInstance {
+func ParseK8SVersion(clusterManager *clusterV1alpha1.ClusterManager) (int, int, error) {
+	k8sVersion := clusterManager.Annotations[clusterV1alpha1.AnnotationKeyClmMgmtK8SVersion]
+	parts := strings.Split(k8sVersion, ".")
+	major, err := strconv.Atoi(strings.TrimLeft(parts[0], "v"))
+	if err != nil {
+		return 0, 0, err
+	}
+	// Parse the minor version number
+	minor, err := strconv.Atoi(parts[1])
+	if err != nil {
+		return 0, 0, err
+	}
+	return major, minor, nil
+}
+
+func ConstructServiceInstance(clusterManager *clusterV1alpha1.ClusterManager, serviceInstanceName string, json []byte, upgrade bool) (*servicecatalogv1beta1.ServiceInstance, error) {
 	templateName := ""
+
 	if upgrade {
 		// vsphere upgrade에 대해서만 serviceinstance를 생성하므로
 		templateName = CAPI_VSPHERE_UPGRADE_TEMPLATE
 	} else {
 		templateName = "capi-" + strings.ToLower(clusterManager.Spec.Provider) + "-template"
+	}
+
+	major, minor, err := ParseK8SVersion(clusterManager)
+	if err != nil {
+		return nil, err
+	}
+	fmt.Println(major, minor)
+
+	// k8s version이 1.19 이하일때는 1.19용 템플릿 사용
+	if major == 1 && minor < 20 {
+		templateName += "-v1.19"
 	}
 
 	serviceInstance := &servicecatalogv1beta1.ServiceInstance{
@@ -207,7 +235,7 @@ func ConstructServiceInstance(clusterManager *clusterV1alpha1.ClusterManager, se
 		},
 	}
 
-	return serviceInstance
+	return serviceInstance, nil
 }
 
 // controlplane, worker에 따른 machine list를 반환한다.
@@ -226,6 +254,17 @@ func (r *ClusterManagerReconciler) GetMachineList(clusterManager *clusterV1alpha
 		return []capiV1alpha3.Machine{}, err
 	}
 	return machines.Items, nil
+}
+
+// kubeadm-config configmap에서 k8s version을 parsing한다.
+func (r *ClusterManagerReconciler) FetchMgmtK8SVersion() (string, error) {
+	nodes := &coreV1.NodeList{}
+	opts := client.MatchingLabels{"node-role.kubernetes.io/master": ""}
+	if err := r.Client.List(context.TODO(), nodes, opts); err != nil {
+		return "", err
+	}
+	node := nodes.Items[0]
+	return node.Status.NodeInfo.KubeletVersion, nil
 }
 
 // controlplane machine list를 반환

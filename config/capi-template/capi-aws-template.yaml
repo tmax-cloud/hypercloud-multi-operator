@@ -216,6 +216,7 @@ shortDescription: Cluster template for CAPI provider AWS
 urlDescription: ""
 
 ---
+
 # k8s 1.19용 cluster template
 apiVersion: tmax.io/v1
 categories:

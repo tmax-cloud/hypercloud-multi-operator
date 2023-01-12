@@ -88,6 +88,7 @@ const (
 // +kubebuilder:rbac:groups=traefik.containo.us,resources=middlewares,verbs=create;delete;get;list;patch;update;watch
 // +kubebuilder:rbac:groups=coordination.k8s.io,resources=leases,verbs=create;delete;get;list;patch;update;watch
 // +kubebuilder:rbac:groups=argoproj.io,resources=applications,verbs=create;delete;get;list;patch;update;watch
+// +kubebuilder:rbac:groups="",resources=nodes,verbs=list;get
 
 func (r *ClusterManagerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ ctrl.Result, reterr error) {
 	_ = context.Background()
