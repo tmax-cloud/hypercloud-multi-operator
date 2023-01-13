@@ -24,7 +24,7 @@ bin
 *.swo
 *~
 
-*.sh
+# *.sh
 
 # personal setting for IDE
 .vscode
