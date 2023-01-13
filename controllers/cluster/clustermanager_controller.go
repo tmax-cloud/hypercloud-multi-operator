@@ -254,21 +254,25 @@ func (r *ClusterManagerReconciler) reconcileDelete(ctx context.Context, clusterM
 		return ctrl.Result{}, err
 	}
 
-	// delete serviceinstance
-	key := types.NamespacedName{
-		Name:      clusterManager.Name + "-" + clusterManager.Annotations[clusterV1alpha1.AnnotationKeyClmSuffix],
-		Namespace: clusterManager.Namespace,
-	}
-	serviceInstance := &servicecatalogv1beta1.ServiceInstance{}
-	if err := r.Client.Get(context.TODO(), key, serviceInstance); errors.IsNotFound(err) {
-		log.Info("ServiceInstance is already deleted. Waiting cluster to be deleted")
-	} else if err != nil {
-		log.Error(err, "Failed to get serviceInstance")
-		return ctrl.Result{}, err
-	} else {
-		if err := r.Delete(context.TODO(), serviceInstance); err != nil {
-			log.Error(err, "Failed to delete serviceInstance")
+	// cluster type label을 지우면 생성 타입 클러스터를 지우지 않고 분리할 수 있음
+	if clusterManager.GetClusterType() == clusterV1alpha1.ClusterTypeCreated {
+		// delete serviceinstance
+		key := types.NamespacedName{
+			Name:      clusterManager.Name + "-" + clusterManager.Annotations[clusterV1alpha1.AnnotationKeyClmSuffix],
+			Namespace: clusterManager.Namespace,
+		}
+
+		serviceInstance := &servicecatalogv1beta1.ServiceInstance{}
+		if err := r.Client.Get(context.TODO(), key, serviceInstance); errors.IsNotFound(err) {
+			log.Info("ServiceInstance is already deleted. Waiting cluster to be deleted")
+		} else if err != nil {
+			log.Error(err, "Failed to get serviceInstance")
 			return ctrl.Result{}, err
+		} else {
+			if err := r.Delete(context.TODO(), serviceInstance); err != nil {
+				log.Error(err, "Failed to delete serviceInstance")
+				return ctrl.Result{}, err
+			}
 		}
 	}
 
@@ -295,8 +299,9 @@ func (r *ClusterManagerReconciler) reconcileDelete(ctx context.Context, clusterM
 	}
 
 	//delete handling
-	key = clusterManager.GetNamespacedName()
-	if err := r.Client.Get(context.TODO(), key, &capiV1alpha3.Cluster{}); errors.IsNotFound(err) {
+	key := clusterManager.GetNamespacedName()
+	err := r.Client.Get(context.TODO(), key, &capiV1alpha3.Cluster{})
+	if errors.IsNotFound(err) {
 		if err := util.Delete(clusterManager.Namespace, clusterManager.Name); err != nil {
 			log.Error(err, "Failed to delete cluster info from cluster_member table")
 			return ctrl.Result{}, err
@@ -315,10 +320,22 @@ func (r *ClusterManagerReconciler) reconcileDelete(ctx context.Context, clusterM
 			log.Error(err, "Failed to get kubeconfig secret")
 			return ctrl.Result{}, err
 		}
-
 	} else if err != nil {
 		log.Error(err, "Failed to get cluster")
 		return ctrl.Result{}, err
+	}
+
+	// cluster type label을 지우면 생성 타입 클러스터를 지우지 않고 분리할 수 있음
+	if !(clusterManager.GetClusterType() == clusterV1alpha1.ClusterTypeCreated ||
+		clusterManager.GetClusterType() == clusterV1alpha1.ClusterTypeRegistered) {
+		log.Info("This cluster type is not created or registered")
+		if err := util.Delete(clusterManager.Namespace, clusterManager.Name); err != nil {
+			log.Error(err, "Failed to delete cluster info from cluster_member table")
+			return ctrl.Result{}, err
+		}
+		controllerutil.RemoveFinalizer(clusterManager, clusterV1alpha1.ClusterManagerFinalizer)
+		log.Info("Cluster manager was deleted successfully")
+		return ctrl.Result{}, nil
 	}
 
 	log.Info("Cluster is deleting. Requeue after 1min")
