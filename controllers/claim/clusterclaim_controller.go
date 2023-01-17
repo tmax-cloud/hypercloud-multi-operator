@@ -175,7 +175,7 @@ func (r *ClusterClaimReconciler) SetupWithManager(mgr ctrl.Manager) error {
 			},
 			DeleteFunc: func(e event.DeleteEvent) bool {
 				clm := e.Object.(*clusterV1alpha1.ClusterManager)
-				if clm.GetClusterType() == clusterV1alpha1.ClusterTypeCreated {
+				if clm.GetClusterType() != clusterV1alpha1.ClusterTypeRegistered {
 					return true
 				}
 				return false

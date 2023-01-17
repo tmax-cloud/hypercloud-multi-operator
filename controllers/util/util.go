@@ -190,3 +190,11 @@ func IsTrue(str string) bool {
 	}
 	return false
 }
+
+func IsClusterHealthy(clientSet *kubernetes.Clientset) bool {
+
+	if _, err := clientSet.ServerVersion(); err != nil {
+		return false
+	}
+	return true
+}

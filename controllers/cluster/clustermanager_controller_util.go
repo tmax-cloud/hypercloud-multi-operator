@@ -1270,8 +1270,8 @@ func (r *ClusterManagerReconciler) DeleteLoadBalancerServices(clusterManager *cl
 		return err
 	}
 
-	if _, err := remoteClientset.CoreV1().Nodes().List(context.TODO(), metav1.ListOptions{}); err != nil {
-		log.Info("Failed to get node for remote cluster. Skip delete LoadBalancer services process")
+	if !util.IsClusterHealthy(remoteClientset) {
+		log.Info("Cannot connect api server. Skip delete LoadBalancer services process")
 		return nil
 	}
 
@@ -1316,6 +1316,17 @@ func (r *ClusterManagerReconciler) DeleteIngressRoute(clusterManager *clusterV1a
 		return nil
 	} else if err != nil {
 		return err
+	}
+
+	remoteClientset, err := util.GetRemoteK8sClient(kubeconfigSecret)
+	if err != nil {
+		log.Error(err, "Failed to get remoteK8sClient")
+		return err
+	}
+
+	if !util.IsClusterHealthy(remoteClientset) {
+		log.Info("Cannot connect api server. Skip delete ingressroute process")
+		return nil
 	}
 
 	remoteClient, err := util.GetRemoteK8sTraefikClient(kubeconfigSecret)
