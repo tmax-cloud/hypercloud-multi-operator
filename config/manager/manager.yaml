@@ -30,8 +30,10 @@ spec:
           value: ${auth_subdomain}
         - name: ARGO_APP_DELETE
           value: "true"
-        - name: DEV_MODE
+        - name: OIDC_CLIENT_SET
           value: "false"
+        - name: DEV_MODE
+          value: "true"
         image: controller:latest
         name: manager
         resources:

@@ -118,7 +118,7 @@ const (
 	ArgoDescriptionHelmApiServerSubdomain       = "Helm api server의 Subdomain으로 변경 ex) helm"
 	ArgoDescriptionHyperregistryStorageClass    = "Hyperregistry가 사용할 StorageClass로 변경(aws의 경우 efs-sc-0, 그외에는 nfs)"
 	ArgoDescriptionHyperregistryDBStorageClass  = "Hyperregistry의 DB가 사용할 StorageClass로 변경(aws의 경우 efs-sc-999, 그외에는 nfs)"
-	ArgoDescriptionGitRepo                      = "Git repo 주소를 입력(gitlab의 경우 주소맨뒤에 .git을 입력 ex) https://github.com/tmax/argocd.git"
+	ArgoDescriptionGitRepo                      = "Git repo 주소 입력(gitlab의 경우 마지막에 .git 입력) ex. https://github.com/tmax-cloud/argocd-installer.git"
 	ArgoDescriptionGitRevision                  = "Git target revision(branch, tag)를 입력 ex) main"
 )
 
@@ -132,6 +132,7 @@ const (
 
 	// optional 환경 변수
 	ARGO_APP_DELETE = "ARGO_APP_DELETE"
+	OIDC_CLIENT_SET = "OIDC_CLIENT_SET"
 	DEV_MODE        = "DEV_MODE"
 )
 

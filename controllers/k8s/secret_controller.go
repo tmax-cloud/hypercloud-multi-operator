@@ -441,13 +441,16 @@ func (r *SecretReconciler) reconcileDelete(ctx context.Context, secret *coreV1.S
 		log.Error(err, "Failed to get Secret for argocd external cluster ["+argoClusterSecret.Name+"]")
 		return ctrl.Result{}, err
 	} else {
+		if !argoClusterSecret.DeletionTimestamp.IsZero() {
+			controllerutil.RemoveFinalizer(argoClusterSecret, clusterV1alpha1.ClusterManagerFinalizer)
+			log.Info("Delete Secret for argocd external cluster [" + argoClusterSecret.Name + "] successfully")
+			return ctrl.Result{}, nil
+		}
 		if err := r.Delete(context.TODO(), argoClusterSecret); err != nil {
 			log.Error(err, "Cannot delete Secret for argocd external cluster ["+argoClusterSecret.Name+"]")
 			return ctrl.Result{}, err
 		}
-		controllerutil.RemoveFinalizer(argoClusterSecret, clusterV1alpha1.ClusterManagerFinalizer)
-		log.Info("Delete Secret for argocd external cluster [" + argoClusterSecret.Name + "] successfully")
-
+		return ctrl.Result{Requeue: true}, nil
 	}
 
 	// SA token secret

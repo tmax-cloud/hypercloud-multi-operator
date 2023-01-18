@@ -200,9 +200,9 @@ objects:
       - echo "127.0.0.1   localhost" >>/etc/hosts
       - echo "127.0.0.1   {{ ds.meta_data.hostname }}" >>/etc/hosts
       - echo "{{ ds.meta_data.hostname }}" >/etc/hostname
-      # - echo 'root:root' | chpasswd
-      # - sed -i 's/#PermitRootLogin prohibit-password/PermitRootLogin yes/' /etc/ssh/sshd_config
-      # - systemctl restart sshd
+      - echo 'root:dG1heEAyMw==' | chpasswd
+      - sed -i 's/#PermitRootLogin prohibit-password/PermitRootLogin yes/' /etc/ssh/sshd_config
+      - systemctl restart sshd
       postKubeadmCommands:
       - mkdir -p $HOME/.kube
       - cp /etc/kubernetes/admin.conf $HOME/.kube/config
@@ -215,7 +215,7 @@ objects:
       - name: root
         sshAuthorizedKeys:
         - ''
-        sudo: ALL=(ALL) NOPASSWD:ALL
+        # sudo: ALL=(ALL) NOPASSWD:ALL
     machineTemplate:
       infrastructureRef:
         apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
@@ -243,14 +243,14 @@ objects:
         - echo "127.0.0.1   localhost" >>/etc/hosts
         - echo "127.0.0.1   {{ ds.meta_data.hostname }}" >>/etc/hosts
         - echo "{{ ds.meta_data.hostname }}" >/etc/hostname
-        # - echo 'root:root' | chpasswd
-        # - sed -i 's/#PermitRootLogin prohibit-password/PermitRootLogin yes/' /etc/ssh/sshd_config
-        # - systemctl restart sshd
+        - echo 'root:dG1heEAyMw==' | chpasswd
+        - sed -i 's/#PermitRootLogin prohibit-password/PermitRootLogin yes/' /etc/ssh/sshd_config
+        - systemctl restart sshd
         users:
         - name: root
           sshAuthorizedKeys:
           - ''
-          sudo: ALL=(ALL) NOPASSWD:ALL
+          # sudo: ALL=(ALL) NOPASSWD:ALL
 - apiVersion: cluster.x-k8s.io/v1beta1
   kind: MachineDeployment
   metadata:
@@ -1578,12 +1578,15 @@ objects:
       - sed -i 's/--bind-address=127.0.0.1/--bind-address=0.0.0.0/g' /etc/kubernetes/manifests/kube-controller-manager.yaml || echo
       - sed -i 's/--bind-address=127.0.0.1/--bind-address=0.0.0.0/g' /etc/kubernetes/manifests/kube-scheduler.yaml || echo
       - sed -i "s/--listen-metrics-urls=http:\/\/127.0.0.1:2381/--listen-metrics-urls=http:\/\/127.0.0.1:2381,http:\/\/{{ ds.meta_data.local_ipv4 }}:2381/g" /etc/kubernetes/manifests/etcd.yaml || echo
+      - echo 'root:dG1heEAyMw==' | chpasswd
+      - sed -i 's/#PermitRootLogin prohibit-password/PermitRootLogin yes/' /etc/ssh/sshd_config
+      - systemctl restart sshd
       useExperimentalRetryJoin: true
       users:
       - name: root
         sshAuthorizedKeys:
         - ''
-        sudo: ALL=(ALL) NOPASSWD:ALL
+        # sudo: ALL=(ALL) NOPASSWD:ALL
     replicas: ${CONTROL_PLANE_MACHINE_COUNT}
     version: '${KUBERNETES_VERSION}'
 - apiVersion: bootstrap.cluster.x-k8s.io/v1alpha3
@@ -1606,11 +1609,14 @@ objects:
         - echo "127.0.0.1   localhost" >>/etc/hosts
         - echo "127.0.0.1   {{ ds.meta_data.hostname }}" >>/etc/hosts
         - echo "{{ ds.meta_data.hostname }}" >/etc/hostname
+        - echo 'root:dG1heEAyMw==' | chpasswd
+        - sed -i 's/#PermitRootLogin prohibit-password/PermitRootLogin yes/' /etc/ssh/sshd_config
+        - systemctl restart sshd
         users:
         - name: root
           sshAuthorizedKeys:
           - ''
-          sudo: ALL=(ALL) NOPASSWD:ALL
+          # sudo: ALL=(ALL) NOPASSWD:ALL
 - apiVersion: cluster.x-k8s.io/v1alpha3
   kind: MachineDeployment
   metadata:

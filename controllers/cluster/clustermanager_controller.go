@@ -166,6 +166,7 @@ func (r *ClusterManagerReconciler) reconcile(ctx context.Context, clusterManager
 		// 또한, 해당 cluster 의 provider 이름 (Aws/Vsphere) 을 업데이트 해주는 과정을 진행한다.
 		phases = append(phases, r.UpdateClusterManagerStatus)
 	}
+
 	// 공통적으로 수행
 	phases = append(
 		phases,
@@ -400,7 +401,6 @@ func (r *ClusterManagerReconciler) SetupWithManager(mgr ctrl.Manager) error {
 					isControlPlaneEndpointUpdate := oldclm.Status.ControlPlaneEndpoint == "" &&
 						newclm.Status.ControlPlaneEndpoint != ""
 					isSubResourceNotReady := !newclm.Status.ArgoReady || !newclm.Status.TraefikReady || !newclm.Status.GatewayReady
-
 					isUpgrade := oldclm.Spec.Version != "" && oldclm.Spec.Version != newclm.Spec.Version
 					isScaling := oldclm.Spec.MasterNum != newclm.Spec.MasterNum ||
 						oldclm.Spec.WorkerNum != newclm.Spec.WorkerNum

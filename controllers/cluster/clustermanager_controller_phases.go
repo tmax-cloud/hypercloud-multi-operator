@@ -18,6 +18,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"os"
 	"regexp"
 	"strings"
 
@@ -91,6 +92,12 @@ func (r *ClusterManagerReconciler) ReadyReconcilePhase(ctx context.Context, clus
 			clusterManager.Annotations[clusterV1alpha1.AnnotationKeyClmMgmtK8SVersion] = version
 		}
 	}
+
+	if !clusterManager.Status.TraefikReady {
+		return ctrl.Result{RequeueAfter: requeueAfter1Minute}, nil
+	}
+	clusterManager.Status.Ready = true
+	log.Info("Cluster is ready successfully")
 
 	return ctrl.Result{}, nil
 }
@@ -638,8 +645,6 @@ func (r *ClusterManagerReconciler) KubeadmControlPlaneUpdate(ctx context.Context
 	// if *kcp.Spec.Replicas != int32(clusterManager.Spec.MasterNum) {
 	// 	*kcp.Spec.Replicas = int32(clusterManager.Spec.MasterNum)
 	// }
-
-	clusterManager.Status.Ready = true
 	return ctrl.Result{}, nil
 }
 
@@ -675,10 +680,12 @@ func (r *ClusterManagerReconciler) MachineDeploymentUpdate(ctx context.Context, 
 }
 
 func (r *ClusterManagerReconciler) CreateArgocdResources(ctx context.Context, clusterManager *clusterV1alpha1.ClusterManager) (ctrl.Result, error) {
-	if !clusterManager.Status.ControlPlaneReady || !clusterManager.Status.Ready || clusterManager.Status.ArgoReady {
+
+	if !clusterManager.Status.ControlPlaneReady || clusterManager.Status.ArgoReady {
 		return ctrl.Result{}, nil
 	}
 	log := r.Log.WithValues("ClusterManager", clusterManager.GetNamespacedName())
+
 	log.Info("Start to reconcile phase for CreateArgocdResources")
 
 	kubeconfigSecret, err := r.GetKubeconfigSecret(clusterManager)
@@ -843,7 +850,7 @@ func (r *ClusterManagerReconciler) CreateGatewayResources(ctx context.Context, c
 		if gatewayService.Status.LoadBalancer.Ingress == nil {
 			err := fmt.Errorf("service for gateway's type is not LoadBalancer or not ready")
 			log.Error(err, "Service for api-gateway is not Ready. Requeue after 1 min")
-			return ctrl.Result{Requeue: true, RequeueAfter: requeueAfter1Minute}, err
+			return ctrl.Result{RequeueAfter: requeueAfter1Minute}, nil
 		}
 
 		ingress := gatewayService.Status.LoadBalancer.Ingress[0]
@@ -851,7 +858,7 @@ func (r *ClusterManagerReconciler) CreateGatewayResources(ctx context.Context, c
 		if hostnameOrIp == "" {
 			err := fmt.Errorf("service for gateway doesn't have both hostname and ip address")
 			log.Error(err, "Service for api-gateway is not Ready. Requeue after 1 min")
-			return ctrl.Result{Requeue: true, RequeueAfter: requeueAfter1Minute}, err
+			return ctrl.Result{RequeueAfter: requeueAfter1Minute}, nil
 		}
 
 		clusterManager.Annotations[clusterV1alpha1.AnnotationKeyClmGateway] = hostnameOrIp
@@ -909,6 +916,7 @@ func ConstructMonitoringIngressRoute() traefikV1alpha1.IngressRoute {
 					Kind:  "Rule",
 					Match: "PathPrefix(`/api/kubernetes`)",
 					Middlewares: []traefikV1alpha1.MiddlewareRef{
+						{Name: "api-gateway-system-jwt-decode-auth@kubernetescrd"},
 						{Name: "kubernetes-stripprefix@file"},
 					},
 					Services: []traefikV1alpha1.Service{
@@ -987,7 +995,16 @@ func (r *ClusterManagerReconciler) CreateHyperAuthResources(ctx context.Context,
 	if !clusterManager.Status.GatewayReady || clusterManager.Status.AuthClientReady {
 		return ctrl.Result{}, nil
 	}
+
 	log := r.Log.WithValues("clustermanager", clusterManager.GetNamespacedName())
+
+	OIDC_CLIENT_SET := os.Getenv(util.OIDC_CLIENT_SET)
+	if !util.IsTrue(OIDC_CLIENT_SET) {
+		log.Info("Skip Creating oidc clients for single cluster")
+		clusterManager.Status.AuthClientReady = true
+		return ctrl.Result{}, nil
+	}
+
 	log.Info("Start to reconcile phase for CreateHyperauthClient")
 
 	// Hyperauth의 password를 가져오기 위한 secret을 조회

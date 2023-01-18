@@ -1390,6 +1390,13 @@ func (r *ClusterManagerReconciler) DeleteIngressRoute(clusterManager *clusterV1a
 
 func (r *ClusterManagerReconciler) DeleteHyperAuthResources(clusterManager *clusterV1alpha1.ClusterManager) error {
 	log := r.Log.WithValues("clustermanager", clusterManager.GetNamespacedName())
+
+	OIDC_CLIENT_SET := os.Getenv(util.OIDC_CLIENT_SET)
+	if !util.IsTrue(OIDC_CLIENT_SET) {
+		log.Info("Skip Deleting oidc clients for single cluster")
+		return nil
+	}
+
 	key := types.NamespacedName{
 		Name:      "passwords",
 		Namespace: "hyperauth",
