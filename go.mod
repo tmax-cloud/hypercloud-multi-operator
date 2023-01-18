@@ -3,7 +3,7 @@ module github.com/tmax-cloud/hypercloud-multi-operator
 go 1.19
 
 require (
-	github.com/argoproj/argo-cd/v2 v2.2.5
+	github.com/argoproj/argo-cd/v2 v2.5.3
 	github.com/go-logr/logr v1.2.3
 	github.com/jetstack/cert-manager v1.5.4
 	github.com/kubernetes-sigs/service-catalog v0.3.1
@@ -22,7 +22,7 @@ require (
 	cloud.google.com/go v0.99.0 // indirect
 	github.com/Azure/go-ansiterm v0.0.0-20210617225240-d185dfc1b5a1 // indirect
 	github.com/MakeNowJust/heredoc v1.0.0 // indirect
-	github.com/Masterminds/semver v1.5.0 // indirect
+	github.com/Masterminds/semver/v3 v3.1.1 // indirect
 	github.com/Microsoft/go-winio v0.5.1 // indirect
 	github.com/ProtonMail/go-crypto v0.0.0-20210428141323-04723f9f07d7 // indirect
 	github.com/PuerkitoBio/purell v1.1.1 // indirect
@@ -32,7 +32,7 @@ require (
 	github.com/argoproj/pkg v0.11.1-0.20211203175135-36c59d8fafe0 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/blang/semver v3.5.1+incompatible // indirect
-	github.com/bombsimon/logrusr v1.0.0 // indirect
+	github.com/bombsimon/logrusr/v2 v2.0.1 // indirect
 	github.com/bradleyfalzon/ghinstallation/v2 v2.0.4 // indirect
 	github.com/cenkalti/backoff/v4 v4.1.2 // indirect
 	github.com/cespare/xxhash/v2 v2.1.2 // indirect
