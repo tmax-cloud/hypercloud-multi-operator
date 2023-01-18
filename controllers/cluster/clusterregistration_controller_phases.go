@@ -40,13 +40,14 @@ func (r *ClusterRegistrationReconciler) CheckValidation(ctx context.Context, Clu
 	log := r.Log.WithValues("ClusterRegistration", ClusterRegistration.GetNamespacedName())
 	log.Info("Start to reconcile phase for CheckValidation")
 
+	ClusterRegistration.Status.ClusterValidated = false
 	// decode base64 encoded kubeconfig file
 	encodedKubeConfig, err := b64.StdEncoding.DecodeString(ClusterRegistration.Spec.KubeConfig)
 	if err != nil {
 		log.Error(err, "Failed to decode ClusterRegistration.Spec.KubeConfig, maybe wrong kubeconfig file")
 		ClusterRegistration.Status.SetTypedPhase(clusterV1alpha1.ClusterRegistrationPhaseError)
 		ClusterRegistration.Status.SetTypedReason(clusterV1alpha1.ClusterRegistrationReasonInvalidKubeconfig)
-		return ctrl.Result{Requeue: false}, err
+		return ctrl.Result{}, nil
 	}
 
 	// validate remote cluster
@@ -55,21 +56,17 @@ func (r *ClusterRegistrationReconciler) CheckValidation(ctx context.Context, Clu
 		log.Error(err, "Failed to get client for remote cluster")
 		ClusterRegistration.Status.SetTypedPhase(clusterV1alpha1.ClusterRegistrationPhaseError)
 		ClusterRegistration.Status.SetTypedReason(clusterV1alpha1.ClusterRegistrationReasonInvalidKubeconfig)
-		return ctrl.Result{}, err
+		return ctrl.Result{}, nil
 	}
 
-	_, err = remoteClientset.
-		CoreV1().
-		Nodes().
-		List(context.TODO(), metav1.ListOptions{})
-	if err != nil {
-		log.Info("Failed to get nodes for [" + ClusterRegistration.Spec.ClusterName + "]")
+	if !util.IsClusterHealthy(remoteClientset) {
+		log.Info("Cluster[" + ClusterRegistration.Spec.ClusterName + "] is invalid")
 		ClusterRegistration.Status.SetTypedPhase(clusterV1alpha1.ClusterRegistrationPhaseError)
 		ClusterRegistration.Status.SetTypedReason(clusterV1alpha1.ClusterRegistrationReasonClusterNotFound)
 		return ctrl.Result{}, nil
 	}
 
-	// validate cluster manger duplication
+	// validate cluster manager duplication
 	key := types.NamespacedName{
 		Name:      ClusterRegistration.Spec.ClusterName,
 		Namespace: ClusterRegistration.Namespace,
@@ -81,7 +78,7 @@ func (r *ClusterRegistrationReconciler) CheckValidation(ctx context.Context, Clu
 		log.Info("ClusterManager is already existed")
 		ClusterRegistration.Status.SetTypedPhase(clusterV1alpha1.ClusterRegistrationPhaseError)
 		ClusterRegistration.Status.SetTypedReason(clusterV1alpha1.ClusterRegistrationReasonClusterNameDuplicated)
-		return ctrl.Result{Requeue: false}, err
+		return ctrl.Result{}, nil
 	}
 
 	// ClusterRegistration.Status.SetTypedPhase(clusterV1alpha1.ClusterRegistrationPhaseValidated)
@@ -168,7 +165,7 @@ func (r *ClusterRegistrationReconciler) CreateKubeconfigSecret(ctx context.Conte
 }
 
 func (r *ClusterRegistrationReconciler) CreateClusterManager(ctx context.Context, clusterRegistration *clusterV1alpha1.ClusterRegistration) (ctrl.Result, error) {
-	if clusterRegistration.Status.Phase == clusterV1alpha1.ClusterRegistrationPhaseRegistered {
+	if clusterRegistration.Status.Phase != clusterV1alpha1.ClusterRegistrationPhaseRegistered {
 		return ctrl.Result{}, nil
 	}
 	log := r.Log.WithValues("ClusterRegistration", clusterRegistration.GetNamespacedName())
