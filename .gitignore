@@ -33,3 +33,5 @@ bin
 build/test
 !hypercloud-deploy.sh
 !hypercloud-undeploy.sh
+
+tmp/
