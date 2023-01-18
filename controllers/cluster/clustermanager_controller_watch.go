@@ -41,7 +41,7 @@ func (r *ClusterManagerReconciler) requeueClusterManagersForCluster(o client.Obj
 		Namespace: c.Namespace,
 	}
 	clm := &clusterV1alpha1.ClusterManager{}
-	if err := r.Get(context.TODO(), key, clm); errors.IsNotFound(err) {
+	if err := r.Client.Get(context.TODO(), key, clm); errors.IsNotFound(err) {
 		log.Info("ClusterManager resource not found. Ignoring since object must be deleted")
 		return nil
 	} else if err != nil {
@@ -77,7 +77,7 @@ func (r *ClusterManagerReconciler) requeueClusterManagersForKubeadmControlPlane(
 		Namespace: cp.Namespace,
 	}
 	clm := &clusterV1alpha1.ClusterManager{}
-	if err := r.Get(context.TODO(), key, clm); errors.IsNotFound(err) {
+	if err := r.Client.Get(context.TODO(), key, clm); errors.IsNotFound(err) {
 		log.Info("ClusterManager resource not found. Ignoring since object must be deleted")
 		return nil
 	} else if err != nil {
@@ -114,7 +114,7 @@ func (r *ClusterManagerReconciler) requeueClusterManagersForMachineDeployment(o 
 		Namespace: md.Namespace,
 	}
 	clm := &clusterV1alpha1.ClusterManager{}
-	if err := r.Get(context.TODO(), key, clm); errors.IsNotFound(err) {
+	if err := r.Client.Get(context.TODO(), key, clm); errors.IsNotFound(err) {
 		log.Info("ClusterManager is deleted")
 		return nil
 	} else if err != nil {
@@ -144,7 +144,7 @@ func (r *ClusterManagerReconciler) requeueClusterManagersForSubresources(o clien
 		Namespace: o.GetNamespace(),
 	}
 	clm := &clusterV1alpha1.ClusterManager{}
-	if err := r.Get(context.TODO(), key, clm); errors.IsNotFound(err) {
+	if err := r.Client.Get(context.TODO(), key, clm); errors.IsNotFound(err) {
 		log.Info("ClusterManager is deleted")
 		return nil
 	} else if err != nil {

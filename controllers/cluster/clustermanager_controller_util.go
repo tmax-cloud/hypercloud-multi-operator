@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"os"
 	"regexp"
+	"strconv"
 	"strings"
 
 	argocdV1alpha1 "github.com/argoproj/argo-cd/v2/pkg/apis/application/v1alpha1"
@@ -33,6 +34,7 @@ import (
 	capiV1alpha3 "sigs.k8s.io/cluster-api/api/v1alpha3"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	servicecatalogv1beta1 "github.com/kubernetes-sigs/service-catalog/pkg/apis/servicecatalog/v1beta1"
 	coreV1 "k8s.io/api/core/v1"
@@ -49,33 +51,33 @@ type Parameters interface {
 }
 
 type ClusterParameter struct {
-	Namespace         string
-	ClusterName       string
-	MasterNum         int
-	WorkerNum         int
-	Owner             string
-	KubernetesVersion string
-	HyperAuthUrl      string
+	Namespace         string `json:"NAMESPACE"`
+	ClusterName       string `json:"CLUSTER_NAME"`
+	MasterNum         int    `json:"CONTROL_PLANE_MACHINE_COUNT"`
+	WorkerNum         int    `json:"WORKER_MACHINE_COUNT"`
+	Owner             string `json:"OWNER"`
+	KubernetesVersion string `json:"KUBERNETES_VERSION"`
+	// HyperAuthUrl      string
 }
 
 func (p *ClusterParameter) SetParameter(clusterManager clusterV1alpha1.ClusterManager) {
-	hyperauthDomain := "https://" + os.Getenv("AUTH_SUBDOMAIN") + "." + os.Getenv("HC_DOMAIN") + "/auth/realms/tmax"
 	p.Namespace = clusterManager.Namespace
 	p.ClusterName = clusterManager.Name
 	p.Owner = clusterManager.Annotations[util.AnnotationKeyOwner]
 	p.KubernetesVersion = clusterManager.Spec.Version
 	p.MasterNum = clusterManager.Spec.MasterNum
 	p.WorkerNum = clusterManager.Spec.WorkerNum
-	p.HyperAuthUrl = hyperauthDomain
+	// hyperauthDomain := "https://" + os.Getenv("AUTH_SUBDOMAIN") + "." + os.Getenv("HC_DOMAIN") + "/auth/realms/tmax"
+	// p.HyperAuthUrl = hyperauthDomain
 }
 
 type AwsParameter struct {
-	SshKey         string
-	Region         string
-	MasterType     string
-	WorkerType     string
-	MasterDiskSize int
-	WorkerDiskSize int
+	SshKey         string `json:"AWS_SSH_KEY_NAME"`
+	Region         string `json:"AWS_REGION"`
+	MasterType     string `json:"AWS_CONTROL_PLANE_MACHINE_TYPE"`
+	WorkerType     string `json:"AWS_NODE_MACHINE_TYPE"`
+	MasterDiskSize int    `json:"MASTER_DISK_SIZE"`
+	WorkerDiskSize int    `json:"WORKER_DISK_SIZE"`
 }
 
 func (p *AwsParameter) SetParameter(clusterManager clusterV1alpha1.ClusterManager) {
@@ -88,21 +90,24 @@ func (p *AwsParameter) SetParameter(clusterManager clusterV1alpha1.ClusterManage
 }
 
 type VsphereParameter struct {
-	PodCidr             string
-	VcenterIp           string
-	VcenterId           string
-	VcenterPassword     string
-	VcenterThumbprint   string
-	VcenterNetwork      string
-	VcenterDataCenter   string
-	VcenterDataStore    string
-	VcenterFolder       string
-	VcenterResourcePool string
-	VcenterKcpIp        string
-	VcenterCpuNum       int
-	VcenterMemSize      int
-	VcenterDiskSize     int
-	VcenterTemplate     string
+	PodCidr             string `json:"POD_CIDR"`
+	VcenterIp           string `json:"VSPHERE_SERVER"`
+	VcenterId           string `json:"VSPHERE_USERNAME"`
+	VcenterPassword     string `json:"VSPHERE_PASSWORD"`
+	VcenterThumbprint   string `json:"VSPHERE_TLS_THUMBPRINT"`
+	VcenterNetwork      string `json:"VSPHERE_NETWORK"`
+	VcenterDataCenter   string `json:"VSPHERE_DATACENTER"`
+	VcenterDataStore    string `json:"VSPHERE_DATASTORE"`
+	VcenterFolder       string `json:"VSPHERE_FOLDER"`
+	VcenterResourcePool string `json:"VSPHERE_RESOURCE_POOL"`
+	VcenterKcpIp        string `json:"CONTROL_PLANE_ENDPOINT_IP"`
+	MasterCpuNum        int    `json:"MASTER_CPU_NUM"`
+	MasterMemSize       int    `json:"MASTER_MEM_SIZE"`
+	MasterDiskSize      int    `json:"MASTER_DISK_SIZE"`
+	WorkerCpuNum        int    `json:"WORKER_CPU_NUM"`
+	WorkerMemSize       int    `json:"WORKER_MEM_SIZE"`
+	WorkerDiskSize      int    `json:"WORKER_DISK_SIZE"`
+	VcenterTemplate     string `json:"VSPHERE_TEMPLATE"`
 }
 
 func (p *VsphereParameter) SetParameter(clusterManager clusterV1alpha1.ClusterManager) {
@@ -117,33 +122,44 @@ func (p *VsphereParameter) SetParameter(clusterManager clusterV1alpha1.ClusterMa
 	p.VcenterFolder = clusterManager.VsphereSpec.VcenterFolder
 	p.VcenterResourcePool = clusterManager.VsphereSpec.VcenterResourcePool
 	p.VcenterKcpIp = clusterManager.VsphereSpec.VcenterKcpIp
-	p.VcenterCpuNum = clusterManager.VsphereSpec.VcenterCpuNum
-	p.VcenterMemSize = clusterManager.VsphereSpec.VcenterMemSize
-	p.VcenterDiskSize = clusterManager.VsphereSpec.VcenterDiskSize
+	// todo master worker 분리 필요
+	p.MasterCpuNum = clusterManager.VsphereSpec.VcenterCpuNum
+	p.MasterMemSize = clusterManager.VsphereSpec.VcenterMemSize
+	p.MasterDiskSize = clusterManager.VsphereSpec.VcenterDiskSize
+	p.WorkerCpuNum = clusterManager.VsphereSpec.VcenterCpuNum
+	p.WorkerMemSize = clusterManager.VsphereSpec.VcenterMemSize
+	p.WorkerDiskSize = clusterManager.VsphereSpec.VcenterDiskSize
 	p.VcenterTemplate = clusterManager.VsphereSpec.VcenterTemplate
 }
 
 type VsphereUpgradeParameter struct {
-	Namespace           string
-	ClusterName         string
-	VcenterIp           string
-	VcenterThumbprint   string
-	VcenterNetwork      string
-	VcenterDataCenter   string
-	VcenterDataStore    string
-	VcenterFolder       string
-	VcenterResourcePool string
-	VcenterCpuNum       int
-	VcenterMemSize      int
-	VcenterDiskSize     int
-	VcenterTemplate     string
-	KubernetesVersion   string
+	controlPlane        bool
+	Namespace           string `json:"NAMESPACE"`
+	UpgradeTemplateName string `json:"UPGRADE_TEMPLATE_NAME"`
+	VcenterIp           string `json:"VSPHERE_SERVER"`
+	VcenterThumbprint   string `json:"VSPHERE_TLS_THUMBPRINT"`
+	VcenterNetwork      string `json:"VSPHERE_NETWORK"`
+	VcenterDataCenter   string `json:"VSPHERE_DATACENTER"`
+	VcenterDataStore    string `json:"VSPHERE_DATASTORE"`
+	VcenterFolder       string `json:"VSPHERE_FOLDER"`
+	VcenterResourcePool string `json:"VSPHERE_RESOURCE_POOL"`
+	VcenterCpuNum       int    `json:"CPU_NUM"`
+	VcenterMemSize      int    `json:"MEM_SIZE"`
+	VcenterDiskSize     int    `json:"DISK_SIZE"`
+	VcenterTemplate     string `json:"VSPHERE_TEMPLATE"`
+	KubernetesVersion   string `json:"KUBERNETES_VERSION"`
 }
 
 func (p *VsphereUpgradeParameter) SetParameter(clusterManager clusterV1alpha1.ClusterManager) {
+	if p.controlPlane {
+		p.UpgradeTemplateName = fmt.Sprintf("%s-controlplane-%s", clusterManager.Name, clusterManager.Spec.Version)
+	} else {
+		p.UpgradeTemplateName = fmt.Sprintf("%s-worker-%s", clusterManager.Name, clusterManager.Spec.Version)
+	}
+
+	p.UpgradeTemplateName = fmt.Sprintf("%s-%s", clusterManager.Name, clusterManager.Spec.Version)
 	p.Namespace = clusterManager.Namespace
 	p.KubernetesVersion = clusterManager.Spec.Version
-	p.ClusterName = clusterManager.Name
 	p.VcenterIp = clusterManager.VsphereSpec.VcenterIp
 	p.VcenterThumbprint = clusterManager.VsphereSpec.VcenterThumbprint
 	p.VcenterNetwork = clusterManager.VsphereSpec.VcenterNetwork
@@ -163,13 +179,40 @@ func Marshaling(parameter Parameters, clusterManager clusterV1alpha1.ClusterMana
 	return json.Marshal(parameter)
 }
 
-func MakeServiceInstance(clusterManager *clusterV1alpha1.ClusterManager, serviceInstanceName string, json []byte, upgrade bool) *servicecatalogv1beta1.ServiceInstance {
+func ParseK8SVersion(clusterManager *clusterV1alpha1.ClusterManager) (int, int, error) {
+	k8sVersion := clusterManager.Annotations[clusterV1alpha1.AnnotationKeyClmMgmtK8SVersion]
+	parts := strings.Split(k8sVersion, ".")
+	major, err := strconv.Atoi(strings.TrimLeft(parts[0], "v"))
+	if err != nil {
+		return 0, 0, err
+	}
+	// Parse the minor version number
+	minor, err := strconv.Atoi(parts[1])
+	if err != nil {
+		return 0, 0, err
+	}
+	return major, minor, nil
+}
+
+func ConstructServiceInstance(clusterManager *clusterV1alpha1.ClusterManager, serviceInstanceName string, json []byte, upgrade bool) (*servicecatalogv1beta1.ServiceInstance, error) {
 	templateName := ""
+
 	if upgrade {
 		// vsphere upgrade에 대해서만 serviceinstance를 생성하므로
 		templateName = CAPI_VSPHERE_UPGRADE_TEMPLATE
 	} else {
 		templateName = "capi-" + strings.ToLower(clusterManager.Spec.Provider) + "-template"
+	}
+
+	major, minor, err := ParseK8SVersion(clusterManager)
+	if err != nil {
+		return nil, err
+	}
+	fmt.Println(major, minor)
+
+	// k8s version이 1.19 이하일때는 1.19용 템플릿 사용
+	if major == 1 && minor < 20 {
+		templateName += "-v1.19"
 	}
 
 	serviceInstance := &servicecatalogv1beta1.ServiceInstance{
@@ -192,7 +235,7 @@ func MakeServiceInstance(clusterManager *clusterV1alpha1.ClusterManager, service
 		},
 	}
 
-	return serviceInstance
+	return serviceInstance, nil
 }
 
 // controlplane, worker에 따른 machine list를 반환한다.
@@ -200,6 +243,7 @@ func (r *ClusterManagerReconciler) GetMachineList(clusterManager *clusterV1alpha
 
 	opts := []client.ListOption{client.InNamespace(clusterManager.Namespace),
 		client.MatchingLabels{CAPI_CLUSTER_LABEL_KEY: clusterManager.Name}}
+
 	if controlplane {
 		opts = append(opts, client.MatchingLabels{CAPI_CONTROLPLANE_LABEL_KEY: ""})
 	} else {
@@ -210,6 +254,17 @@ func (r *ClusterManagerReconciler) GetMachineList(clusterManager *clusterV1alpha
 		return []capiV1alpha3.Machine{}, err
 	}
 	return machines.Items, nil
+}
+
+// kubeadm-config configmap에서 k8s version을 parsing한다.
+func (r *ClusterManagerReconciler) FetchMgmtK8SVersion() (string, error) {
+	nodes := &coreV1.NodeList{}
+	opts := client.MatchingLabels{"node-role.kubernetes.io/master": ""}
+	if err := r.Client.List(context.TODO(), nodes, opts); err != nil {
+		return "", err
+	}
+	node := nodes.Items[0]
+	return node.Status.NodeInfo.KubeletVersion, nil
 }
 
 // controlplane machine list를 반환
@@ -301,7 +356,7 @@ func (r *ClusterManagerReconciler) GetKubeconfigSecret(clusterManager *clusterV1
 		Namespace: clusterManager.Namespace,
 	}
 	kubeconfigSecret := &coreV1.Secret{}
-	if err := r.Get(context.TODO(), key, kubeconfigSecret); errors.IsNotFound(err) {
+	if err := r.Client.Get(context.TODO(), key, kubeconfigSecret); errors.IsNotFound(err) {
 		log.Info("kubeconfig secret is not found")
 		return nil, err
 	} else if err != nil {
@@ -319,7 +374,7 @@ func (r *ClusterManagerReconciler) CreateCertificate(clusterManager *clusterV1al
 		Name:      clusterManager.Name + "-certificate",
 		Namespace: clusterManager.Namespace,
 	}
-	err := r.Get(context.TODO(), key, &certmanagerV1.Certificate{})
+	err := r.Client.Get(context.TODO(), key, &certmanagerV1.Certificate{})
 	if errors.IsNotFound(err) {
 		certificate := &certmanagerV1.Certificate{
 			ObjectMeta: metav1.ObjectMeta{
@@ -352,13 +407,13 @@ func (r *ClusterManagerReconciler) CreateCertificate(clusterManager *clusterV1al
 				},
 			},
 		}
+		ctrl.SetControllerReference(clusterManager, certificate, r.Scheme)
 		if err := r.Create(context.TODO(), certificate); err != nil {
 			log.Error(err, "Failed to Create Certificate")
 			return err
 		}
 
 		log.Info("Create Certificate successfully")
-		ctrl.SetControllerReference(clusterManager, certificate, r.Scheme)
 		return nil
 	}
 
@@ -372,20 +427,21 @@ func (r *ClusterManagerReconciler) CreateIngress(clusterManager *clusterV1alpha1
 		Name:      clusterManager.Name + "-ingress",
 		Namespace: clusterManager.Namespace,
 	}
-	err := r.Get(context.TODO(), key, &networkingv1.Ingress{})
+	err := r.Client.Get(context.TODO(), key, &networkingv1.Ingress{})
 	if errors.IsNotFound(err) {
 		provider := "tmax-cloud"
 		pathType := networkingv1.PathTypePrefix
 		prefixMiddleware := clusterManager.GetNamespacedPrefix() + "-prefix@kubernetescrd"
 		multiclusterDNS := "multicluster." + clusterManager.Annotations[clusterV1alpha1.AnnotationKeyClmDomain]
 		urlPath := "/api/" + clusterManager.Namespace + "/" + clusterManager.Name
+		middlwareAnnotations := "api-gateway-system-oauth2-proxy-forwardauth@kubernetescrd,api-gateway-system-jwt-decode-auth@kubernetescrd," + prefixMiddleware
 		ingress := &networkingv1.Ingress{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      key.Name,
 				Namespace: key.Namespace,
 				Annotations: map[string]string{
 					util.AnnotationKeyTraefikEntrypoints: "websecure",
-					util.AnnotationKeyTraefikMiddlewares: "api-gateway-system-jwt-decode-auth@kubernetescrd," + prefixMiddleware,
+					util.AnnotationKeyTraefikMiddlewares: middlwareAnnotations,
 					util.AnnotationKeyOwner:              clusterManager.Annotations[util.AnnotationKeyCreator],
 					util.AnnotationKeyCreator:            clusterManager.Annotations[util.AnnotationKeyCreator],
 				},
@@ -440,27 +496,27 @@ func (r *ClusterManagerReconciler) CreateIngress(clusterManager *clusterV1alpha1
 				},
 			},
 		}
+		ctrl.SetControllerReference(clusterManager, ingress, r.Scheme)
 		if err := r.Create(context.TODO(), ingress); err != nil {
 			log.Error(err, "Failed to Create Ingress")
 			return err
 		}
 
 		log.Info("Create Ingress successfully")
-		ctrl.SetControllerReference(clusterManager, ingress, r.Scheme)
 		return nil
 	}
 
 	return err
 }
 
-func (r *ClusterManagerReconciler) CreateGatewayService(clusterManager *clusterV1alpha1.ClusterManager, annotationKey string) error {
+func (r *ClusterManagerReconciler) CreateExternalNameService(clusterManager *clusterV1alpha1.ClusterManager, annotationKey string) error {
 	log := r.Log.WithValues("clustermanager", clusterManager.GetNamespacedName())
 
 	key := types.NamespacedName{
 		Name:      clusterManager.Name + "-gateway-service",
 		Namespace: clusterManager.Namespace,
 	}
-	err := r.Get(context.TODO(), key, &coreV1.Service{})
+	err := r.Client.Get(context.TODO(), key, &coreV1.Service{})
 	if errors.IsNotFound(err) {
 		service := &coreV1.Service{
 			ObjectMeta: metav1.ObjectMeta{
@@ -488,68 +544,67 @@ func (r *ClusterManagerReconciler) CreateGatewayService(clusterManager *clusterV
 				Type: coreV1.ServiceTypeExternalName,
 			},
 		}
+		ctrl.SetControllerReference(clusterManager, service, r.Scheme)
 		if err := r.Create(context.TODO(), service); err != nil {
 			log.Error(err, "Failed to Create Service for gateway")
 			return err
 		}
-
 		log.Info("Create Service for gateway successfully")
-		ctrl.SetControllerReference(clusterManager, service, r.Scheme)
 		return nil
 	}
 
 	return err
 }
 
-func (r *ClusterManagerReconciler) CreateGatewayEndpoint(clusterManager *clusterV1alpha1.ClusterManager) error {
-	log := r.Log.WithValues("clustermanager", clusterManager.GetNamespacedName())
+// func (r *ClusterManagerReconciler) CreateGatewayEndpoint(clusterManager *clusterV1alpha1.ClusterManager) error {
+// 	log := r.Log.WithValues("clustermanager", clusterManager.GetNamespacedName())
 
-	key := types.NamespacedName{
-		Name:      clusterManager.Name + "-gateway-service",
-		Namespace: clusterManager.Namespace,
-	}
-	err := r.Get(context.TODO(), key, &coreV1.Endpoints{})
-	if errors.IsNotFound(err) {
-		endpoint := &coreV1.Endpoints{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      key.Name,
-				Namespace: key.Namespace,
-				Annotations: map[string]string{
-					util.AnnotationKeyOwner:   clusterManager.Annotations[util.AnnotationKeyCreator],
-					util.AnnotationKeyCreator: clusterManager.Annotations[util.AnnotationKeyCreator],
-				},
-				Labels: map[string]string{
-					clusterV1alpha1.LabelKeyClmName: clusterManager.Name,
-				},
-			},
-			Subsets: []coreV1.EndpointSubset{
-				{
-					Addresses: []coreV1.EndpointAddress{
-						{
-							IP: clusterManager.Annotations[clusterV1alpha1.AnnotationKeyClmGateway],
-						},
-					},
-					Ports: []coreV1.EndpointPort{
-						{
-							Port:     443,
-							Protocol: coreV1.ProtocolTCP,
-						},
-					},
-				},
-			},
-		}
-		if err := r.Create(context.TODO(), endpoint); err != nil {
-			log.Error(err, "Failed to Create Endpoint for gateway")
-			return err
-		}
+// 	key := types.NamespacedName{
+// 		Name:      clusterManager.Name + "-gateway-service",
+// 		Namespace: clusterManager.Namespace,
+// 	}
+// 	err := r.Client.Get(context.TODO(), key, &coreV1.Endpoints{})
+// 	if errors.IsNotFound(err) {
+// 		endpoint := &coreV1.Endpoints{
+// 			ObjectMeta: metav1.ObjectMeta{
+// 				Name:      key.Name,
+// 				Namespace: key.Namespace,
+// 				Annotations: map[string]string{
+// 					util.AnnotationKeyOwner:   clusterManager.Annotations[util.AnnotationKeyCreator],
+// 					util.AnnotationKeyCreator: clusterManager.Annotations[util.AnnotationKeyCreator],
+// 				},
+// 				Labels: map[string]string{
+// 					clusterV1alpha1.LabelKeyClmName: clusterManager.Name,
+// 				},
+// 			},
+// 			Subsets: []coreV1.EndpointSubset{
+// 				{
+// 					Addresses: []coreV1.EndpointAddress{
+// 						{
+// 							IP: clusterManager.Annotations[clusterV1alpha1.AnnotationKeyClmGateway],
+// 						},
+// 					},
+// 					Ports: []coreV1.EndpointPort{
+// 						{
+// 							Port:     443,
+// 							Protocol: coreV1.ProtocolTCP,
+// 						},
+// 					},
+// 				},
+// 			},
+// 		}
+// 		if err := r.Create(context.TODO(), endpoint); err != nil {
+// 			log.Error(err, "Failed to Create Endpoint for gateway")
+// 			return err
+// 		}
 
-		log.Info("Create Endpoint for gateway successfully")
-		ctrl.SetControllerReference(clusterManager, endpoint, r.Scheme)
-		return nil
-	}
+// 		log.Info("Create Endpoint for gateway successfully")
+// 		ctrl.SetControllerReference(clusterManager, endpoint, r.Scheme)
+// 		return nil
+// 	}
 
-	return err
-}
+// 	return err
+// }
 
 func (r *ClusterManagerReconciler) CreateMiddleware(clusterManager *clusterV1alpha1.ClusterManager) error {
 	log := r.Log.WithValues("clustermanager", clusterManager.GetNamespacedName())
@@ -558,7 +613,7 @@ func (r *ClusterManagerReconciler) CreateMiddleware(clusterManager *clusterV1alp
 		Name:      clusterManager.Name + "-prefix",
 		Namespace: clusterManager.Namespace,
 	}
-	err := r.Get(context.TODO(), key, &traefikV1alpha1.Middleware{})
+	err := r.Client.Get(context.TODO(), key, &traefikV1alpha1.Middleware{})
 	if errors.IsNotFound(err) {
 		middleware := &traefikV1alpha1.Middleware{
 			ObjectMeta: metav1.ObjectMeta{
@@ -580,13 +635,13 @@ func (r *ClusterManagerReconciler) CreateMiddleware(clusterManager *clusterV1alp
 				},
 			},
 		}
+		ctrl.SetControllerReference(clusterManager, middleware, r.Scheme)
 		if err := r.Create(context.TODO(), middleware); err != nil {
 			log.Error(err, "Failed to Create Middleware")
 			return err
 		}
 
 		log.Info("Create Middleware successfully")
-		ctrl.SetControllerReference(clusterManager, middleware, r.Scheme)
 		return nil
 	}
 
@@ -600,8 +655,9 @@ func (r *ClusterManagerReconciler) CreateServiceAccountSecret(clusterManager *cl
 	email := clusterManager.Annotations[util.AnnotationKeyOwner]
 	adminServiceAccountName := re.ReplaceAllString(strings.Replace(email, "@", "-at-", -1), "-")
 	kubeconfigSecret, err := r.GetKubeconfigSecret(clusterManager)
-	if err != nil {
-		log.Error(err, "Failed to get kubeconfig secret")
+	if errors.IsNotFound(err) {
+		return nil
+	} else if err != nil {
 		return err
 	}
 
@@ -634,7 +690,7 @@ func (r *ClusterManagerReconciler) CreateServiceAccountSecret(clusterManager *cl
 		Namespace: clusterManager.Namespace,
 	}
 	jwtDecodeSecret := &coreV1.Secret{}
-	err = r.Get(context.TODO(), key, jwtDecodeSecret)
+	err = r.Client.Get(context.TODO(), key, jwtDecodeSecret)
 	if errors.IsNotFound(err) {
 		secret := &coreV1.Secret{
 			ObjectMeta: metav1.ObjectMeta{
@@ -656,13 +712,13 @@ func (r *ClusterManagerReconciler) CreateServiceAccountSecret(clusterManager *cl
 				"token": tokenSecret.Data["token"],
 			},
 		}
+		ctrl.SetControllerReference(clusterManager, secret, r.Scheme)
 		if err := r.Create(context.TODO(), secret); err != nil {
 			log.Error(err, "Failed to Create Secret for ServiceAccount token")
 			return err
 		}
 
 		log.Info("Create Secret for ServiceAccount token successfully")
-		ctrl.SetControllerReference(clusterManager, secret, r.Scheme)
 		return nil
 	}
 
@@ -677,15 +733,16 @@ func (r *ClusterManagerReconciler) CreateApplication(clusterManager *clusterV1al
 	log := r.Log.WithValues("clustermanager", clusterManager.GetNamespacedName())
 
 	key := types.NamespacedName{
-		Name:      clusterManager.GetNamespacedPrefix() + "-applications",
+		Name:      clusterManager.GetApplicationName(),
 		Namespace: util.ArgoNamespace,
 	}
-	err := r.Get(context.TODO(), key, &argocdV1alpha1.Application{})
+	err := r.Client.Get(context.TODO(), key, &argocdV1alpha1.Application{})
 	if errors.IsNotFound(err) {
 		application := &argocdV1alpha1.Application{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      key.Name,
-				Namespace: key.Namespace,
+				Name:       key.Name,
+				Namespace:  key.Namespace,
+				Finalizers: []string{util.ArgoResourceFinalizers},
 				Labels: map[string]string{
 					util.LabelKeyArgoTargetCluster: clusterManager.GetNamespacedPrefix(),
 					util.LabelKeyArgoAppType:       util.ArgoAppTypeAppOfApp,
@@ -804,7 +861,7 @@ func (r *ClusterManagerReconciler) DeleteCertificate(clusterManager *clusterV1al
 		Namespace: clusterManager.Namespace,
 	}
 	certificate := &certmanagerV1.Certificate{}
-	err := r.Get(context.TODO(), key, certificate)
+	err := r.Client.Get(context.TODO(), key, certificate)
 	if errors.IsNotFound(err) {
 		return nil
 	}
@@ -831,7 +888,7 @@ func (r *ClusterManagerReconciler) DeleteCertSecret(clusterManager *clusterV1alp
 		Namespace: clusterManager.Namespace,
 	}
 	secret := &coreV1.Secret{}
-	err := r.Get(context.TODO(), key, secret)
+	err := r.Client.Get(context.TODO(), key, secret)
 	if errors.IsNotFound(err) {
 		return nil
 	}
@@ -858,7 +915,7 @@ func (r *ClusterManagerReconciler) DeleteIngress(clusterManager *clusterV1alpha1
 		Namespace: clusterManager.Namespace,
 	}
 	ingress := &networkingv1.Ingress{}
-	err := r.Get(context.TODO(), key, ingress)
+	err := r.Client.Get(context.TODO(), key, ingress)
 	if errors.IsNotFound(err) {
 		return nil
 	}
@@ -885,7 +942,7 @@ func (r *ClusterManagerReconciler) DeleteService(clusterManager *clusterV1alpha1
 		Namespace: clusterManager.Namespace,
 	}
 	service := &coreV1.Service{}
-	err := r.Get(context.TODO(), key, service)
+	err := r.Client.Get(context.TODO(), key, service)
 	if errors.IsNotFound(err) {
 		return nil
 	}
@@ -912,7 +969,7 @@ func (r *ClusterManagerReconciler) DeleteEndpoint(clusterManager *clusterV1alpha
 		Namespace: clusterManager.Namespace,
 	}
 	endpoint := &coreV1.Endpoints{}
-	err := r.Get(context.TODO(), key, endpoint)
+	err := r.Client.Get(context.TODO(), key, endpoint)
 	if errors.IsNotFound(err) {
 		return nil
 	}
@@ -939,7 +996,7 @@ func (r *ClusterManagerReconciler) DeleteMiddleware(clusterManager *clusterV1alp
 		Namespace: clusterManager.Namespace,
 	}
 	middleware := &traefikV1alpha1.Middleware{}
-	err := r.Get(context.TODO(), key, middleware)
+	err := r.Client.Get(context.TODO(), key, middleware)
 	if errors.IsNotFound(err) {
 		return nil
 	}
@@ -966,7 +1023,7 @@ func (r *ClusterManagerReconciler) DeleteGatewayService(clusterManager *clusterV
 		Namespace: clusterManager.Namespace,
 	}
 	service := &coreV1.Service{}
-	err := r.Get(context.TODO(), key, service)
+	err := r.Client.Get(context.TODO(), key, service)
 	if errors.IsNotFound(err) {
 		return nil
 	}
@@ -993,7 +1050,7 @@ func (r *ClusterManagerReconciler) DeleteGatewayEndpoint(clusterManager *cluster
 		Namespace: clusterManager.Namespace,
 	}
 	endpoint := &coreV1.Endpoints{}
-	err := r.Get(context.TODO(), key, endpoint)
+	err := r.Client.Get(context.TODO(), key, endpoint)
 	if errors.IsNotFound(err) {
 		return nil
 	}
@@ -1020,7 +1077,7 @@ func (r *ClusterManagerReconciler) DeleteDeprecatedTraefikResources(clusterManag
 		Namespace: clusterManager.Namespace,
 	}
 	ingress := &networkingv1.Ingress{}
-	if err := r.Get(context.TODO(), key, ingress); errors.IsNotFound(err) {
+	if err := r.Client.Get(context.TODO(), key, ingress); errors.IsNotFound(err) {
 		log.Info("Not found: " + key.Name)
 	} else if err != nil {
 		log.Error(err, "Failed to get: "+key.Name)
@@ -1038,7 +1095,7 @@ func (r *ClusterManagerReconciler) DeleteDeprecatedTraefikResources(clusterManag
 		Namespace: clusterManager.Namespace,
 	}
 	service := &coreV1.Service{}
-	if err := r.Get(context.TODO(), key, service); errors.IsNotFound(err) {
+	if err := r.Client.Get(context.TODO(), key, service); errors.IsNotFound(err) {
 		log.Info("Not found: " + key.Name)
 	} else if err != nil {
 		log.Error(err, "Failed to get: "+key.Name)
@@ -1052,7 +1109,7 @@ func (r *ClusterManagerReconciler) DeleteDeprecatedTraefikResources(clusterManag
 	}
 
 	endpoint := &coreV1.Endpoints{}
-	if err := r.Get(context.TODO(), key, endpoint); errors.IsNotFound(err) {
+	if err := r.Client.Get(context.TODO(), key, endpoint); errors.IsNotFound(err) {
 		log.Info("Not found: " + key.Name)
 	} else if err != nil {
 		log.Error(err, "Failed to get: "+key.Name)
@@ -1075,7 +1132,7 @@ func (r *ClusterManagerReconciler) DeleteDeprecatedPrometheusResources(clusterMa
 		Namespace: clusterManager.Namespace,
 	}
 	service := &coreV1.Service{}
-	if err := r.Get(context.TODO(), key, service); errors.IsNotFound(err) {
+	if err := r.Client.Get(context.TODO(), key, service); errors.IsNotFound(err) {
 		log.Info("Not found: " + key.Name)
 	} else if err != nil {
 		log.Error(err, "Failed to get: "+key.Name)
@@ -1088,7 +1145,7 @@ func (r *ClusterManagerReconciler) DeleteDeprecatedPrometheusResources(clusterMa
 	}
 
 	endpoint := &coreV1.Endpoints{}
-	if err := r.Get(context.TODO(), key, endpoint); errors.IsNotFound(err) {
+	if err := r.Client.Get(context.TODO(), key, endpoint); errors.IsNotFound(err) {
 		log.Info("Not found: " + key.Name)
 	} else if err != nil {
 		log.Error(err, "Failed to get: "+key.Name)
@@ -1103,18 +1160,98 @@ func (r *ClusterManagerReconciler) DeleteDeprecatedPrometheusResources(clusterMa
 	return nil
 }
 
-func (r *ClusterManagerReconciler) CheckApplicationRemains(clusterManager *clusterV1alpha1.ClusterManager) error {
+func (r *ClusterManagerReconciler) FetchApplications(clm *clusterV1alpha1.ClusterManager) ([]argocdV1alpha1.Application, error) {
+	matchLabels := client.MatchingLabels{util.LabelKeyArgoTargetCluster: clm.GetNamespacedPrefix()}
 	appList := &argocdV1alpha1.ApplicationList{}
-	if err := r.List(context.TODO(), appList); err != nil {
-		return err
-	}
-	for _, app := range appList.Items {
-		if app.Labels[util.LabelKeyArgoTargetCluster] == clusterManager.GetNamespacedPrefix() {
-			return fmt.Errorf("application still remains")
-		}
+	if err := r.List(context.TODO(), appList, client.InNamespace(util.ArgoNamespace), matchLabels); err != nil {
+		return nil, err
 	}
 
-	return nil
+	return appList.Items, nil
+}
+
+// root application이 삭제되면 하위의 모든 application이 삭제되므로 root의 경우에 대해서만 검사한다.
+func (r *ClusterManagerReconciler) CheckApplicationRemains(clm *clusterV1alpha1.ClusterManager) error {
+
+	apps, err := r.FetchApplications(clm)
+	if err != nil {
+		return err
+	}
+
+	if len(apps) <= 0 {
+		return nil
+	}
+
+	return fmt.Errorf("Applications still remains. Please delete applications which remain")
+}
+
+// root application을 삭제한다.
+// 하위의 application도 함께 삭제될 수 있도록 필요한 세팅을 추가한다.
+func (r *ClusterManagerReconciler) DeleteApplicationRemains(clm *clusterV1alpha1.ClusterManager) error {
+	log := r.Log.WithValues("clustermanager", clm.GetNamespacedName())
+	requireRequeue := fmt.Errorf("not error. just for requeue")
+
+	key := types.NamespacedName{
+		Name:      clm.GetApplicationName(),
+		Namespace: util.ArgoNamespace,
+	}
+
+	app := &argocdV1alpha1.Application{}
+	if err := r.Client.Get(context.TODO(), key, app); errors.IsNotFound(err) {
+		log.Info("Deleted root application successfully")
+		return nil // 끝
+	} else if err != nil {
+		return err
+	}
+
+	apps, err := r.FetchApplications(clm)
+	if err != nil {
+		return err
+	}
+
+	for _, app := range apps {
+		if app.Name == clm.GetApplicationName() {
+			// root app은 pass한다.
+			continue
+		}
+
+		exist := &argocdV1alpha1.Application{}
+		key := types.NamespacedName{
+			Name:      app.Name,
+			Namespace: app.Namespace,
+		}
+		if err := r.Client.Get(context.TODO(), key, exist); err != nil {
+			return err
+		}
+
+		// autosync 제거
+		if exist.Spec.SyncPolicy != nil && exist.Spec.SyncPolicy.Automated != nil {
+			exist.Spec.SyncPolicy.Automated = nil
+		}
+
+		// sync wave 제거
+		if _, ok := exist.Annotations[util.AnnotationKeyArgoSyncWave]; ok {
+			delete(exist.Annotations, util.AnnotationKeyArgoSyncWave)
+		}
+
+		// finalizer 추가
+		controllerutil.AddFinalizer(exist, util.ArgoResourceFinalizers)
+		if err := r.Update(context.TODO(), exist); err != nil {
+			return err
+		}
+
+	}
+
+	if !app.GetDeletionTimestamp().IsZero() {
+		log.Info("Wait for application to be deleted")
+		return fmt.Errorf("Wait for application to be deleted")
+	}
+
+	if err := r.Client.Delete(context.TODO(), app); err != nil {
+		return err
+	}
+
+	return requireRequeue
 }
 
 func (r *ClusterManagerReconciler) DeleteLoadBalancerServices(clusterManager *clusterV1alpha1.ClusterManager) error {
@@ -1122,10 +1259,8 @@ func (r *ClusterManagerReconciler) DeleteLoadBalancerServices(clusterManager *cl
 
 	kubeconfigSecret, err := r.GetKubeconfigSecret(clusterManager)
 	if errors.IsNotFound(err) {
-		log.Info("Cluster is already deleted")
 		return nil
 	} else if err != nil {
-		log.Error(err, "Failed to get kubeconfig secret")
 		return err
 	}
 
@@ -1135,8 +1270,8 @@ func (r *ClusterManagerReconciler) DeleteLoadBalancerServices(clusterManager *cl
 		return err
 	}
 
-	if _, err := remoteClientset.CoreV1().Nodes().List(context.TODO(), metav1.ListOptions{}); err != nil {
-		log.Info("Failed to get node for remote cluster. Skip delete LoadBalancer services process")
+	if !util.IsClusterHealthy(remoteClientset) {
+		log.Info("Cannot connect api server. Skip delete LoadBalancer services process")
 		return nil
 	}
 
@@ -1174,45 +1309,100 @@ func (r *ClusterManagerReconciler) DeleteLoadBalancerServices(clusterManager *cl
 	return nil
 }
 
-func (r *ClusterManagerReconciler) DeleteTraefikResources(clusterManager *clusterV1alpha1.ClusterManager) error {
+func (r *ClusterManagerReconciler) DeleteIngressRoute(clusterManager *clusterV1alpha1.ClusterManager) error {
 	log := r.Log.WithValues("clustermanager", clusterManager.GetNamespacedName())
-
-	if err := r.DeleteCertificate(clusterManager); err != nil {
+	kubeconfigSecret, err := r.GetKubeconfigSecret(clusterManager)
+	if errors.IsNotFound(err) {
+		return nil
+	} else if err != nil {
 		return err
 	}
 
-	if err := r.DeleteCertSecret(clusterManager); err != nil {
+	remoteClientset, err := util.GetRemoteK8sClient(kubeconfigSecret)
+	if err != nil {
+		log.Error(err, "Failed to get remoteK8sClient")
 		return err
 	}
 
-	if err := r.DeleteIngress(clusterManager); err != nil {
+	if !util.IsClusterHealthy(remoteClientset) {
+		log.Info("Cannot connect api server. Skip delete ingressroute process")
+		return nil
+	}
+
+	remoteClient, err := util.GetRemoteK8sTraefikClient(kubeconfigSecret)
+	if err != nil {
+		log.Error(err, "Failed to get remoteK8sClient")
 		return err
 	}
 
-	if err := r.DeleteMiddleware(clusterManager); err != nil {
+	_, err = remoteClient.
+		IngressRoutes(util.ApiGatewayNamespace).
+		Get(context.TODO(), util.MonitoringIngressRoute, metav1.GetOptions{})
+
+	if errors.IsNotFound(err) {
+		log.Info("Deleted ingressroute successfully in workload cluster")
+		return nil
+	} else if err != nil {
+		log.Error(err, "Failed to get ingressroute in workload cluster")
 		return err
 	}
-
-	if err := r.DeleteGatewayService(clusterManager); err != nil {
+	if err = remoteClient.
+		IngressRoutes(util.ApiGatewayNamespace).
+		Delete(context.TODO(), util.MonitoringIngressRoute, metav1.DeleteOptions{}); err != nil {
+		log.Error(err, "Failed to delete ingressroute in workload cluster")
 		return err
 	}
+	log.Info("Deleted ingressroute successfully in workload cluster")
 
-	if err := r.DeleteGatewayEndpoint(clusterManager); err != nil {
-		return err
-	}
-
-	log.Info("Delete traefik resources successfully")
 	return nil
 }
 
-func (r *ClusterManagerReconciler) DeleteHyperAuthResourcesForSingleCluster(clusterManager *clusterV1alpha1.ClusterManager) error {
+// func (r *ClusterManagerReconciler) DeleteTraefikResources(clusterManager *clusterV1alpha1.ClusterManager) error {
+// 	log := r.Log.WithValues("clustermanager", clusterManager.GetNamespacedName())
+
+// 	if err := r.DeleteCertificate(clusterManager); err != nil {
+// 		return err
+// 	}
+
+// 	if err := r.DeleteCertSecret(clusterManager); err != nil {
+// 		return err
+// 	}
+
+// 	if err := r.DeleteIngress(clusterManager); err != nil {
+// 		return err
+// 	}
+
+// 	if err := r.DeleteMiddleware(clusterManager); err != nil {
+// 		return err
+// 	}
+
+// 	if err := r.DeleteGatewayService(clusterManager); err != nil {
+// 		return err
+// 	}
+
+// 	if err := r.DeleteGatewayEndpoint(clusterManager); err != nil {
+// 		return err
+// 	}
+
+// 	log.Info("Delete traefik resources successfully")
+// 	return nil
+// }
+
+func (r *ClusterManagerReconciler) DeleteHyperAuthResources(clusterManager *clusterV1alpha1.ClusterManager) error {
 	log := r.Log.WithValues("clustermanager", clusterManager.GetNamespacedName())
+
+	OIDC_CLIENT_SET := os.Getenv(util.OIDC_CLIENT_SET)
+	if !util.IsTrue(OIDC_CLIENT_SET) {
+		log.Info("Skip Deleting oidc clients for single cluster")
+		return nil
+	}
+
 	key := types.NamespacedName{
 		Name:      "passwords",
 		Namespace: "hyperauth",
 	}
 	secret := &coreV1.Secret{}
-	if err := r.Get(context.TODO(), key, secret); errors.IsNotFound(err) {
+	if err := r.Client.Get(context.TODO(), key, secret); errors.IsNotFound(err) {
 		log.Info("HyperAuth password secret is not found")
 		return err
 	} else if err != nil {

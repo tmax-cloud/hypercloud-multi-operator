@@ -17,6 +17,7 @@ package controllers
 import (
 	"context"
 	b64 "encoding/base64"
+	"fmt"
 	"os"
 	"regexp"
 
@@ -39,13 +40,14 @@ func (r *ClusterRegistrationReconciler) CheckValidation(ctx context.Context, Clu
 	log := r.Log.WithValues("ClusterRegistration", ClusterRegistration.GetNamespacedName())
 	log.Info("Start to reconcile phase for CheckValidation")
 
+	ClusterRegistration.Status.ClusterValidated = false
 	// decode base64 encoded kubeconfig file
 	encodedKubeConfig, err := b64.StdEncoding.DecodeString(ClusterRegistration.Spec.KubeConfig)
 	if err != nil {
 		log.Error(err, "Failed to decode ClusterRegistration.Spec.KubeConfig, maybe wrong kubeconfig file")
 		ClusterRegistration.Status.SetTypedPhase(clusterV1alpha1.ClusterRegistrationPhaseError)
 		ClusterRegistration.Status.SetTypedReason(clusterV1alpha1.ClusterRegistrationReasonInvalidKubeconfig)
-		return ctrl.Result{Requeue: false}, err
+		return ctrl.Result{}, nil
 	}
 
 	// validate remote cluster
@@ -54,33 +56,29 @@ func (r *ClusterRegistrationReconciler) CheckValidation(ctx context.Context, Clu
 		log.Error(err, "Failed to get client for remote cluster")
 		ClusterRegistration.Status.SetTypedPhase(clusterV1alpha1.ClusterRegistrationPhaseError)
 		ClusterRegistration.Status.SetTypedReason(clusterV1alpha1.ClusterRegistrationReasonInvalidKubeconfig)
-		return ctrl.Result{}, err
+		return ctrl.Result{}, nil
 	}
 
-	_, err = remoteClientset.
-		CoreV1().
-		Nodes().
-		List(context.TODO(), metav1.ListOptions{})
-	if err != nil {
-		log.Info("Failed to get nodes for [" + ClusterRegistration.Spec.ClusterName + "]")
+	if !util.IsClusterHealthy(remoteClientset) {
+		log.Info("Cluster[" + ClusterRegistration.Spec.ClusterName + "] is invalid")
 		ClusterRegistration.Status.SetTypedPhase(clusterV1alpha1.ClusterRegistrationPhaseError)
 		ClusterRegistration.Status.SetTypedReason(clusterV1alpha1.ClusterRegistrationReasonClusterNotFound)
 		return ctrl.Result{}, nil
 	}
 
-	// validate cluster manger duplication
+	// validate cluster manager duplication
 	key := types.NamespacedName{
 		Name:      ClusterRegistration.Spec.ClusterName,
 		Namespace: ClusterRegistration.Namespace,
 	}
-	if err := r.Get(context.TODO(), key, &clusterV1alpha1.ClusterManager{}); err != nil && !errors.IsNotFound(err) {
+	if err := r.Client.Get(context.TODO(), key, &clusterV1alpha1.ClusterManager{}); err != nil && !errors.IsNotFound(err) {
 		log.Error(err, "Failed to get clusterManager")
 		return ctrl.Result{}, err
 	} else if err == nil {
 		log.Info("ClusterManager is already existed")
 		ClusterRegistration.Status.SetTypedPhase(clusterV1alpha1.ClusterRegistrationPhaseError)
 		ClusterRegistration.Status.SetTypedReason(clusterV1alpha1.ClusterRegistrationReasonClusterNameDuplicated)
-		return ctrl.Result{Requeue: false}, err
+		return ctrl.Result{}, nil
 	}
 
 	// ClusterRegistration.Status.SetTypedPhase(clusterV1alpha1.ClusterRegistrationPhaseValidated)
@@ -100,7 +98,7 @@ func (r *ClusterRegistrationReconciler) CreateKubeconfigSecret(ctx context.Conte
 		Namespace: ClusterRegistration.Namespace,
 	}
 	clm := &clusterV1alpha1.ClusterManager{}
-	if err := r.Get(context.TODO(), key, clm); errors.IsNotFound(err) {
+	if err := r.Client.Get(context.TODO(), key, clm); errors.IsNotFound(err) {
 		log.Info("Wait for creating cluster manager")
 		return ctrl.Result{}, err
 	} else if err != nil {
@@ -128,7 +126,7 @@ func (r *ClusterRegistrationReconciler) CreateKubeconfigSecret(ctx context.Conte
 		Namespace: ClusterRegistration.Namespace,
 	}
 	kubeconfigSecret := &coreV1.Secret{}
-	if err := r.Get(context.TODO(), key, kubeconfigSecret); errors.IsNotFound(err) {
+	if err := r.Client.Get(context.TODO(), key, kubeconfigSecret); errors.IsNotFound(err) {
 		kubeconfigSecret = &coreV1.Secret{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      kubeconfigSecretName,
@@ -166,41 +164,28 @@ func (r *ClusterRegistrationReconciler) CreateKubeconfigSecret(ctx context.Conte
 	return ctrl.Result{}, nil
 }
 
-func (r *ClusterRegistrationReconciler) CreateClusterManager(ctx context.Context, ClusterRegistration *clusterV1alpha1.ClusterRegistration) (ctrl.Result, error) {
-	if ClusterRegistration.Status.Phase == clusterV1alpha1.ClusterRegistrationPhaseRegistered {
+func (r *ClusterRegistrationReconciler) CreateClusterManager(ctx context.Context, clusterRegistration *clusterV1alpha1.ClusterRegistration) (ctrl.Result, error) {
+	if clusterRegistration.Status.Phase != clusterV1alpha1.ClusterRegistrationPhaseRegistered {
 		return ctrl.Result{}, nil
 	}
-	log := r.Log.WithValues("ClusterRegistration", ClusterRegistration.GetNamespacedName())
+	log := r.Log.WithValues("ClusterRegistration", clusterRegistration.GetNamespacedName())
 	log.Info("Start to reconcile phase for CreateClusterManager")
 
-	decodedKubeConfig, _ := b64.StdEncoding.DecodeString(ClusterRegistration.Spec.KubeConfig)
-	reg, _ := regexp.Compile(`https://[0-9a-zA-Z./-]+`)
-	endpoint := reg.FindString(string(decodedKubeConfig))[len("https://"):]
-	key := types.NamespacedName{
-		Name:      ClusterRegistration.Spec.ClusterName,
-		Namespace: ClusterRegistration.Namespace,
+	endpoint, err := GetRegWorkloadClusterEndpoint(clusterRegistration.Spec.KubeConfig)
+	if err != nil {
+		return ctrl.Result{}, err
 	}
+
+	key := clusterRegistration.GetCluterManagerNamespacedName()
+
 	clm := &clusterV1alpha1.ClusterManager{}
-	if err := r.Get(context.TODO(), key, &clusterV1alpha1.ClusterManager{}); errors.IsNotFound(err) {
-		clm = &clusterV1alpha1.ClusterManager{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      ClusterRegistration.Spec.ClusterName,
-				Namespace: ClusterRegistration.Namespace,
-				Annotations: map[string]string{
-					util.AnnotationKeyOwner:                   ClusterRegistration.Annotations[util.AnnotationKeyCreator],
-					util.AnnotationKeyCreator:                 ClusterRegistration.Annotations[util.AnnotationKeyCreator],
-					clusterV1alpha1.AnnotationKeyClmApiserver: endpoint,
-					clusterV1alpha1.AnnotationKeyClmDomain:    os.Getenv(util.HC_DOMAIN),
-				},
-				Labels: map[string]string{
-					clusterV1alpha1.LabelKeyClmClusterType: clusterV1alpha1.ClusterTypeRegistered,
-					clusterV1alpha1.LabelKeyClrName:        ClusterRegistration.Name,
-				},
-			},
-			Spec: clusterV1alpha1.ClusterManagerSpec{},
-		}
-		if err = r.Create(context.TODO(), clm); err != nil {
-			log.Error(err, "Failed to create ClusterManager for ["+ClusterRegistration.Spec.ClusterName+"]")
+	if err := r.Client.Get(context.TODO(), key, &clusterV1alpha1.ClusterManager{}); errors.IsNotFound(err) {
+		clm = ConstructClusterManagerByRegistration(clusterRegistration)
+		clm.Annotations[clusterV1alpha1.AnnotationKeyClmApiserver] = endpoint
+		clm.Annotations[clusterV1alpha1.AnnotationKeyClmDomain] = os.Getenv(util.HC_DOMAIN)
+
+		if err = r.Client.Create(context.TODO(), clm); err != nil {
+			log.Error(err, "Failed to create ClusterManager for ["+clusterRegistration.Spec.ClusterName+"]")
 			return ctrl.Result{}, err
 		}
 	} else if err != nil {
@@ -213,6 +198,36 @@ func (r *ClusterRegistrationReconciler) CreateClusterManager(ctx context.Context
 		return ctrl.Result{}, err
 	}
 
-	ClusterRegistration.Status.SetTypedPhase(clusterV1alpha1.ClusterRegistrationPhaseRegistered)
+	clusterRegistration.Status.SetTypedPhase(clusterV1alpha1.ClusterRegistrationPhaseRegistered)
 	return ctrl.Result{}, nil
+}
+
+func ConstructClusterManagerByRegistration(clusterRegistration *clusterV1alpha1.ClusterRegistration) *clusterV1alpha1.ClusterManager {
+	clm := &clusterV1alpha1.ClusterManager{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      clusterRegistration.Spec.ClusterName,
+			Namespace: clusterRegistration.Namespace,
+			Annotations: map[string]string{
+				util.AnnotationKeyOwner:   clusterRegistration.Annotations[util.AnnotationKeyCreator],
+				util.AnnotationKeyCreator: clusterRegistration.Annotations[util.AnnotationKeyCreator],
+			},
+			Labels: map[string]string{
+				clusterV1alpha1.LabelKeyClmClusterType: clusterV1alpha1.ClusterTypeRegistered,
+				clusterV1alpha1.LabelKeyClrName:        clusterRegistration.Name,
+			},
+		},
+		Spec: clusterV1alpha1.ClusterManagerSpec{},
+	}
+	return clm
+}
+
+func GetRegWorkloadClusterEndpoint(kubeconfig string) (string, error) {
+	decodedKubeConfig, _ := b64.StdEncoding.DecodeString(kubeconfig)
+	reg, _ := regexp.Compile(`https://[0-9a-zA-Z./-]+`)
+	endpoint := reg.FindString(string(decodedKubeConfig))[len("https://"):]
+	if endpoint == "" {
+		return "", fmt.Errorf("endpoint is empty")
+	}
+
+	return endpoint, nil
 }

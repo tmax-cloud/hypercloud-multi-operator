@@ -52,7 +52,7 @@ func (r *SecretReconciler) UpdateClusterManagerControlPlaneEndpoint(ctx context.
 		Namespace: secret.Namespace,
 	}
 	clm := &clusterV1alpha1.ClusterManager{}
-	err = r.Get(context.TODO(), key, clm)
+	err = r.Client.Get(context.TODO(), key, clm)
 	if errors.IsNotFound(err) {
 		log.Info("Cannot find clusterManager")
 		// return ctrl.Result{RequeueAfter: requeueAfter5Sec}, nil
@@ -91,7 +91,7 @@ func (r *SecretReconciler) DeployRBACResources(ctx context.Context, secret *core
 		Name:      strings.Split(secret.Name, util.KubeconfigSuffix)[0],
 		Namespace: secret.Namespace,
 	}
-	if err := r.Get(context.TODO(), key, clm); err != nil {
+	if err := r.Client.Get(context.TODO(), key, clm); err != nil {
 		log.Error(err, "Failed to get ClusterManager")
 		return ctrl.Result{}, err
 	}

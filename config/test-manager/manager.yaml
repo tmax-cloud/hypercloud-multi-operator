@@ -22,12 +22,20 @@ spec:
         command:
         - /manager
         env:
+        # - name: HC_DOMAIN
+        #   value: tmaxcloud.org
         - name: HC_DOMAIN
-          value: tmaxcloud.org
+          value: 192.168.109.32.nip.io
         - name: AUTH_CLIENT_SECRET
           value: tmax_client_secret
         - name: AUTH_SUBDOMAIN
           value: hyperauth
+        - name: ARGO_APP_DELETE
+          value: "true"
+        - name: OIDC_CLIENT_SET
+          value: "false"
+        - name: DEV_MODE
+          value: "true"
         image: controller:latest
         name: manager
         resources:

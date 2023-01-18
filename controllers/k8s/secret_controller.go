@@ -85,7 +85,7 @@ func (r *SecretReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ c
 
 	//get secret
 	secret := &coreV1.Secret{}
-	if err := r.Get(context.TODO(), key, secret); errors.IsNotFound(err) {
+	if err := r.Client.Get(context.TODO(), key, secret); errors.IsNotFound(err) {
 		log.Info("Secret resource not found. Ignoring since object must be deleted")
 		return ctrl.Result{}, nil
 	} else if err != nil {
@@ -178,7 +178,7 @@ func (r *SecretReconciler) reconcileDelete(ctx context.Context, secret *coreV1.S
 		Namespace: secret.Labels[clusterV1alpha1.LabelKeyClmNamespace],
 	}
 	clm := &clusterV1alpha1.ClusterManager{}
-	if err := r.Get(context.TODO(), key, clm); errors.IsNotFound(err) {
+	if err := r.Client.Get(context.TODO(), key, clm); errors.IsNotFound(err) {
 		log.Info("Not found cluster manager. Already deleted")
 		return ctrl.Result{}, nil
 	} else if err != nil {
@@ -193,7 +193,7 @@ func (r *SecretReconciler) reconcileDelete(ctx context.Context, secret *coreV1.S
 			Namespace: secret.Labels[clusterV1alpha1.LabelKeyClmNamespace],
 		}
 		clr := &clusterV1alpha1.ClusterRegistration{}
-		if err := r.Get(context.TODO(), key, clr); err != nil {
+		if err := r.Client.Get(context.TODO(), key, clr); err != nil {
 			log.Error(err, "Failed to get ClusterRegistration")
 			return ctrl.Result{}, err
 		}
@@ -227,7 +227,7 @@ func (r *SecretReconciler) reconcileDelete(ctx context.Context, secret *coreV1.S
 	// 			Namespace: secret.Labels[clusterV1alpha1.LabelKeyClmNamespace],
 	// 		}
 	// 		clr := &clusterV1alpha1.ClusterRegistration{}
-	// 		if err := r.Get(context.TODO(), key, clr); err != nil {
+	// 		if err := r.Client.Get(context.TODO(), key, clr); err != nil {
 	// 			log.Error(err, "Failed to get ClusterRegistration")
 	// 			return ctrl.Result{}, err
 	// 		}
@@ -273,152 +273,155 @@ func (r *SecretReconciler) reconcileDelete(ctx context.Context, secret *coreV1.S
 
 	// registration인 경우, single cluster 내부에 설치된 리소스를 삭제한다.
 	// capi를 통해서 생성한 single cluster의 경우, 내부에 설치된 리소스들은 무시한다.
-	if clm.Labels[clusterV1alpha1.LabelKeyClmClusterType] == clusterV1alpha1.ClusterTypeRegistered {
+	if clm.GetClusterType() == clusterV1alpha1.ClusterTypeRegistered {
 		remoteClientset, err := util.GetRemoteK8sClient(secret)
 		if err != nil {
 			log.Error(err, "Failed to get remoteK8sClient")
 			return ctrl.Result{}, err
 		}
 
-		saList := []types.NamespacedName{
-			{
-				Name:      util.ArgoServiceAccount,
-				Namespace: util.KubeNamespace,
-			},
-			{
-				Name:      adminServiceAccountName,
-				Namespace: util.KubeNamespace,
-			},
-		}
-		for _, targetSa := range saList {
-			_, err := remoteClientset.
-				CoreV1().
-				ServiceAccounts(targetSa.Namespace).
-				Get(context.TODO(), targetSa.Name, metav1.GetOptions{})
-			if errors.IsNotFound(err) {
-				log.Info("Cannot find ServiceAccount [" + targetSa.String() + "] from remote cluster. Maybe already deleted")
-			} else if err != nil {
-				log.Error(err, "Failed to get ServiceAccount ["+targetSa.String()+"] from remote cluster")
-				return ctrl.Result{}, err
-			} else {
-				err := remoteClientset.
+		if util.IsClusterHealthy(remoteClientset) {
+			saList := []types.NamespacedName{
+				{
+					Name:      util.ArgoServiceAccount,
+					Namespace: util.KubeNamespace,
+				},
+				{
+					Name:      adminServiceAccountName,
+					Namespace: util.KubeNamespace,
+				},
+			}
+			for _, targetSa := range saList {
+				_, err := remoteClientset.
 					CoreV1().
 					ServiceAccounts(targetSa.Namespace).
-					Delete(context.TODO(), targetSa.Name, metav1.DeleteOptions{})
-				if err != nil {
-					log.Error(err, "Cannot delete ServiceAccount ["+targetSa.String()+"] from remote cluster")
+					Get(context.TODO(), targetSa.Name, metav1.GetOptions{})
+				if errors.IsNotFound(err) {
+					log.Info("Cannot find ServiceAccount [" + targetSa.String() + "] from remote cluster. Maybe already deleted")
+				} else if err != nil {
+					log.Error(err, "Failed to get ServiceAccount ["+targetSa.String()+"] from remote cluster")
 					return ctrl.Result{}, err
+				} else {
+					err := remoteClientset.
+						CoreV1().
+						ServiceAccounts(targetSa.Namespace).
+						Delete(context.TODO(), targetSa.Name, metav1.DeleteOptions{})
+					if err != nil {
+						log.Error(err, "Cannot delete ServiceAccount ["+targetSa.String()+"] from remote cluster")
+						return ctrl.Result{}, err
+					}
+					log.Info("Delete ServiceAccount [" + targetSa.String() + "] from remote cluster successfully")
 				}
-				log.Info("Delete ServiceAccount [" + targetSa.String() + "] from remote cluster successfully")
 			}
-		}
 
-		secretList := []types.NamespacedName{
-			{
-				Name:      util.ArgoServiceAccountTokenSecret,
-				Namespace: util.KubeNamespace,
-			},
-			{
-				Name:      adminServiceAccountName + "-token",
-				Namespace: util.KubeNamespace,
-			},
-		}
-		for _, targetSecret := range secretList {
-			_, err := remoteClientset.
-				CoreV1().
-				Secrets(targetSecret.Namespace).
-				Get(context.TODO(), targetSecret.Name, metav1.GetOptions{})
-			if errors.IsNotFound(err) {
-				log.Info("Cannot find Secret [" + targetSecret.String() + "] from remote cluster. Maybe already deleted")
-			} else if err != nil {
-				log.Error(err, "Failed to get Secret ["+targetSecret.String()+"] from remote cluster")
-				return ctrl.Result{}, err
-			} else {
-				err := remoteClientset.
+			secretList := []types.NamespacedName{
+				{
+					Name:      util.ArgoServiceAccountTokenSecret,
+					Namespace: util.KubeNamespace,
+				},
+				{
+					Name:      adminServiceAccountName + "-token",
+					Namespace: util.KubeNamespace,
+				},
+			}
+			for _, targetSecret := range secretList {
+				_, err := remoteClientset.
 					CoreV1().
 					Secrets(targetSecret.Namespace).
-					Delete(context.TODO(), targetSecret.Name, metav1.DeleteOptions{})
-				if err != nil {
-					log.Error(err, "Cannot delete Secret ["+targetSecret.String()+"] from remote cluster")
+					Get(context.TODO(), targetSecret.Name, metav1.GetOptions{})
+				if errors.IsNotFound(err) {
+					log.Info("Cannot find Secret [" + targetSecret.String() + "] from remote cluster. Maybe already deleted")
+				} else if err != nil {
+					log.Error(err, "Failed to get Secret ["+targetSecret.String()+"] from remote cluster")
 					return ctrl.Result{}, err
+				} else {
+					err := remoteClientset.
+						CoreV1().
+						Secrets(targetSecret.Namespace).
+						Delete(context.TODO(), targetSecret.Name, metav1.DeleteOptions{})
+					if err != nil {
+						log.Error(err, "Cannot delete Secret ["+targetSecret.String()+"] from remote cluster")
+						return ctrl.Result{}, err
+					}
+					log.Info("Delete Secret [" + targetSecret.String() + "] from remote cluster successfully")
 				}
-				log.Info("Delete Secret [" + targetSecret.String() + "] from remote cluster successfully")
 			}
-		}
 
-		// db 로 부터 클러스터에 초대 된 member 들의 info 가져오기
-		jsonData, _ := util.List(clm.Namespace, clm.Name)
-		memberList := []ClusterMemberInfo{}
-		if err := json.Unmarshal(jsonData, &memberList); err != nil {
-			return ctrl.Result{}, err
-		}
-
-		crbList := []string{
-			"cluster-owner-crb-" + secret.Annotations[util.AnnotationKeyOwner],
-			"cluster-owner-sa-crb-" + secret.Annotations[util.AnnotationKeyOwner],
-			util.ArgoClusterRoleBinding,
-		}
-		for _, member := range memberList {
-			if member.Status == "invited" && member.Attribute == "user" {
-				// user 로 초대 된 member crb
-				crbList = append(crbList, member.MemberId+"-user-rolebinding")
-			} else if member.Status == "invited" && member.Attribute == "group" {
-				// group 으로 초대 된 member crb
-				crbList = append(crbList, member.MemberId+"-group-rolebinding")
-			}
-		}
-		for _, targetCrb := range crbList {
-			_, err := remoteClientset.
-				RbacV1().
-				ClusterRoleBindings().
-				Get(context.TODO(), targetCrb, metav1.GetOptions{})
-			if errors.IsNotFound(err) {
-				log.Info("Cannot find ClusterRoleBinding [" + targetCrb + "] from remote cluster. Maybe already deleted")
-			} else if err != nil {
-				log.Error(err, "Failed to get ClusterRoleBinding ["+targetCrb+"] from remote cluster")
+			// db 로 부터 클러스터에 초대 된 member 들의 info 가져오기
+			jsonData, _ := util.List(clm.Namespace, clm.Name)
+			memberList := []ClusterMemberInfo{}
+			if err := json.Unmarshal(jsonData, &memberList); err != nil {
 				return ctrl.Result{}, err
-			} else {
-				err := remoteClientset.
+			}
+
+			crbList := []string{
+				"cluster-owner-crb-" + secret.Annotations[util.AnnotationKeyOwner],
+				"cluster-owner-sa-crb-" + secret.Annotations[util.AnnotationKeyOwner],
+				util.ArgoClusterRoleBinding,
+			}
+			for _, member := range memberList {
+				if member.Status == "invited" && member.Attribute == "user" {
+					// user 로 초대 된 member crb
+					crbList = append(crbList, member.MemberId+"-user-rolebinding")
+				} else if member.Status == "invited" && member.Attribute == "group" {
+					// group 으로 초대 된 member crb
+					crbList = append(crbList, member.MemberId+"-group-rolebinding")
+				}
+			}
+			for _, targetCrb := range crbList {
+				_, err := remoteClientset.
 					RbacV1().
 					ClusterRoleBindings().
-					Delete(context.TODO(), targetCrb, metav1.DeleteOptions{})
-				if err != nil {
-					log.Error(err, "Cannot delete ClusterRoleBinding ["+targetCrb+"] from remote cluster")
+					Get(context.TODO(), targetCrb, metav1.GetOptions{})
+				if errors.IsNotFound(err) {
+					log.Info("Cannot find ClusterRoleBinding [" + targetCrb + "] from remote cluster. Maybe already deleted")
+				} else if err != nil {
+					log.Error(err, "Failed to get ClusterRoleBinding ["+targetCrb+"] from remote cluster")
 					return ctrl.Result{}, err
+				} else {
+					err := remoteClientset.
+						RbacV1().
+						ClusterRoleBindings().
+						Delete(context.TODO(), targetCrb, metav1.DeleteOptions{})
+					if err != nil {
+						log.Error(err, "Cannot delete ClusterRoleBinding ["+targetCrb+"] from remote cluster")
+						return ctrl.Result{}, err
+					}
+					log.Info("Delete ClusterRoleBinding [" + targetCrb + "] from remote cluster successfully")
 				}
-				log.Info("Delete ClusterRoleBinding [" + targetCrb + "] from remote cluster successfully")
 			}
-		}
 
-		crList := []string{
-			"developer",
-			"guest",
-			util.ArgoClusterRole,
-		}
-		for _, targetCr := range crList {
-			_, err := remoteClientset.
-				RbacV1().
-				ClusterRoles().
-				Get(context.TODO(), targetCr, metav1.GetOptions{})
-			if errors.IsNotFound(err) {
-				log.Info("Cannot find ClusterRole [" + targetCr + "] from remote cluster. Maybe already deleted")
-			} else if err != nil {
-				log.Error(err, "Failed to get ClusterRole ["+targetCr+"] from remote cluster")
-				return ctrl.Result{}, err
-			} else {
-				err := remoteClientset.
+			crList := []string{
+				"developer",
+				"guest",
+				util.ArgoClusterRole,
+			}
+			for _, targetCr := range crList {
+				_, err := remoteClientset.
 					RbacV1().
 					ClusterRoles().
-					Delete(context.TODO(), targetCr, metav1.DeleteOptions{})
-				if err != nil {
-					log.Error(err, "Cannot delete ClusterRole ["+targetCr+"] from remote cluster")
+					Get(context.TODO(), targetCr, metav1.GetOptions{})
+				if errors.IsNotFound(err) {
+					log.Info("Cannot find ClusterRole [" + targetCr + "] from remote cluster. Maybe already deleted")
+				} else if err != nil {
+					log.Error(err, "Failed to get ClusterRole ["+targetCr+"] from remote cluster")
 					return ctrl.Result{}, err
+				} else {
+					err := remoteClientset.
+						RbacV1().
+						ClusterRoles().
+						Delete(context.TODO(), targetCr, metav1.DeleteOptions{})
+					if err != nil {
+						log.Error(err, "Cannot delete ClusterRole ["+targetCr+"] from remote cluster")
+						return ctrl.Result{}, err
+					}
+					log.Info("Delete ClusterRole [" + targetCr + "] from remote cluster successfully")
 				}
-				log.Info("Delete ClusterRole [" + targetCr + "] from remote cluster successfully")
 			}
 		}
-
 	}
+
+	// master cluster에 있는 리소스 삭제
 
 	// db 에서 member 삭제
 	if err := util.Delete(clm.Namespace, clm.Name); err != nil {
@@ -426,26 +429,28 @@ func (r *SecretReconciler) reconcileDelete(ctx context.Context, secret *coreV1.S
 		return ctrl.Result{}, err
 	}
 
-	// master cluster에 있는 시크릿 리소스 삭제
 	// argocd cluster secret
 	key = types.NamespacedName{
 		Name:      secret.Annotations[util.AnnotationKeyArgoClusterSecret],
 		Namespace: util.ArgoNamespace,
 	}
 	argoClusterSecret := &coreV1.Secret{}
-	if err := r.Get(context.TODO(), key, argoClusterSecret); errors.IsNotFound(err) {
+	if err := r.Client.Get(context.TODO(), key, argoClusterSecret); errors.IsNotFound(err) {
 		log.Info("Cannot find Secret for argocd external cluster [" + argoClusterSecret.Name + "]. Maybe already deleted")
 	} else if err != nil {
 		log.Error(err, "Failed to get Secret for argocd external cluster ["+argoClusterSecret.Name+"]")
 		return ctrl.Result{}, err
 	} else {
+		if !argoClusterSecret.DeletionTimestamp.IsZero() {
+			controllerutil.RemoveFinalizer(argoClusterSecret, clusterV1alpha1.ClusterManagerFinalizer)
+			log.Info("Delete Secret for argocd external cluster [" + argoClusterSecret.Name + "] successfully")
+			return ctrl.Result{}, nil
+		}
 		if err := r.Delete(context.TODO(), argoClusterSecret); err != nil {
 			log.Error(err, "Cannot delete Secret for argocd external cluster ["+argoClusterSecret.Name+"]")
 			return ctrl.Result{}, err
 		}
-		controllerutil.RemoveFinalizer(argoClusterSecret, clusterV1alpha1.ClusterManagerFinalizer)
-		log.Info("Delete Secret for argocd external cluster [" + argoClusterSecret.Name + "] successfully")
-
+		return ctrl.Result{Requeue: true}, nil
 	}
 
 	// SA token secret
@@ -454,7 +459,7 @@ func (r *SecretReconciler) reconcileDelete(ctx context.Context, secret *coreV1.S
 		Namespace: secret.Namespace,
 	}
 	saTokenSecret := &coreV1.Secret{}
-	if err := r.Get(context.TODO(), key, saTokenSecret); errors.IsNotFound(err) {
+	if err := r.Client.Get(context.TODO(), key, saTokenSecret); errors.IsNotFound(err) {
 		log.Info("Cannot find Secret for ServiceAccount [" + saTokenSecret.Name + "]. Maybe already deleted")
 	} else if err != nil {
 		log.Error(err, "Failed to get Secret for ServiceAccount ["+saTokenSecret.Name+"]")
@@ -473,7 +478,7 @@ func (r *SecretReconciler) reconcileDelete(ctx context.Context, secret *coreV1.S
 		Namespace: clm.Namespace,
 	}
 	kubeconfigSecret := &coreV1.Secret{}
-	if err := r.Get(context.TODO(), key, kubeconfigSecret); errors.IsNotFound(err) {
+	if err := r.Client.Get(context.TODO(), key, kubeconfigSecret); errors.IsNotFound(err) {
 		log.Info("Cannot find secret for secret [" + kubeconfigSecret.Name + "]. Maybe already deleted")
 	} else if err != nil {
 		log.Error(err, "Failed to get Secret for secret ["+kubeconfigSecret.Name+"]")

@@ -199,10 +199,11 @@ const (
 	ClusterTypeCreated    = "created"
 	ClusterTypeRegistered = "registered"
 
-	AnnotationKeyClmApiserver = "clustermanager.cluster.tmax.io/apiserver"
-	AnnotationKeyClmGateway   = "clustermanager.cluster.tmax.io/gateway"
-	AnnotationKeyClmSuffix    = "clustermanager.cluster.tmax.io/suffix"
-	AnnotationKeyClmDomain    = "clustermanager.cluster.tmax.io/domain"
+	AnnotationKeyClmApiserver      = "clustermanager.cluster.tmax.io/apiserver"
+	AnnotationKeyClmGateway        = "clustermanager.cluster.tmax.io/gateway"
+	AnnotationKeyClmSuffix         = "clustermanager.cluster.tmax.io/suffix"
+	AnnotationKeyClmDomain         = "clustermanager.cluster.tmax.io/domain"
+	AnnotationKeyClmMgmtK8SVersion = "clustermanager.cluster.tmax.io/mgmtk8sversion"
 
 	LabelKeyClmName               = "clustermanager.cluster.tmax.io/clm-name"
 	LabelKeyClmNamespace          = "clustermanager.cluster.tmax.io/clm-namespace"
@@ -269,4 +270,16 @@ func (c *ClusterManager) GetNamespacedName() types.NamespacedName {
 
 func (c *ClusterManager) GetNamespacedPrefix() string {
 	return strings.Join([]string{c.Namespace, c.Name}, "-")
+}
+
+func (c *ClusterManager) GetClusterType() string {
+	if v, ok := c.Labels[LabelKeyClmClusterType]; ok {
+		return v
+	}
+	return ""
+}
+
+// single app of apps application name
+func (c *ClusterManager) GetApplicationName() string {
+	return c.GetNamespacedPrefix() + "-applications"
 }

@@ -1,5 +1,5 @@
 #!/bin/sh
+echo "IMG=${IMG}"
 make generate manifests
-img=192.168.9.12:5000/hypercloud-multi-operator-dev:$1
-make docker-build IMG=$img
-make docker-push IMG=$img 
+make docker-build IMG=$IMG
+make docker-push IMG=$IMG

@@ -27,7 +27,8 @@ const (
 	// defunct
 	// MultiApiServerServiceSelectorKey   = "hypercloud4"
 	// MultiApiServerServiceSelectorValue = "multi-api-server"
-	IngressNginxName = "ingress-nginx-controller"
+	IngressNginxName       = "ingress-nginx-controller"
+	MonitoringIngressRoute = "monitoring-ingressroute"
 )
 
 const (
@@ -71,6 +72,7 @@ const (
 
 	AnnotationKeyArgoClusterSecret = "argocd.argoproj.io/cluster.secret"
 	AnnotationKeyArgoManagedBy     = "managed-by"
+	AnnotationKeyArgoSyncWave      = "argocd.argoproj.io/sync-wave"
 
 	AnnotationKeyTraefikServerTransport = "traefik.ingress.kubernetes.io/service.serverstransport"
 	AnnotationKeyTraefikEntrypoints     = "traefik.ingress.kubernetes.io/router.entrypoints"
@@ -89,6 +91,11 @@ const (
 	// LabelKeyArgoTargetCluster = "cluster.tmax.io/cluster"
 	LabelKeyArgoTargetCluster = "cluster"
 	LabelKeyArgoAppType       = "appType"
+	LabelKeyArgoAppInstance   = "app.kubernetes.io/instance"
+)
+
+const (
+	ArgoResourceFinalizers = "resources-finalizer.argocd.argoproj.io"
 )
 
 const (
@@ -111,7 +118,7 @@ const (
 	ArgoDescriptionHelmApiServerSubdomain       = "Helm api server의 Subdomain으로 변경 ex) helm"
 	ArgoDescriptionHyperregistryStorageClass    = "Hyperregistry가 사용할 StorageClass로 변경(aws의 경우 efs-sc-0, 그외에는 nfs)"
 	ArgoDescriptionHyperregistryDBStorageClass  = "Hyperregistry의 DB가 사용할 StorageClass로 변경(aws의 경우 efs-sc-999, 그외에는 nfs)"
-	ArgoDescriptionGitRepo                      = "Git repo 주소를 입력(gitlab의 경우 주소맨뒤에 .git을 입력)"
+	ArgoDescriptionGitRepo                      = "Git repo 주소 입력(gitlab의 경우 마지막에 .git 입력) ex. https://github.com/tmax-cloud/argocd-installer.git"
 	ArgoDescriptionGitRevision                  = "Git target revision(branch, tag)를 입력 ex) main"
 )
 
@@ -122,6 +129,11 @@ const (
 	AUTH_CLIENT_SECRET = "AUTH_CLIENT_SECRET"
 	AUTH_SUBDOMAIN     = "AUTH_SUBDOMAIN"
 	// AUDIT_WEBHOOK_SERVER_PATH = "AUDIT_WEBHOOK_SERVER_PATH"
+
+	// optional 환경 변수
+	ARGO_APP_DELETE = "ARGO_APP_DELETE"
+	OIDC_CLIENT_SET = "OIDC_CLIENT_SET"
+	DEV_MODE        = "DEV_MODE"
 )
 
 func GetRequiredEnvPreset() []string {

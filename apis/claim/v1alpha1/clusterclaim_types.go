@@ -16,6 +16,7 @@ package v1alpha1
 
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 )
 
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
@@ -131,10 +132,6 @@ type ClusterClaimStatus struct {
 	Phase ClusterClaimPhase `json:"phase,omitempty" protobuf:"bytes,4,opt,name=phase"`
 }
 
-func (c *ClusterClaimStatus) SetTypedPhase(p ClusterClaimPhase) {
-	c.Phase = p
-}
-
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:path=clusterclaims,shortName=cc,scope=Namespaced
@@ -160,4 +157,26 @@ type ClusterClaimList struct {
 
 func init() {
 	SchemeBuilder.Register(&ClusterClaim{}, &ClusterClaimList{})
+}
+
+func (c *ClusterClaimStatus) SetTypedPhase(p ClusterClaimPhase) {
+	c.Phase = p
+}
+
+func (c *ClusterClaimStatus) SetReason(r string) {
+	c.Reason = r
+}
+
+func (c *ClusterClaim) GetNamespacedName() types.NamespacedName {
+	return types.NamespacedName{
+		Name:      c.Name,
+		Namespace: c.Namespace,
+	}
+}
+
+func (c *ClusterClaim) GetClusterManagerNamespacedName() types.NamespacedName {
+	return types.NamespacedName{
+		Name:      c.Spec.ClusterName,
+		Namespace: c.Namespace,
+	}
 }

@@ -23,7 +23,6 @@ import (
 	clusterV1alpha1 "github.com/tmax-cloud/hypercloud-multi-operator/apis/cluster/v1alpha1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/cluster-api/util/patch"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -58,8 +57,8 @@ func (r *ClusterUpdateClaimReconciler) Reconcile(ctx context.Context, req ctrl.R
 	_ = context.Background()
 	log := r.Log.WithValues("ClusterUpdateClaim", req.NamespacedName)
 
-	clusterUpdateClaim := &claimV1alpha1.ClusterUpdateClaim{}
-	if err := r.Get(context.TODO(), req.NamespacedName, clusterUpdateClaim); errors.IsNotFound(err) {
+	cuc := &claimV1alpha1.ClusterUpdateClaim{}
+	if err := r.Client.Get(context.TODO(), req.NamespacedName, cuc); errors.IsNotFound(err) {
 		log.Info("ClusterUpdateClaim resource not found. Ignoring since object must be deleted")
 		return ctrl.Result{}, nil
 	} else if err != nil {
@@ -68,49 +67,70 @@ func (r *ClusterUpdateClaimReconciler) Reconcile(ctx context.Context, req ctrl.R
 	}
 
 	//set patch helper
-	patchHelper, err := patch.NewHelper(clusterUpdateClaim, r.Client)
+	patchHelper, err := patch.NewHelper(cuc, r.Client)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
 
 	defer func() {
-		if err := patchHelper.Patch(context.TODO(), clusterUpdateClaim); err != nil {
+		if err := patchHelper.Patch(context.TODO(), cuc); err != nil {
 			log.Error(err, "Failed to patch clusterupdateclaim")
 			reterr = err
 		}
 	}()
 
-	key := types.NamespacedName{
-		Name:      clusterUpdateClaim.Spec.ClusterName,
-		Namespace: clusterUpdateClaim.Namespace,
-	}
+	return r.reconcile(ctx, cuc)
+}
 
+// reconcile handles clusterupdateclaim reconciliation.
+func (r *ClusterUpdateClaimReconciler) reconcile(ctx context.Context, cuc *claimV1alpha1.ClusterUpdateClaim) (ctrl.Result, error) {
+	log := r.Log.WithValues("ClusterUpdateClaim", cuc.GetNamespacedName())
+	clmKey := cuc.GetClusterNamespacedName()
 	clm := &clusterV1alpha1.ClusterManager{}
 
-	if err := r.Get(context.TODO(), key, clm); errors.IsNotFound(err) {
-		log.Info("Process Delete phase")
-		if err := r.ProcessDeletePhase(clusterUpdateClaim); err != nil {
-			log.Error(err, "Failed to reconcile ProcessDeletePhase")
-			return ctrl.Result{}, err
+	if err := r.Client.Get(context.TODO(), clmKey, clm); errors.IsNotFound(err) {
+
+		clusterNotFound := cuc.Status.Phase == ""
+		isDeleting := cuc.Status.Phase == claimV1alpha1.ClusterUpdateClaimPhaseAwaiting
+
+		if clusterNotFound {
+			cuc.Status.SetTypedPhase(claimV1alpha1.ClusterUpdateClaimPhaseError)
+			cuc.Status.SetTypedReason(claimV1alpha1.ClusterUpdateClaimReasonClusterNotFound)
+		} else if isDeleting {
+			// cluster manager 삭제 후, reconcile loop로 들어온 awaiting 상태의 cluster update claim에 대한 cluster deleted 삭제 처리
+			cuc.Status.SetTypedPhase(claimV1alpha1.ClusterUpdateClaimPhaseClusterDeleted)
+			cuc.Status.SetTypedReason(claimV1alpha1.ClusterUpdateClaimReasonClusterDeleted)
 		}
+
 		return ctrl.Result{}, nil
 	} else if err != nil {
 		return ctrl.Result{}, err
 	}
 
-	log.Info(fmt.Sprintf("Found clustermanager [%s]. Start clusterupdateclaim reconcile phase", clusterUpdateClaim.Spec.ClusterName))
+	// clm이 있을 때
+	log.Info(fmt.Sprintf("Found clustermanager [%s]. Start clusterupdateclaim reconcile phase", cuc.Spec.ClusterName))
 
-	if err := r.ReconcileReady(clusterUpdateClaim, clm); err != nil {
-		log.Error(err, "Failed to reconcile ReconcileReady")
+	if err := r.SetupClaimStatus(cuc, clm); err != nil {
+		log.Error(err, "Failed to reconcile SetupClaimStatus")
 		return ctrl.Result{}, err
 	}
 
-	// console이 phase를 변경시 동작
-	if err := r.ProcessPhase(clusterUpdateClaim, clm); err != nil {
-		log.Error(err, "Failed to reconcile ProcessPhase")
-		return ctrl.Result{}, err
+	Approved := cuc.Status.Phase == claimV1alpha1.ClusterUpdateClaimPhaseApproved
+	Rejected := cuc.Status.Phase == claimV1alpha1.ClusterUpdateClaimPhaseRejected
+
+	if Approved {
+		log.Info("Approved clusterupdateclaim")
+		if err := r.UpdateClusterManagerByUpdateType(clm, cuc); err != nil {
+			cuc.Status.SetTypedPhase(claimV1alpha1.ClusterUpdateClaimPhaseError)
+			cuc.Status.SetTypedReason(claimV1alpha1.ClusterUpdateClaimReason(err.Error()))
+			return ctrl.Result{}, err
+		}
+		cuc.Status.SetTypedReason(claimV1alpha1.ClusterUpdateClaimReasonAdminApproved)
+	} else if Rejected {
+		log.Info("Rejected clusterupdateclaim")
+		cuc.Status.SetTypedReason(claimV1alpha1.ClusterUpdateClaimReasonAdminRejected)
 	}
-	return
+	return ctrl.Result{}, nil
 }
 
 func (r *ClusterUpdateClaimReconciler) SetupWithManager(mgr ctrl.Manager) error {
@@ -164,8 +184,7 @@ func (r *ClusterUpdateClaimReconciler) SetupWithManager(mgr ctrl.Manager) error 
 			},
 			DeleteFunc: func(e event.DeleteEvent) bool {
 				clm := e.Object.(*clusterV1alpha1.ClusterManager)
-				val, ok := clm.Labels[clusterV1alpha1.LabelKeyClmClusterType]
-				if ok && val == clusterV1alpha1.ClusterTypeCreated {
+				if clm.GetClusterType() == clusterV1alpha1.ClusterTypeCreated {
 					return true
 				}
 				return false

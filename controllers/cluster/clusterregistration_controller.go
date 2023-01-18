@@ -51,7 +51,7 @@ func (r *ClusterRegistrationReconciler) Reconcile(ctx context.Context, req ctrl.
 
 	// get ClusterRegistration
 	clusterRegistration := &clusterV1alpha1.ClusterRegistration{}
-	if err := r.Get(context.TODO(), req.NamespacedName, clusterRegistration); errors.IsNotFound(err) {
+	if err := r.Client.Get(context.TODO(), req.NamespacedName, clusterRegistration); errors.IsNotFound(err) {
 		log.Info("ClusterRegistration not found. Ignoring since object must be deleted")
 		return ctrl.Result{}, nil
 	} else if err != nil {
@@ -62,13 +62,6 @@ func (r *ClusterRegistrationReconciler) Reconcile(ctx context.Context, req ctrl.
 	patchHelper, err := patch.NewHelper(clusterRegistration, r.Client)
 	if err != nil {
 		return ctrl.Result{}, err
-	}
-
-	// status.phase migration for old version
-	if clusterRegistration.Status.Phase == clusterV1alpha1.ClusterRegistrationDeprecatedPhaseSuccess {
-		clusterRegistration.Status.Phase = clusterV1alpha1.ClusterRegistrationPhaseRegistered
-	} else if clusterRegistration.Status.Phase == clusterV1alpha1.ClusterRegistrationDeprecatedPhaseDeleted {
-		clusterRegistration.Status.Phase = clusterV1alpha1.ClusterRegistrationPhaseClusterDeleted
 	}
 
 	defer func() {
@@ -134,7 +127,7 @@ func (r *ClusterRegistrationReconciler) requeueClusterRegistrationsForClusterMan
 		Namespace: clm.Namespace,
 	}
 	clr := &clusterV1alpha1.ClusterRegistration{}
-	if err := r.Get(context.TODO(), key, clr); errors.IsNotFound(err) {
+	if err := r.Client.Get(context.TODO(), key, clr); errors.IsNotFound(err) {
 		log.Info("ClusterRegistration resource not found. Ignoring since object must be deleted")
 		return nil
 	} else if err != nil {
@@ -173,9 +166,19 @@ func (r *ClusterRegistrationReconciler) SetupWithManager(mgr ctrl.Manager) error
 				UpdateFunc: func(e event.UpdateEvent) bool {
 					oldClr := e.ObjectOld.(*clusterV1alpha1.ClusterRegistration)
 					newClr := e.ObjectNew.(*clusterV1alpha1.ClusterRegistration)
-					if oldClr.DeletionTimestamp.IsZero() && !newClr.DeletionTimestamp.IsZero() {
+					
+					isDeleted := oldClr.DeletionTimestamp.IsZero() && !newClr.DeletionTimestamp.IsZero()
+					fail := oldClr.Status.Phase == clusterV1alpha1.ClusterRegistrationPhaseError
+					kubeconfigUpdate := oldClr.Spec.KubeConfig != newClr.Spec.KubeConfig
+					
+					// 실패한 clr의 kubeconfig를 재 업데이트한 경우
+					errorUpdate := fail && kubeconfigUpdate
+					
+					if  isDeleted || errorUpdate{
 						return true
 					}
+
+
 					// if oldClr.Status.Phase == "Success" && newClr.Status.Phase == "Validated" {
 					// 	return true
 					// }
@@ -207,8 +210,7 @@ func (r *ClusterRegistrationReconciler) SetupWithManager(mgr ctrl.Manager) error
 			},
 			DeleteFunc: func(e event.DeleteEvent) bool {
 				clm := e.Object.(*clusterV1alpha1.ClusterManager)
-				val, ok := clm.Labels[clusterV1alpha1.LabelKeyClmClusterType]
-				if ok && val == clusterV1alpha1.ClusterTypeRegistered {
+				if clm.GetClusterType() == clusterV1alpha1.ClusterTypeRegistered {
 					return true
 				}
 				return false
