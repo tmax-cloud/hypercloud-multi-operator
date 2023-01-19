@@ -1,6 +1,46 @@
 # HyperCloud-Multi-Operator changelog!!
 All notable changes to this project will be documented in this file.
 
+<!-------------------- v5.1.1.0 start -------------------->
+
+## HyperCloud-Multi-Operator_5.1.1.0 (2023. 01. 19. (목) 11:18:58 KST)
+
+### Added
+  - [feat] error 상태인 clr 업데이트 가능하도록 변경 by sjoh0704
+  - [feat] oidc client setting 옵션 변수 추가 / template password 기능 추가/ error fix by sjoh0704
+  - [feat] remote resource 삭제할 때 health check 후 삭제 기능 추가 by sjoh0704
+  - [feat] cluster claim으로 생성한 cluster를 지우지 않고 분리하는 기능 추가 by sjoh0704
+  - [feat] 자동화 util 추가 by sjoh0704
+  - [feat] add ingressroute create and delete function by sjoh0704
+  - [feat] version별 분기처리 로직 추가 by sjoh0704
+  - [feat] k8s version에 따라 template 분리 by sjoh0704
+  - [feat] update latest capi-aws clustertemplate by sjoh0704
+  - [feat] update latest capi-vsphere clustertemplate by sjoh0704
+  - [feat] bumped argocd to v2.5.3 by sjoh0704
+  - [feat] application delete 기능 추가 by sjoh0704
+  - [feat] 불필요한 label 제거 by sjoh0704
+  - [feat] 리팩토링 및 gateway 리소스 owner reference 추가 및 해당 리소스에 대한 deletion 로직 삭제 by sjoh0704
+
+### Changed
+  - [mod] argocd version down by sjoh0704
+  - [mod] 변경된 template에 맞게 controller 로직 변경 by sjoh0704
+  - [mod] bump traefik to 2.8.0 by sjoh0704
+  - [mod] bump capi to 1.2.7 by sjoh0704
+  - [mod] bump golang to 1.19 by sjoh0704
+  - [mod] application delete 기능 수정 by sjoh0704
+  - [mod] refactoring by sjoh0704
+  - [mod] refactoring by sjoh0704
+  - [mod] cluster update claim refactoring by sjoh0704
+
+### Fixed
+
+### CRD yaml
+
+### Etc
+  - [etc] argocd version 원복 by sjoh0704
+
+<!--------------------- v5.1.1.0 end --------------------->
+
 <!-------------------- v5.1.0.0 start -------------------->
 
 ## HyperCloud-Multi-Operator_5.1.0.0 (2022. 12. 15. (목) 17:00:24 KST)
