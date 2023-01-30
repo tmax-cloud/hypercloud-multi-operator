@@ -77,7 +77,7 @@ func (r *ClusterManager) ValidateUpdate(old runtime.Object) error {
 	// 	}
 	// }
 
-	if oldClusterManager.Labels[LabelKeyClmClusterType] == ClusterTypeCreated {
+	if oldClusterManager.GetClusterType() == ClusterTypeCreated {
 		// cluster 생성 중에 version upgrade 또는 scaling을 진행할 수 없음
 		if oldClusterManager.Status.Phase == ClusterManagerPhaseProcessing {
 			if r.Spec.Version != oldClusterManager.Spec.Version ||

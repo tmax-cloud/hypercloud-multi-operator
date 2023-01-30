@@ -187,7 +187,7 @@ func (r *SecretReconciler) reconcileDelete(ctx context.Context, secret *coreV1.S
 	}
 
 	// cluster registration의 경우, clr status를 update한다.
-	if clm.Labels[clusterV1alpha1.ClusterTypeCreated] == clusterV1alpha1.ClusterTypeRegistered {
+	if clm.GetClusterType() == clusterV1alpha1.ClusterTypeRegistered {
 		key = types.NamespacedName{
 			Name:      clm.Labels[clusterV1alpha1.LabelKeyClrName],
 			Namespace: secret.Labels[clusterV1alpha1.LabelKeyClmNamespace],
