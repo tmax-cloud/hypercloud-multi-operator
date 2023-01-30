@@ -166,18 +166,17 @@ func (r *ClusterRegistrationReconciler) SetupWithManager(mgr ctrl.Manager) error
 				UpdateFunc: func(e event.UpdateEvent) bool {
 					oldClr := e.ObjectOld.(*clusterV1alpha1.ClusterRegistration)
 					newClr := e.ObjectNew.(*clusterV1alpha1.ClusterRegistration)
-					
+
 					isDeleted := oldClr.DeletionTimestamp.IsZero() && !newClr.DeletionTimestamp.IsZero()
 					fail := oldClr.Status.Phase == clusterV1alpha1.ClusterRegistrationPhaseError
 					kubeconfigUpdate := oldClr.Spec.KubeConfig != newClr.Spec.KubeConfig
-					
+
 					// 실패한 clr의 kubeconfig를 재 업데이트한 경우
 					errorUpdate := fail && kubeconfigUpdate
-					
-					if  isDeleted || errorUpdate{
+
+					if isDeleted || errorUpdate {
 						return true
 					}
-
 
 					// if oldClr.Status.Phase == "Success" && newClr.Status.Phase == "Validated" {
 					// 	return true

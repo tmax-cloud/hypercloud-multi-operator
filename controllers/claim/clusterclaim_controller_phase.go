@@ -17,7 +17,10 @@ func (r *ClusterClaimReconciler) CreateClusterManager(ctx context.Context, cc *c
 	clm := &clusterV1alpha1.ClusterManager{}
 
 	if err := r.Client.Get(context.TODO(), clmKey, clm); errors.IsNotFound(err) {
-		clm := ConstructClusterManagerByClaim(cc)
+		clm, err := ConstructClusterManagerByClaim(cc)
+		if err != nil {
+			return err
+		}
 		if err := r.Create(context.TODO(), &clm); err != nil {
 			return err
 		}
@@ -29,40 +32,12 @@ func (r *ClusterClaimReconciler) CreateClusterManager(ctx context.Context, cc *c
 	return nil
 }
 
-func ConstructClusterManagerByClaim(cc *claimV1alpha1.ClusterClaim) clusterV1alpha1.ClusterManager {
-
+func ConstructClusterManagerByClaim(cc *claimV1alpha1.ClusterClaim) (clusterV1alpha1.ClusterManager, error) {
 	clmSpec := clusterV1alpha1.ClusterManagerSpec{
 		Provider:  cc.Spec.Provider,
 		Version:   cc.Spec.Version,
 		MasterNum: cc.Spec.MasterNum,
 		WorkerNum: cc.Spec.WorkerNum,
-	}
-
-	awsSpec := clusterV1alpha1.ProviderAwsSpec{
-		Region:         cc.Spec.ProviderAwsSpec.Region,
-		SshKey:         cc.Spec.ProviderAwsSpec.SshKey,
-		MasterType:     cc.Spec.ProviderAwsSpec.MasterType,
-		MasterDiskSize: cc.Spec.ProviderAwsSpec.MasterDiskSize,
-		WorkerType:     cc.Spec.ProviderAwsSpec.WorkerType,
-		WorkerDiskSize: cc.Spec.ProviderAwsSpec.WorkerDiskSize,
-	}
-
-	vsphereSpec := clusterV1alpha1.ProviderVsphereSpec{
-		PodCidr:             cc.Spec.ProviderVsphereSpec.PodCidr,
-		VcenterIp:           cc.Spec.ProviderVsphereSpec.VcenterIp,
-		VcenterId:           cc.Spec.ProviderVsphereSpec.VcenterId,
-		VcenterPassword:     cc.Spec.ProviderVsphereSpec.VcenterPassword,
-		VcenterThumbprint:   cc.Spec.ProviderVsphereSpec.VcenterThumbprint,
-		VcenterNetwork:      cc.Spec.ProviderVsphereSpec.VcenterNetwork,
-		VcenterDataCenter:   cc.Spec.ProviderVsphereSpec.VcenterDataCenter,
-		VcenterDataStore:    cc.Spec.ProviderVsphereSpec.VcenterDataStore,
-		VcenterFolder:       cc.Spec.ProviderVsphereSpec.VcenterFolder,
-		VcenterResourcePool: cc.Spec.ProviderVsphereSpec.VcenterResourcePool,
-		VcenterKcpIp:        cc.Spec.ProviderVsphereSpec.VcenterKcpIp,
-		VcenterCpuNum:       cc.Spec.ProviderVsphereSpec.VcenterCpuNum,
-		VcenterMemSize:      cc.Spec.ProviderVsphereSpec.VcenterMemSize,
-		VcenterDiskSize:     cc.Spec.ProviderVsphereSpec.VcenterDiskSize,
-		VcenterTemplate:     cc.Spec.ProviderVsphereSpec.VcenterTemplate,
 	}
 
 	clm := clusterV1alpha1.ClusterManager{
@@ -79,9 +54,116 @@ func ConstructClusterManagerByClaim(cc *claimV1alpha1.ClusterClaim) clusterV1alp
 				clusterV1alpha1.AnnotationKeyClmDomain: os.Getenv(util.HC_DOMAIN),
 			},
 		},
-		Spec:        clmSpec,
-		AwsSpec:     awsSpec,
-		VsphereSpec: vsphereSpec,
+		Spec: clmSpec,
 	}
-	return clm
+
+	if util.IsAWSProvider(cc.Spec.Provider) {
+		awsSpec, err := NewAwsSpec(cc)
+		if err != nil {
+			return clusterV1alpha1.ClusterManager{}, err
+		}
+		clm.AwsSpec = awsSpec
+	} else if util.IsVsphereProvider(cc.Spec.Provider) {
+		vsphereSpec, err := NewVsphereSpec(cc)
+		if err != nil {
+			return clusterV1alpha1.ClusterManager{}, err
+		}
+		clm.VsphereSpec = vsphereSpec
+	}
+
+	return clm, nil
+}
+
+// vsphere spec configuration
+func NewVsphereSpec(cc *claimV1alpha1.ClusterClaim) (clusterV1alpha1.ProviderVsphereSpec, error) {
+
+	podCidr := cc.Spec.ProviderVsphereSpec.PodCidr
+	if podCidr == "" {
+		podCidr = "10.0.0.0/16"
+	}
+
+	thumbPrint, err := util.AddColonToThumbprint(cc.Spec.ProviderVsphereSpec.VcenterThumbprint)
+	if err != nil {
+		return clusterV1alpha1.ProviderVsphereSpec{}, err
+	}
+
+	vmNetwork := cc.Spec.ProviderVsphereSpec.VcenterNetwork
+	if vmNetwork == "" {
+		vmNetwork = "VM Network"
+	}
+
+	vcenterFolder := cc.Spec.ProviderVsphereSpec.VcenterFolder
+	if vcenterFolder == "" {
+		vcenterFolder = "vm"
+	}
+
+	cpu := cc.Spec.ProviderVsphereSpec.VcenterCpuNum
+	if cpu == 0 {
+		cpu = 2
+	}
+
+	mem := cc.Spec.ProviderVsphereSpec.VcenterMemSize
+	if mem == 0 {
+		mem = 4096
+	}
+
+	diskSize := cc.Spec.ProviderVsphereSpec.VcenterDiskSize
+	if diskSize == 0 {
+		diskSize = 20
+	}
+
+	return clusterV1alpha1.ProviderVsphereSpec{
+		PodCidr:             podCidr,
+		VcenterCpuNum:       cpu,
+		VcenterMemSize:      mem,
+		VcenterDiskSize:     diskSize,
+		VcenterThumbprint:   thumbPrint,
+		VcenterNetwork:      vmNetwork,
+		VcenterFolder:       vcenterFolder,
+		VcenterIp:           cc.Spec.ProviderVsphereSpec.VcenterIp,
+		VcenterId:           cc.Spec.ProviderVsphereSpec.VcenterId,
+		VcenterPassword:     cc.Spec.ProviderVsphereSpec.VcenterPassword,
+		VcenterDataCenter:   cc.Spec.ProviderVsphereSpec.VcenterDataCenter,
+		VcenterDataStore:    cc.Spec.ProviderVsphereSpec.VcenterDataStore,
+		VcenterResourcePool: cc.Spec.ProviderVsphereSpec.VcenterResourcePool,
+		VcenterKcpIp:        cc.Spec.ProviderVsphereSpec.VcenterKcpIp,
+		VcenterTemplate:     cc.Spec.ProviderVsphereSpec.VcenterTemplate,
+	}, nil
+}
+
+// aws spec configuration
+func NewAwsSpec(cc *claimV1alpha1.ClusterClaim) (clusterV1alpha1.ProviderAwsSpec, error) {
+	region := cc.Spec.ProviderAwsSpec.Region
+	if region == "" {
+		region = "ap-northeast-2"
+	}
+
+	masterType := cc.Spec.ProviderAwsSpec.MasterType
+	if masterType == "" {
+		masterType = "t3.medium"
+	}
+
+	workerType := cc.Spec.ProviderAwsSpec.WorkerType
+	if workerType == "" {
+		workerType = "t3.medium"
+	}
+
+	masterDiskSize := cc.Spec.ProviderAwsSpec.MasterDiskSize
+	if masterDiskSize == 0 {
+		masterDiskSize = 20
+	}
+
+	workerDiskSize := cc.Spec.ProviderAwsSpec.WorkerDiskSize
+	if workerDiskSize == 0 {
+		workerDiskSize = 20
+	}
+
+	return clusterV1alpha1.ProviderAwsSpec{
+		Region:         region,
+		MasterType:     masterType,
+		MasterDiskSize: masterDiskSize,
+		WorkerType:     workerType,
+		WorkerDiskSize: workerDiskSize,
+		SshKey:         cc.Spec.ProviderAwsSpec.SshKey,
+	}, nil
 }

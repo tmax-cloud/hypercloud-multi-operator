@@ -198,3 +198,38 @@ func IsClusterHealthy(clientSet *kubernetes.Clientset) bool {
 	}
 	return true
 }
+
+func AddColonToThumbprint(thumbprint string) (string, error) {
+	if thumbprint == "" {
+		return "", nil
+	}
+
+	input_len := len(thumbprint)
+
+	// 버전 호환
+	if strings.Contains(thumbprint, ":") {
+		return thumbprint, nil
+	}
+
+	if input_len%2 != 0 {
+		return "", fmt.Errorf("vsphere thumbprint's length must be even")
+	}
+
+	output_len := (input_len + 2) / 3
+	output_string := strings.Join(strings.SplitN(thumbprint, "", output_len), ":")
+	return output_string, nil
+}
+
+func IsVsphereProvider(provider string) bool {
+	if strings.ToUpper(provider) == ProviderVsphere {
+		return true
+	}
+	return false
+}
+
+func IsAWSProvider(provider string) bool {
+	if strings.ToUpper(provider) == ProviderAws {
+		return true
+	}
+	return false
+}
