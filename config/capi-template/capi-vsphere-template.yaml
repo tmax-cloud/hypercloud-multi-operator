@@ -478,7 +478,8 @@ objects:
         csi-vsphere.conf: |+
           [Global]
           cluster-id = "${NAMESPACE}/${CLUSTER_NAME}"
-
+          insecure-flag = "1"
+          
           [VirtualCenter "${VSPHERE_SERVER}"]
           user = "${VSPHERE_USERNAME}"
           password = "${VSPHERE_PASSWORD}"
