@@ -199,6 +199,7 @@ func IsClusterHealthy(clientSet *kubernetes.Clientset) bool {
 	return true
 }
 
+// thumbprint가 colon 없이 들어온다면 colon을 붙인다.
 func AddColonToThumbprint(thumbprint string) (string, error) {
 	if thumbprint == "" {
 		return "", nil
@@ -215,9 +216,14 @@ func AddColonToThumbprint(thumbprint string) (string, error) {
 		return "", fmt.Errorf("vsphere thumbprint's length must be even")
 	}
 
-	output_len := (input_len + 2) / 3
-	output_string := strings.Join(strings.SplitN(thumbprint, "", output_len), ":")
-	return output_string, nil
+	output := ""
+	for i := 0; i < input_len; i++ {
+		if i != 0 && i%2 == 0 {
+			output += ":"
+		}
+		output += string(thumbprint[i])
+	}
+	return output, nil
 }
 
 func IsVsphereProvider(provider string) bool {

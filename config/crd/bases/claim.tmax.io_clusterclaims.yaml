@@ -129,9 +129,6 @@ spec:
                   vcenterFolder:
                     description: The name of folder
                     type: string
-                  vcenterId:
-                    description: The user id of VCSA
-                    type: string
                   vcenterIp:
                     description: The IP address of vCenter Server Application(VCSA)
                     type: string
@@ -145,9 +142,6 @@ spec:
                     type: integer
                   vcenterNetwork:
                     description: The name of network
-                    type: string
-                  vcenterPassword:
-                    description: The password of VCSA
                     type: string
                   vcenterResourcePool:
                     description: The name of resource pool

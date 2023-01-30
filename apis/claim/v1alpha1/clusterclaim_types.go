@@ -92,10 +92,6 @@ type VsphereClaimSpec struct {
 	PodCidr string `json:"podCidr,omitempty"`
 	// The IP address of vCenter Server Application(VCSA)
 	VcenterIp string `json:"vcenterIp,omitempty"`
-	// The user id of VCSA
-	VcenterId string `json:"vcenterId,omitempty"`
-	// The password of VCSA
-	VcenterPassword string `json:"vcenterPassword,omitempty"`
 	// The TLS thumbprint of machine certificate
 	VcenterThumbprint string `json:"vcenterThumbprint,omitempty"`
 	// The name of network

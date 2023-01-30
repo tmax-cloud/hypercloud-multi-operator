@@ -2,13 +2,17 @@ package controllers
 
 import (
 	"context"
+	"fmt"
 	"os"
+	"strings"
 
 	claimV1alpha1 "github.com/tmax-cloud/hypercloud-multi-operator/apis/claim/v1alpha1"
 	clusterV1alpha1 "github.com/tmax-cloud/hypercloud-multi-operator/apis/cluster/v1alpha1"
 	"github.com/tmax-cloud/hypercloud-multi-operator/controllers/util"
+	coreV1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 )
 
 func (r *ClusterClaimReconciler) CreateClusterManager(ctx context.Context, cc *claimV1alpha1.ClusterClaim) error {
@@ -17,7 +21,7 @@ func (r *ClusterClaimReconciler) CreateClusterManager(ctx context.Context, cc *c
 	clm := &clusterV1alpha1.ClusterManager{}
 
 	if err := r.Client.Get(context.TODO(), clmKey, clm); errors.IsNotFound(err) {
-		clm, err := ConstructClusterManagerByClaim(cc)
+		clm, err := r.ConstructClusterManagerByClaim(cc)
 		if err != nil {
 			return err
 		}
@@ -32,7 +36,7 @@ func (r *ClusterClaimReconciler) CreateClusterManager(ctx context.Context, cc *c
 	return nil
 }
 
-func ConstructClusterManagerByClaim(cc *claimV1alpha1.ClusterClaim) (clusterV1alpha1.ClusterManager, error) {
+func (r *ClusterClaimReconciler) ConstructClusterManagerByClaim(cc *claimV1alpha1.ClusterClaim) (clusterV1alpha1.ClusterManager, error) {
 	clmSpec := clusterV1alpha1.ClusterManagerSpec{
 		Provider:  cc.Spec.Provider,
 		Version:   cc.Spec.Version,
@@ -68,7 +72,11 @@ func ConstructClusterManagerByClaim(cc *claimV1alpha1.ClusterClaim) (clusterV1al
 		if err != nil {
 			return clusterV1alpha1.ClusterManager{}, err
 		}
+
 		clm.VsphereSpec = vsphereSpec
+		if err := r.LoadVsphereCredentials(&clm); err != nil {
+			return clusterV1alpha1.ClusterManager{}, err
+		}
 	}
 
 	return clm, nil
@@ -121,8 +129,6 @@ func NewVsphereSpec(cc *claimV1alpha1.ClusterClaim) (clusterV1alpha1.ProviderVsp
 		VcenterNetwork:      vmNetwork,
 		VcenterFolder:       vcenterFolder,
 		VcenterIp:           cc.Spec.ProviderVsphereSpec.VcenterIp,
-		VcenterId:           cc.Spec.ProviderVsphereSpec.VcenterId,
-		VcenterPassword:     cc.Spec.ProviderVsphereSpec.VcenterPassword,
 		VcenterDataCenter:   cc.Spec.ProviderVsphereSpec.VcenterDataCenter,
 		VcenterDataStore:    cc.Spec.ProviderVsphereSpec.VcenterDataStore,
 		VcenterResourcePool: cc.Spec.ProviderVsphereSpec.VcenterResourcePool,
@@ -166,4 +172,38 @@ func NewAwsSpec(cc *claimV1alpha1.ClusterClaim) (clusterV1alpha1.ProviderAwsSpec
 		WorkerDiskSize: workerDiskSize,
 		SshKey:         cc.Spec.ProviderAwsSpec.SshKey,
 	}, nil
+}
+
+func (r *ClusterClaimReconciler) LoadVsphereCredentials(clm *clusterV1alpha1.ClusterManager) error {
+
+	key := types.NamespacedName{
+		Name:      "capv-manager-bootstrap-credentials",
+		Namespace: "capv-system",
+	}
+
+	credential := &coreV1.Secret{}
+
+	if err := r.Client.Get(context.TODO(), key, credential); err != nil {
+		return err
+	}
+
+	credentials, ok := credential.Data["credentials.yaml"]
+	if !ok {
+		return fmt.Errorf("credentials info not found in vsphere credential secret")
+	}
+
+	lines := strings.Split(string(credentials), "\n")
+	username := strings.Split(lines[0], ":")[1]
+	password := strings.Split(lines[1], ":")[1]
+
+	username = strings.TrimSpace(username)
+	password = strings.TrimSpace(password)
+
+	if username == "" || password == "" {
+		return fmt.Errorf("username or password not found in vsphere credential secret")
+	}
+
+	clm.VsphereSpec.VcenterId = username
+	clm.VsphereSpec.VcenterPassword = password
+	return nil
 }
