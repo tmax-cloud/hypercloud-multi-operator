@@ -16,6 +16,7 @@ package controllers
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"time"
 
@@ -321,6 +322,7 @@ func (r *ClusterManagerReconciler) reconcileDelete(ctx context.Context, clusterM
 			log.Error(err, "Failed to get kubeconfig secret")
 			return ctrl.Result{}, err
 		}
+		log.Info(fmt.Sprintf("%s-kubeconfig secret remains. Wait for secret to be deleted", clusterManager.Name))
 	} else if err != nil {
 		log.Error(err, "Failed to get cluster")
 		return ctrl.Result{}, err
