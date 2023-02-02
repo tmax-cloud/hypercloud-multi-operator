@@ -200,9 +200,15 @@ objects:
       - echo "127.0.0.1   localhost" >>/etc/hosts
       - echo "127.0.0.1   {{ ds.meta_data.hostname }}" >>/etc/hosts
       - echo "{{ ds.meta_data.hostname }}" >/etc/hostname
-      - echo 'root:dG1heEAyMw==' | chpasswd
+      - echo 'root:root' | chpasswd
       - sed -i 's/#PermitRootLogin prohibit-password/PermitRootLogin yes/' /etc/ssh/sshd_config
       - systemctl restart sshd
+      # - cat << EOF >> /etc/containerd/config.toml
+      #   [plugins."io.containerd.grpc.v1.cri".registry.configs."registry-1.docker.io".auth]
+      #   username = "tmaxcloudck"
+      #   password = "tmax@cloud"
+      #   EOF
+      # - systemctl restart containerd
       postKubeadmCommands:
       - mkdir -p $HOME/.kube
       - cp /etc/kubernetes/admin.conf $HOME/.kube/config
@@ -246,6 +252,12 @@ objects:
         - echo 'root:dG1heEAyMw==' | chpasswd
         - sed -i 's/#PermitRootLogin prohibit-password/PermitRootLogin yes/' /etc/ssh/sshd_config
         - systemctl restart sshd
+        # - cat << EOF >> /etc/containerd/config.toml
+        #   [plugins."io.containerd.grpc.v1.cri".registry.configs."registry-1.docker.io".auth]
+        #   username = "tmaxcloudck"
+        #   password = "tmax@cloud"
+        #   EOF
+        # - systemctl restart containerd
         users:
         - name: root
           sshAuthorizedKeys:
