@@ -1236,8 +1236,13 @@ func (r *ClusterManagerReconciler) DeleteApplicationRemains(clm *clusterV1alpha1
 			delete(exist.Annotations, util.AnnotationKeyArgoSyncWave)
 		}
 
-		// finalizer 추가
-		controllerutil.AddFinalizer(exist, util.ArgoResourceFinalizers)
+		// 생성 타입의 경우 cluster는 삭제되므로 설치된 app들은 신경 쓰지 않는다.
+		// resource finalizer가 있으면 모두 지운다.
+		if clm.GetClusterType() == clusterV1alpha1.ClusterTypeCreated {
+			controllerutil.RemoveFinalizer(exist, util.ArgoResourceFinalizers)
+		} else {
+			controllerutil.AddFinalizer(exist, util.ArgoResourceFinalizers)
+		}
 		if err := r.Update(context.TODO(), exist); err != nil {
 			return err
 		}
