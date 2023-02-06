@@ -108,6 +108,7 @@ type VsphereParameter struct {
 	WorkerMemSize       int    `json:"WORKER_MEM_SIZE"`
 	WorkerDiskSize      int    `json:"WORKER_DISK_SIZE"`
 	VcenterTemplate     string `json:"VSPHERE_TEMPLATE"`
+	VMPassword          string `json:"VM_PASSWORD"`
 }
 
 func (p *VsphereParameter) SetParameter(clusterManager clusterV1alpha1.ClusterManager) {
@@ -122,6 +123,7 @@ func (p *VsphereParameter) SetParameter(clusterManager clusterV1alpha1.ClusterMa
 	p.VcenterFolder = clusterManager.VsphereSpec.VcenterFolder
 	p.VcenterResourcePool = clusterManager.VsphereSpec.VcenterResourcePool
 	p.VcenterKcpIp = clusterManager.VsphereSpec.VcenterKcpIp
+	p.VMPassword = clusterManager.VsphereSpec.VMPassword
 	// todo master worker 분리 필요
 	p.MasterCpuNum = clusterManager.VsphereSpec.VcenterCpuNum
 	p.MasterMemSize = clusterManager.VsphereSpec.VcenterMemSize

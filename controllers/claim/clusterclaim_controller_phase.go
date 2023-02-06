@@ -120,6 +120,11 @@ func NewVsphereSpec(cc *claimV1alpha1.ClusterClaim) (clusterV1alpha1.ProviderVsp
 		diskSize = 20
 	}
 
+	vmPassword := cc.Spec.ProviderVsphereSpec.VMPassword
+	if vmPassword == "" {
+		vmPassword = "dG1heEAyMw=="
+	}
+
 	return clusterV1alpha1.ProviderVsphereSpec{
 		PodCidr:             podCidr,
 		VcenterCpuNum:       cpu,
@@ -128,6 +133,7 @@ func NewVsphereSpec(cc *claimV1alpha1.ClusterClaim) (clusterV1alpha1.ProviderVsp
 		VcenterThumbprint:   thumbPrint,
 		VcenterNetwork:      vmNetwork,
 		VcenterFolder:       vcenterFolder,
+		VMPassword:          vmPassword,
 		VcenterIp:           cc.Spec.ProviderVsphereSpec.VcenterIp,
 		VcenterDataCenter:   cc.Spec.ProviderVsphereSpec.VcenterDataCenter,
 		VcenterDataStore:    cc.Spec.ProviderVsphereSpec.VcenterDataStore,

@@ -255,6 +255,9 @@ spec:
               vcenterThumbprint:
                 description: The TLS thumbprint of machine certificate
                 type: string
+              vmPassword:
+                description: The password of virtual machine
+                type: string
             type: object
         required:
         - spec

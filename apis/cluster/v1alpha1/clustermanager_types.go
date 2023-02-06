@@ -103,6 +103,8 @@ type ProviderVsphereSpec struct {
 	VcenterDiskSize int `json:"vcenterDiskSize,omitempty"`
 	// The template name for cloud init
 	VcenterTemplate string `json:"vcenterTemplate,omitempty"`
+	// The password of virtual machine
+	VMPassword string `json:"vmPassword,omitempty"`
 }
 
 // ClusterManagerStatus defines the observed state of ClusterManager

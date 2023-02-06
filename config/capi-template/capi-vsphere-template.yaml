@@ -200,14 +200,12 @@ objects:
       - echo "127.0.0.1   localhost" >>/etc/hosts
       - echo "127.0.0.1   {{ ds.meta_data.hostname }}" >>/etc/hosts
       - echo "{{ ds.meta_data.hostname }}" >/etc/hostname
-      - echo 'root:root' | chpasswd
+      - echo 'root:${VM_PASSWORD}' | chpasswd
       - sed -i 's/#PermitRootLogin prohibit-password/PermitRootLogin yes/' /etc/ssh/sshd_config
       - systemctl restart sshd
-      # - cat << EOF >> /etc/containerd/config.toml
-      #   [plugins."io.containerd.grpc.v1.cri".registry.configs."registry-1.docker.io".auth]
-      #   username = "tmaxcloudck"
-      #   password = "tmax@cloud"
-      #   EOF
+      # - echo '[plugins."io.containerd.grpc.v1.cri".registry.configs."registry-1.docker.io".auth]' >> /etc/containerd/config.toml
+      # - echo '  username = "dockerhub ID"' >> /etc/containerd/config.toml
+      # - echo '  password = "dockerhub PW"' >> /etc/containerd/config.toml
       # - systemctl restart containerd
       postKubeadmCommands:
       - mkdir -p $HOME/.kube
@@ -249,14 +247,12 @@ objects:
         - echo "127.0.0.1   localhost" >>/etc/hosts
         - echo "127.0.0.1   {{ ds.meta_data.hostname }}" >>/etc/hosts
         - echo "{{ ds.meta_data.hostname }}" >/etc/hostname
-        - echo 'root:dG1heEAyMw==' | chpasswd
+        - echo 'root:${VM_PASSWORD}' | chpasswd
         - sed -i 's/#PermitRootLogin prohibit-password/PermitRootLogin yes/' /etc/ssh/sshd_config
         - systemctl restart sshd
-        # - cat << EOF >> /etc/containerd/config.toml
-        #   [plugins."io.containerd.grpc.v1.cri".registry.configs."registry-1.docker.io".auth]
-        #   username = "tmaxcloudck"
-        #   password = "tmax@cloud"
-        #   EOF
+        # - echo '[plugins."io.containerd.grpc.v1.cri".registry.configs."registry-1.docker.io".auth]' >> /etc/containerd/config.toml
+        # - echo '  username = "dockerhub ID"' >> /etc/containerd/config.toml
+        # - echo '  password = "dockerhub PW"' >> /etc/containerd/config.toml
         # - systemctl restart containerd
         users:
         - name: root
@@ -1150,6 +1146,12 @@ parameters:
   required: false
   value: 2
   valueType: number
+- description: Password of VM
+  displayName: Password of VM
+  name: VM_PASSWORD
+  required: false
+  value: dG1heEAyMw==
+  valueType: string
 # - description: HyperAuth url for open id connect
 #   displayName: HyperAuth URL
 #   name: HYPERAUTH_URL
