@@ -108,6 +108,7 @@ type VsphereParameter struct {
 	WorkerMemSize       int    `json:"WORKER_MEM_SIZE"`
 	WorkerDiskSize      int    `json:"WORKER_DISK_SIZE"`
 	VcenterTemplate     string `json:"VSPHERE_TEMPLATE"`
+	VMPassword          string `json:"VM_PASSWORD"`
 }
 
 func (p *VsphereParameter) SetParameter(clusterManager clusterV1alpha1.ClusterManager) {
@@ -122,6 +123,7 @@ func (p *VsphereParameter) SetParameter(clusterManager clusterV1alpha1.ClusterMa
 	p.VcenterFolder = clusterManager.VsphereSpec.VcenterFolder
 	p.VcenterResourcePool = clusterManager.VsphereSpec.VcenterResourcePool
 	p.VcenterKcpIp = clusterManager.VsphereSpec.VcenterKcpIp
+	p.VMPassword = clusterManager.VsphereSpec.VMPassword
 	// todo master worker 분리 필요
 	p.MasterCpuNum = clusterManager.VsphereSpec.VcenterCpuNum
 	p.MasterMemSize = clusterManager.VsphereSpec.VcenterMemSize
@@ -1234,8 +1236,13 @@ func (r *ClusterManagerReconciler) DeleteApplicationRemains(clm *clusterV1alpha1
 			delete(exist.Annotations, util.AnnotationKeyArgoSyncWave)
 		}
 
-		// finalizer 추가
-		controllerutil.AddFinalizer(exist, util.ArgoResourceFinalizers)
+		// 생성 타입의 경우 cluster는 삭제되므로 설치된 app들은 신경 쓰지 않는다.
+		// resource finalizer가 있으면 모두 지운다.
+		if clm.GetClusterType() == clusterV1alpha1.ClusterTypeCreated {
+			controllerutil.RemoveFinalizer(exist, util.ArgoResourceFinalizers)
+		} else {
+			controllerutil.AddFinalizer(exist, util.ArgoResourceFinalizers)
+		}
 		if err := r.Update(context.TODO(), exist); err != nil {
 			return err
 		}

@@ -28,8 +28,6 @@ const (
 	ClusterUpdateClaimPhaseApproved = ClusterUpdateClaimPhase("Approved")
 	// 관리자에 의해 클레임이 거절된 상태
 	ClusterUpdateClaimPhaseRejected = ClusterUpdateClaimPhase("Rejected")
-	// 클러스터가 삭제된 상태
-	ClusterUpdateClaimPhaseClusterDeleted = ClusterUpdateClaimPhase("Cluster Deleted")
 	// 클러스터 업데이트 과정에서 에러가 발생한 상태
 	ClusterUpdateClaimPhaseError = ClusterUpdateClaimPhase("Error")
 )
@@ -37,10 +35,10 @@ const (
 type ClusterUpdateClaimReason string
 
 const (
-	ClusterUpdateClaimReasonClusterNotFound = ClusterUpdateClaimReason("Cluster not found")
-	ClusterUpdateClaimReasonClusterDeleted  = ClusterUpdateClaimReason("Cluster deleted")
-	ClusterUpdateClaimReasonAdminApproved   = ClusterUpdateClaimReason("Admin approved")
-	ClusterUpdateClaimReasonAdminRejected   = ClusterUpdateClaimReason("Admin rejected")
+	ClusterUpdateClaimReasonClusterNotFound   = ClusterUpdateClaimReason("Cluster not found")
+	ClusterUpdateClaimReasonClusterIsDeleting = ClusterUpdateClaimReason("Cluster is deleting")
+	ClusterUpdateClaimReasonAdminApproved     = ClusterUpdateClaimReason("Admin approved")
+	ClusterUpdateClaimReasonAdminRejected     = ClusterUpdateClaimReason("Admin rejected")
 )
 
 type ClusterUpdateType string
@@ -54,23 +52,18 @@ type ClusterUpdateClaimSpec struct {
 	// +kubebuilder:validation:Required
 	// The name of the cluster to be created
 	ClusterName string `json:"clusterName"`
-	// +kubebuilder:validation:Required
-	// +kubebuilder:validation:Enum:=NodeScale;
-	// The type of update claim
-	UpdateType ClusterUpdateType `json:"updateType"`
 	// +kubebuilder:validation:Minimum:=1
 	// The expected number of master node
-	ExpectedMasterNum int `json:"expectedMasterNum,omitempty"`
+	UpdatedMasterNum int `json:"updatedMasterNum,omitempty"`
 	// +kubebuilder:validation:Minimum:=1
 	// The expected number of worker node
-	ExpectedWorkerNum int `json:"expectedWorkerNum,omitempty"`
+	UpdatedWorkerNum int `json:"updatedWorkerNum,omitempty"`
 }
 
 // ClusterUpdateClaimStatus defines the observed state of ClusterUpdateClaim
 type ClusterUpdateClaimStatus struct {
-	Message string                   `json:"message,omitempty" protobuf:"bytes,2,opt,name=message"`
-	Reason  ClusterUpdateClaimReason `json:"reason,omitempty" protobuf:"bytes,3,opt,name=reason"`
-
+	// Reason of the phase.
+	Reason ClusterUpdateClaimReason `json:"reason,omitempty" protobuf:"bytes,3,opt,name=reason"`
 	// +kubebuilder:validation:Enum=Awaiting;Approved;Rejected;Error;Cluster Deleted;
 	Phase ClusterUpdateClaimPhase `json:"phase,omitempty" protobuf:"bytes,4,opt,name=phase"`
 }
@@ -79,6 +72,8 @@ type ClusterUpdateClaimStatus struct {
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:path=clusterupdateclaims,shortName=cuc,scope=Namespaced
 // +kubebuilder:printcolumn:name="Cluster",type=string,JSONPath=`.spec.clusterName`
+// +kubebuilder:printcolumn:name="masternum",type=integer,JSONPath=`.spec.updatedMasterNum`
+// +kubebuilder:printcolumn:name="workernum",type=integer,JSONPath=`.spec.updatedWorkerNum`
 // +kubebuilder:printcolumn:name="Status",type=string,JSONPath=`.status.phase`
 // +kubebuilder:printcolumn:name="Reason",type=string,JSONPath=`.status.reason`
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"

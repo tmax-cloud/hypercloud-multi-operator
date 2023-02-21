@@ -89,25 +89,22 @@ func (r *ClusterUpdateClaimReconciler) reconcile(ctx context.Context, cuc *claim
 	clm := &clusterV1alpha1.ClusterManager{}
 
 	if err := r.Client.Get(context.TODO(), clmKey, clm); errors.IsNotFound(err) {
-
-		clusterNotFound := cuc.Status.Phase == ""
-		isDeleting := cuc.Status.Phase == claimV1alpha1.ClusterUpdateClaimPhaseAwaiting
-
-		if clusterNotFound {
-			cuc.Status.SetTypedPhase(claimV1alpha1.ClusterUpdateClaimPhaseError)
-			cuc.Status.SetTypedReason(claimV1alpha1.ClusterUpdateClaimReasonClusterNotFound)
-		} else if isDeleting {
-			// cluster manager 삭제 후, reconcile loop로 들어온 awaiting 상태의 cluster update claim에 대한 cluster deleted 삭제 처리
-			cuc.Status.SetTypedPhase(claimV1alpha1.ClusterUpdateClaimPhaseClusterDeleted)
-			cuc.Status.SetTypedReason(claimV1alpha1.ClusterUpdateClaimReasonClusterDeleted)
-		}
-
+		log.Info(fmt.Sprintf("Not found clustermanager [%s]. cannot use cluster update claim.", cuc.Spec.ClusterName))
+		// cluster가 없는 경우
+		cuc.Status.SetTypedPhase(claimV1alpha1.ClusterUpdateClaimPhaseError)
+		cuc.Status.SetTypedReason(claimV1alpha1.ClusterUpdateClaimReasonClusterNotFound)
 		return ctrl.Result{}, nil
 	} else if err != nil {
 		return ctrl.Result{}, err
 	}
 
-	// clm이 있을 때
+	if !clm.GetDeletionTimestamp().IsZero() {
+		log.Info(fmt.Sprintf("Deleting clustermanager [%s]. cannot use cluster update claim.", cuc.Spec.ClusterName))
+		cuc.Status.SetTypedPhase(claimV1alpha1.ClusterUpdateClaimPhaseError)
+		cuc.Status.SetTypedReason(claimV1alpha1.ClusterUpdateClaimReasonClusterIsDeleting)
+		return ctrl.Result{RequeueAfter: requeueAfter10Second}, nil
+	}
+
 	log.Info(fmt.Sprintf("Found clustermanager [%s]. Start clusterupdateclaim reconcile phase", cuc.Spec.ClusterName))
 
 	if err := r.SetupClaimStatus(cuc, clm); err != nil {
@@ -115,20 +112,30 @@ func (r *ClusterUpdateClaimReconciler) reconcile(ctx context.Context, cuc *claim
 		return ctrl.Result{}, err
 	}
 
-	Approved := cuc.Status.Phase == claimV1alpha1.ClusterUpdateClaimPhaseApproved
-	Rejected := cuc.Status.Phase == claimV1alpha1.ClusterUpdateClaimPhaseRejected
+	isError := cuc.Status.Phase == claimV1alpha1.ClusterUpdateClaimPhaseError
+	isAwaiting := cuc.Status.Phase == claimV1alpha1.ClusterUpdateClaimPhaseAwaiting
 
-	if Approved {
+	if isError || isAwaiting {
+		return ctrl.Result{}, nil
+	}
+
+	isApproved := cuc.Status.Phase == claimV1alpha1.ClusterUpdateClaimPhaseApproved
+	isRejected := cuc.Status.Phase == claimV1alpha1.ClusterUpdateClaimPhaseRejected
+
+	if isApproved {
 		log.Info("Approved clusterupdateclaim")
-		if err := r.UpdateClusterManagerByUpdateType(clm, cuc); err != nil {
+		if err := r.UpdateClusterManager(clm, cuc); err != nil {
 			cuc.Status.SetTypedPhase(claimV1alpha1.ClusterUpdateClaimPhaseError)
 			cuc.Status.SetTypedReason(claimV1alpha1.ClusterUpdateClaimReason(err.Error()))
 			return ctrl.Result{}, err
 		}
 		cuc.Status.SetTypedReason(claimV1alpha1.ClusterUpdateClaimReasonAdminApproved)
-	} else if Rejected {
+		return ctrl.Result{}, nil
+	} else if isRejected {
 		log.Info("Rejected clusterupdateclaim")
-		cuc.Status.SetTypedReason(claimV1alpha1.ClusterUpdateClaimReasonAdminRejected)
+		// 거절된 이유는 API 서버에서 입력
+		// cuc.Status.SetTypedReason(claimV1alpha1.ClusterUpdateClaimReasonAdminRejected)
+		return ctrl.Result{}, nil
 	}
 	return ctrl.Result{}, nil
 }
@@ -148,11 +155,12 @@ func (r *ClusterUpdateClaimReconciler) SetupWithManager(mgr ctrl.Manager) error 
 				UpdateFunc: func(e event.UpdateEvent) bool {
 					oc := e.ObjectOld.(*claimV1alpha1.ClusterUpdateClaim)
 					nc := e.ObjectNew.(*claimV1alpha1.ClusterUpdateClaim)
-					IsDeleted := nc.Status.Phase == claimV1alpha1.ClusterUpdateClaimPhaseClusterDeleted
-					IsError := oc.Status.Phase == claimV1alpha1.ClusterUpdateClaimPhaseError ||
-						nc.Status.Phase == claimV1alpha1.ClusterUpdateClaimPhaseError
 
-					if IsDeleted || IsError {
+					IsApproved := oc.Status.Phase == claimV1alpha1.ClusterUpdateClaimPhaseApproved
+					IsRejected := oc.Status.Phase != claimV1alpha1.ClusterUpdateClaimPhaseRejected &&
+						nc.Status.Phase == claimV1alpha1.ClusterUpdateClaimPhaseRejected
+
+					if IsApproved || IsRejected {
 						return false
 					}
 

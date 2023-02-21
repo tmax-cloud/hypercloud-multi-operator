@@ -1,8 +1,8 @@
 apiVersion: claim.tmax.io/v1alpha1
 kind: ClusterUpdateClaim
 metadata:
-  name: clusterupdateclaim-sample
+  name: cuc1
+  namespace: sjoh
 spec:
   clusterName: clustername
-  updateType: NodeScale
-  expectedMasterNum: 3
+  updatedWorkerNum: 1

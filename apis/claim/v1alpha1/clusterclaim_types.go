@@ -44,7 +44,7 @@ const (
 // ClusterClaimSpec defines the desired state of ClusterClaim
 type ClusterClaimSpec struct {
 	// +kubebuilder:validation:Required
-	// The name of the cluster to be created
+	// The name of the cluster to be created.
 	ClusterName string `json:"clusterName"`
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:Pattern:=^v[0-9].[0-9]+.[0-9]+
@@ -52,75 +52,73 @@ type ClusterClaimSpec struct {
 	Version string `json:"version"`
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:Enum:=AWS;vSphere
-	// The type of provider
+	// The type of provider.
 	Provider string `json:"provider"`
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:Minimum:=1
-	// The number of master node
+	// The number of master node. Example: 3
 	MasterNum int `json:"masterNum"`
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:Minimum:=1
-	// The number of worker node
+	// The number of worker node. Example: 2
 	WorkerNum int `json:"workerNum"`
-	// Provider Aws Spec
+	// Provider Aws Spec.
 	ProviderAwsSpec AwsClaimSpec `json:"providerAwsSpec,omitempty"`
-	// Provider vSphere Spec
+	// Provider vSphere Spec.
 	ProviderVsphereSpec VsphereClaimSpec `json:"providerVsphereSpec,omitempty"`
 }
 
 type AwsClaimSpec struct {
-	// The ssh key info to access VM
+	// The ssh key info to access VM.
 	SshKey string `json:"sshKey,omitempty"`
 	// +kubebuilder:validation:Enum:=ap-northeast-1;ap-northeast-2;ap-south-1;ap-southeast-1;ap-northeast-2;ca-central-1;eu-central-1;eu-west-1;eu-west-2;eu-west-3;sa-east-1;us-east-1;us-east-2;us-west-1;us-west-2
-	// The region where VM is working
+	// The region where VM is working. Defaults to ap-northeast-2.
 	Region string `json:"region,omitempty"`
-	// The type of VM for master node. Example: m4.xlarge. see: https://aws.amazon.com/ec2/instance-types
+	// The type of VM for master node. Defaults to t3.medium. See: https://aws.amazon.com/ec2/instance-types
 	MasterType string `json:"masterType,omitempty"`
 	// +kubebuilder:validation:Minimum:=8
-	// The disk size of VM for master node. Example: 20
+	// The disk size of VM for master node. Defaults to 20.
 	MasterDiskSize int `json:"masterDiskSize,omitempty"`
-	// The type of VM for worker node. Example: m4.xlarge. see: https://aws.amazon.com/ec2/instance-types
+	// The type of VM for worker node. Defaults to t3.medium. See: https://aws.amazon.com/ec2/instance-types
 	WorkerType string `json:"workerType,omitempty"`
 	// +kubebuilder:validation:Minimum:=8
-	// The disk size of VM for worker node. Example: 20
+	// The disk size of VM for worker node. Defaults to 20.
 	WorkerDiskSize int `json:"workerDiskSize,omitempty"`
 }
 
 type VsphereClaimSpec struct {
-	// The internal IP address cider block for pods. Example: 10.0.0.0/16
+	// The internal IP address cidr block for pods. Defaults to 10.0.0.0/16.
 	// +kubebuilder:validation:Pattern:=^[0-9]+.[0-9]+.[0-9]+.[0-9]+\/[0-9]+
 	PodCidr string `json:"podCidr,omitempty"`
-	// The IP address of vCenter Server Application(VCSA)
+	// The IP address of vCenter Server Application(VCSA).
 	VcenterIp string `json:"vcenterIp,omitempty"`
-	// The user id of VCSA
-	VcenterId string `json:"vcenterId,omitempty"`
-	// The password of VCSA
-	VcenterPassword string `json:"vcenterPassword,omitempty"`
-	// The TLS thumbprint of machine certificate
+	// The TLS thumbprint of machine certificate. Example: F881E17883D123700CAE0B14F7DA75DE8F3287D1
 	VcenterThumbprint string `json:"vcenterThumbprint,omitempty"`
-	// The name of network
+	// The name of network. Defaults to VM Network.
 	VcenterNetwork string `json:"vcenterNetwork,omitempty"`
-	// The name of data center
+	// The name of data center.
 	VcenterDataCenter string `json:"vcenterDataCenter,omitempty"`
-	// The name of data store
+	// The name of data store.
 	VcenterDataStore string `json:"vcenterDataStore,omitempty"`
-	// The name of folder
+	// The name of folder. Defaults to vm.
 	VcenterFolder string `json:"vcenterFolder,omitempty"`
-	// The name of resource pool
+	// The name of resource pool. Example: 192.168.9.30/Resources
 	VcenterResourcePool string `json:"vcenterResourcePool,omitempty"`
-	// The IP address of control plane for remote cluster(vip)
+	// The IP address of control plane for remote cluster(vip).
 	VcenterKcpIp string `json:"vcenterKcpIp,omitempty"`
 	// +kubebuilder:validation:Minimum:=2
-	// The number of cpus for vm
+	// The number of cpus for vm. Defaults to 2.
 	VcenterCpuNum int `json:"vcenterCpuNum,omitempty"`
 	// +kubebuilder:validation:Minimum:=2048
-	// The memory size for vm, write as MB without unit. Example: 8192
+	// The memory size for vm, write as MB without unit. Defaults to 4096.
 	VcenterMemSize int `json:"vcenterMemSize,omitempty"`
 	// +kubebuilder:validation:Minimum:=20
-	// The disk size for vm, write as GB without unit. Example: 25
+	// The disk size for vm, write as GB without unit. Defaults to 20.
 	VcenterDiskSize int `json:"vcenterDiskSize,omitempty"`
-	// The template name for cloud init
+	// The template name for cloud init.
 	VcenterTemplate string `json:"vcenterTemplate,omitempty"`
+	// The root user password for virtual machine. Defaults to random.
+	VMPassword string `json:"vmPassword,omitempty"`
 }
 
 // ClusterClaimStatus defines the observed state of ClusterClaim
