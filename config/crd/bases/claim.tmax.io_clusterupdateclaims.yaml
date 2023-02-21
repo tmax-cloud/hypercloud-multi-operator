@@ -22,6 +22,12 @@ spec:
     - jsonPath: .spec.clusterName
       name: Cluster
       type: string
+    - jsonPath: .spec.updatedMasterNum
+      name: masternum
+      type: integer
+    - jsonPath: .spec.updatedWorkerNum
+      name: workernum
+      type: integer
     - jsonPath: .status.phase
       name: Status
       type: string
@@ -55,28 +61,20 @@ spec:
               clusterName:
                 description: The name of the cluster to be created
                 type: string
-              expectedMasterNum:
+              updatedMasterNum:
                 description: The expected number of master node
                 minimum: 1
                 type: integer
-              expectedWorkerNum:
+              updatedWorkerNum:
                 description: The expected number of worker node
                 minimum: 1
                 type: integer
-              updateType:
-                description: The type of update claim
-                enum:
-                - NodeScale
-                type: string
             required:
             - clusterName
-            - updateType
             type: object
           status:
             description: ClusterUpdateClaimStatus defines the observed state of ClusterUpdateClaim
             properties:
-              message:
-                type: string
               phase:
                 enum:
                 - Awaiting
@@ -86,6 +84,7 @@ spec:
                 - Cluster Deleted
                 type: string
               reason:
+                description: Reason of the phase.
                 type: string
             type: object
         type: object

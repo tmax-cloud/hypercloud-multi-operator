@@ -472,7 +472,7 @@ func (r *ClusterManagerReconciler) ScaleWorker(ctx context.Context, clusterManag
 		clusterManager.Status.WorkerNum = clusterManager.Spec.WorkerNum
 		return ctrl.Result{}, nil
 	}
-	if clusterManager.Spec.WorkerNum > clusterManager.Spec.WorkerNum {
+	if clusterManager.Spec.WorkerNum > clusterManager.Status.WorkerNum {
 		log.Info("Waiting for Worker nodes to be scaled out. Requeue after 20sec.")
 	} else {
 		log.Info("Waiting for Worker nodes to be scaled in. Requeue after 20sec.")
