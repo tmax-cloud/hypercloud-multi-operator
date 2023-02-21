@@ -1,6 +1,31 @@
 # HyperCloud-Multi-Operator changelog!!
 All notable changes to this project will be documented in this file.
 
+<!-------------------- v5.1.1.1 start -------------------->
+
+## HyperCloud-Multi-Operator_5.1.1.1 (2023. 02. 21. (화) 18:57:28 KST)
+
+### Added
+  - [feat] aws, vsphere default 변수 세팅 기능 추가 by sjoh0704
+
+### Changed
+  - [mod] create type cluster에 대해 application 삭제 기능 수정 by sjoh0704
+  - [mod] fix vsphere-csi-controller crashloopback by sjoh0704
+
+### Fixed
+
+### CRD yaml
+  - [crd] cluster update claim 기획 반영 by sjoh0704
+  - [crd] vsphere vm password 설정 기능 추가 및 dockerhub login 주석 추가 by sjoh0704
+  - [crd] vsphere credential 조회 로직 추가 by sjoh0704
+
+### Etc
+  - [etc] secret controller error fix 및 refactoring by sjoh0704
+  - [etc] kubeconfig secret 관련 log 추가 by sjoh0704
+  - [etc] fix label error by sjoh0704
+
+<!--------------------- v5.1.1.1 end --------------------->
+
 <!-------------------- v5.1.1.0 start -------------------->
 
 ## HyperCloud-Multi-Operator_5.1.1.0 (2023. 01. 19. (목) 11:18:58 KST)
