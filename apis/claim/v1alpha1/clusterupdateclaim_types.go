@@ -38,7 +38,8 @@ const (
 	ClusterUpdateClaimReasonClusterNotFound   = ClusterUpdateClaimReason("Cluster not found")
 	ClusterUpdateClaimReasonClusterIsDeleting = ClusterUpdateClaimReason("Cluster is deleting")
 	ClusterUpdateClaimReasonAdminApproved     = ClusterUpdateClaimReason("Admin approved")
-	ClusterUpdateClaimReasonAdminRejected     = ClusterUpdateClaimReason("Admin rejected")
+	ClusterUpdateClaimReasonAdminAwaiting     = ClusterUpdateClaimReason("Waiting for admin approval")
+	ClusterUpdateClaimReasonConcurruencyError = ClusterUpdateClaimReason("The number of nodes at the time of creation of the clusterupdataclaim differs from the current number of nodes.")
 )
 
 type ClusterUpdateType string
@@ -50,13 +51,13 @@ const (
 // ClusterUpdateClaimSpec defines the desired state of ClusterUpdateClaim
 type ClusterUpdateClaimSpec struct {
 	// +kubebuilder:validation:Required
-	// The name of the cluster to be created
+	// The name of the cluster to be created.
 	ClusterName string `json:"clusterName"`
 	// +kubebuilder:validation:Minimum:=1
-	// The expected number of master node
+	// The expected number of master node.
 	UpdatedMasterNum int `json:"updatedMasterNum,omitempty"`
 	// +kubebuilder:validation:Minimum:=1
-	// The expected number of worker node
+	// The expected number of worker node.
 	UpdatedWorkerNum int `json:"updatedWorkerNum,omitempty"`
 }
 
@@ -66,6 +67,11 @@ type ClusterUpdateClaimStatus struct {
 	Reason ClusterUpdateClaimReason `json:"reason,omitempty" protobuf:"bytes,3,opt,name=reason"`
 	// +kubebuilder:validation:Enum=Awaiting;Approved;Rejected;Error;Cluster Deleted;
 	Phase ClusterUpdateClaimPhase `json:"phase,omitempty" protobuf:"bytes,4,opt,name=phase"`
+
+	// The number of current master node.
+	CurrentMasterNum int `json:"currentMasterNum,omitempty"`
+	// The number of current worker node.
+	CurrentWorkerNum int `json:"currentWorkerNum,omitempty"`
 }
 
 // +kubebuilder:object:root=true
@@ -119,4 +125,39 @@ func (c *ClusterUpdateClaim) GetClusterNamespacedName() types.NamespacedName {
 		Name:      c.Spec.ClusterName,
 		Namespace: c.Namespace,
 	}
+}
+
+func (c *ClusterUpdateClaim) IsPhaseError() bool {
+	if c.Status.Phase == ClusterUpdateClaimPhaseError {
+		return true
+	}
+	return false
+}
+
+func (c *ClusterUpdateClaim) IsPhaseApproved() bool {
+	if c.Status.Phase == ClusterUpdateClaimPhaseApproved {
+		return true
+	}
+	return false
+}
+
+func (c *ClusterUpdateClaim) IsPhaseRejected() bool {
+	if c.Status.Phase == ClusterUpdateClaimPhaseRejected {
+		return true
+	}
+	return false
+}
+
+func (c *ClusterUpdateClaim) IsPhaseAwaiting() bool {
+	if c.Status.Phase == ClusterUpdateClaimPhaseAwaiting {
+		return true
+	}
+	return false
+}
+
+func (c *ClusterUpdateClaim) IsPhaseEmpty() bool {
+	if c.Status.Phase == "" {
+		return true
+	}
+	return false
 }

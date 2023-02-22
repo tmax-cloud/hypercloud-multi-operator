@@ -107,34 +107,35 @@ func (r *ClusterUpdateClaimReconciler) reconcile(ctx context.Context, cuc *claim
 
 	log.Info(fmt.Sprintf("Found clustermanager [%s]. Start clusterupdateclaim reconcile phase", cuc.Spec.ClusterName))
 
-	if err := r.SetupClaimStatus(cuc, clm); err != nil {
-		log.Error(err, "Failed to reconcile SetupClaimStatus")
-		return ctrl.Result{}, err
-	}
+	r.SetupClaim(cuc, clm)
 
-	isError := cuc.Status.Phase == claimV1alpha1.ClusterUpdateClaimPhaseError
-	isAwaiting := cuc.Status.Phase == claimV1alpha1.ClusterUpdateClaimPhaseAwaiting
-
-	if isError || isAwaiting {
+	if cuc.IsPhaseError() || cuc.IsPhaseAwaiting() {
 		return ctrl.Result{}, nil
 	}
 
-	isApproved := cuc.Status.Phase == claimV1alpha1.ClusterUpdateClaimPhaseApproved
-	isRejected := cuc.Status.Phase == claimV1alpha1.ClusterUpdateClaimPhaseRejected
-
-	if isApproved {
+	if cuc.IsPhaseApproved() {
 		log.Info("Approved clusterupdateclaim")
-		if err := r.UpdateClusterManager(clm, cuc); err != nil {
+
+		if err := r.CheckValidClaim(clm, cuc); err != nil {
+			log.Error(err, "Failed to approve")
+			cuc.Status.SetTypedPhase(claimV1alpha1.ClusterUpdateClaimPhaseError)
+			cuc.Status.SetTypedReason(claimV1alpha1.ClusterUpdateClaimReasonConcurruencyError)
+			return ctrl.Result{}, nil
+		}
+
+		if err := r.UpdateNodeNum(clm, cuc); err != nil {
+			log.Error(err, "Failed to approve")
 			cuc.Status.SetTypedPhase(claimV1alpha1.ClusterUpdateClaimPhaseError)
 			cuc.Status.SetTypedReason(claimV1alpha1.ClusterUpdateClaimReason(err.Error()))
 			return ctrl.Result{}, err
 		}
+
+		cuc.Status.SetTypedPhase(claimV1alpha1.ClusterUpdateClaimPhaseApproved)
 		cuc.Status.SetTypedReason(claimV1alpha1.ClusterUpdateClaimReasonAdminApproved)
 		return ctrl.Result{}, nil
-	} else if isRejected {
+	} else if cuc.IsPhaseRejected() {
 		log.Info("Rejected clusterupdateclaim")
 		// 거절된 이유는 API 서버에서 입력
-		// cuc.Status.SetTypedReason(claimV1alpha1.ClusterUpdateClaimReasonAdminRejected)
 		return ctrl.Result{}, nil
 	}
 	return ctrl.Result{}, nil
@@ -156,11 +157,7 @@ func (r *ClusterUpdateClaimReconciler) SetupWithManager(mgr ctrl.Manager) error 
 					oc := e.ObjectOld.(*claimV1alpha1.ClusterUpdateClaim)
 					nc := e.ObjectNew.(*claimV1alpha1.ClusterUpdateClaim)
 
-					IsApproved := oc.Status.Phase == claimV1alpha1.ClusterUpdateClaimPhaseApproved
-					IsRejected := oc.Status.Phase != claimV1alpha1.ClusterUpdateClaimPhaseRejected &&
-						nc.Status.Phase == claimV1alpha1.ClusterUpdateClaimPhaseRejected
-
-					if IsApproved || IsRejected {
+					if oc.IsPhaseApproved() || (!oc.IsPhaseRejected() && nc.IsPhaseRejected()) {
 						return false
 					}
 

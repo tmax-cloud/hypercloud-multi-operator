@@ -6,4 +6,4 @@ kind: Kustomization
 images:
 - name: controller
   newName: 192.168.9.12:5000/hypercloud-multi-operator-dev
-  newTag: "02211826"
+  newTag: "02221542"
