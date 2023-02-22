@@ -59,14 +59,14 @@ spec:
             description: ClusterUpdateClaimSpec defines the desired state of ClusterUpdateClaim
             properties:
               clusterName:
-                description: The name of the cluster to be created
+                description: The name of the cluster to be created.
                 type: string
               updatedMasterNum:
-                description: The expected number of master node
+                description: The expected number of master node.
                 minimum: 1
                 type: integer
               updatedWorkerNum:
-                description: The expected number of worker node
+                description: The expected number of worker node.
                 minimum: 1
                 type: integer
             required:
@@ -75,6 +75,12 @@ spec:
           status:
             description: ClusterUpdateClaimStatus defines the observed state of ClusterUpdateClaim
             properties:
+              currentMasterNum:
+                description: The number of current master node.
+                type: integer
+              currentWorkerNum:
+                description: The number of current worker node.
+                type: integer
               phase:
                 enum:
                 - Awaiting

@@ -2,35 +2,44 @@ package controllers
 
 import (
 	"context"
+	"fmt"
 
 	claimV1alpha1 "github.com/tmax-cloud/hypercloud-multi-operator/apis/claim/v1alpha1"
 	clusterV1alpha1 "github.com/tmax-cloud/hypercloud-multi-operator/apis/cluster/v1alpha1"
-	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	// "k8s.io/apimachinery/pkg/api/errors"
 )
 
-// cluster update claim의 type에 맞게 clusterManager를 변경한다.
-func (r *ClusterUpdateClaimReconciler) UpdateClusterManager(clm *clusterV1alpha1.ClusterManager, cuc *claimV1alpha1.ClusterUpdateClaim) error {
+// updateclaim에 대한 낙관적 동시성 처리
+func (r *ClusterUpdateClaimReconciler) CheckValidClaim(clm *clusterV1alpha1.ClusterManager, cuc *claimV1alpha1.ClusterUpdateClaim) error {
+	// awaiting 상태가 되었을 시점의 master, worker node 수
+	statusMasterNum := cuc.Status.CurrentMasterNum
+	statusWorkerNum := cuc.Status.CurrentWorkerNum
 
-	masterNum := cuc.Spec.UpdatedMasterNum
-	workerNum := cuc.Spec.UpdatedWorkerNum
-	if err := r.UpdateNodeNum(clm, masterNum, workerNum); err != nil {
-		return err
+	// 실제 master, worker 노드 수
+	realMasterNum := clm.Spec.MasterNum
+	realWorkerNum := clm.Spec.WorkerNum
+
+	// 두 노드 수가 다르면 Error
+	if statusMasterNum != realMasterNum || statusWorkerNum != realWorkerNum {
+		return fmt.Errorf(string(claimV1alpha1.ClusterUpdateClaimReasonConcurruencyError))
 	}
 	return nil
 }
 
 // 노드를 스케일링할 때 사용하는 메소드
-func (r *ClusterUpdateClaimReconciler) UpdateNodeNum(clm *clusterV1alpha1.ClusterManager, masterNum int, workerNum int) error {
+func (r *ClusterUpdateClaimReconciler) UpdateNodeNum(clm *clusterV1alpha1.ClusterManager, cuc *claimV1alpha1.ClusterUpdateClaim) error {
 
-	if masterNum != 0 {
-		clm.Spec.MasterNum = masterNum
+	realMasterNum := clm.Spec.MasterNum
+	realWorkerNum := clm.Spec.WorkerNum
+
+	if realMasterNum != cuc.Spec.UpdatedMasterNum {
+		clm.Spec.MasterNum = cuc.Spec.UpdatedMasterNum
 	}
 
-	if workerNum != 0 {
-		clm.Spec.WorkerNum = workerNum
+	if realWorkerNum != cuc.Spec.UpdatedWorkerNum {
+		clm.Spec.WorkerNum = cuc.Spec.UpdatedWorkerNum
 	}
 
 	if err := r.Update(context.TODO(), clm); err != nil {
@@ -57,19 +66,17 @@ func (r *ClusterUpdateClaimReconciler) RequeueClusterUpdateClaimsForClusterManag
 	}
 
 	for _, cuc := range cucs.Items {
-		if cuc.Status.Phase == claimV1alpha1.ClusterUpdateClaimPhaseApproved ||
-			cuc.Status.Phase == claimV1alpha1.ClusterUpdateClaimPhaseRejected {
+		if cuc.IsPhaseApproved() || cuc.IsPhaseRejected() {
 			continue
 		}
-		key := types.NamespacedName{Name: cuc.Name, Namespace: cuc.Namespace}
-		reqs = append(reqs, ctrl.Request{NamespacedName: key})
+		reqs = append(reqs, ctrl.Request{NamespacedName: cuc.GetNamespacedName()})
 	}
 
 	return reqs
 }
 
 // clusterupdateclaim 초기 세팅을 하는 메서드
-func (r *ClusterUpdateClaimReconciler) SetupClaimStatus(clusterUpdateClaim *claimV1alpha1.ClusterUpdateClaim, clusterManager *clusterV1alpha1.ClusterManager) error {
+func (r *ClusterUpdateClaimReconciler) SetupClaim(clusterUpdateClaim *claimV1alpha1.ClusterUpdateClaim, clusterManager *clusterV1alpha1.ClusterManager) {
 	if clusterUpdateClaim.Labels == nil {
 		clusterUpdateClaim.Labels = map[string]string{}
 	}
@@ -78,11 +85,19 @@ func (r *ClusterUpdateClaimReconciler) SetupClaimStatus(clusterUpdateClaim *clai
 		clusterUpdateClaim.Labels[LabelKeyClmName] = clusterUpdateClaim.Spec.ClusterName
 	}
 
-	// phase가 error인 경우, 수정되어 들어올 수 있으므로
-	if clusterUpdateClaim.Status.Phase != "Approved" {
+	// phase in (공백, error, rejected) 인 경우, awaiting으로 수정
+	if clusterUpdateClaim.IsPhaseEmpty() || clusterUpdateClaim.IsPhaseError() || clusterUpdateClaim.IsPhaseRejected() {
 		clusterUpdateClaim.Status.SetTypedPhase(claimV1alpha1.ClusterUpdateClaimPhaseAwaiting)
-		clusterUpdateClaim.Status.Reason = "Waiting for admin approval"
-	}
+		clusterUpdateClaim.Status.SetTypedReason(claimV1alpha1.ClusterUpdateClaimReasonAdminAwaiting)
 
-	return nil
+		clusterUpdateClaim.Status.CurrentMasterNum = clusterManager.Spec.MasterNum
+		clusterUpdateClaim.Status.CurrentWorkerNum = clusterManager.Spec.WorkerNum
+
+		if clusterUpdateClaim.Spec.UpdatedMasterNum == 0 {
+			clusterUpdateClaim.Spec.UpdatedMasterNum = clusterManager.Spec.MasterNum
+		}
+		if clusterUpdateClaim.Spec.UpdatedWorkerNum == 0 {
+			clusterUpdateClaim.Spec.UpdatedWorkerNum = clusterManager.Spec.WorkerNum
+		}
+	}
 }
