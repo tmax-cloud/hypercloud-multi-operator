@@ -1,6 +1,24 @@
 # HyperCloud-Multi-Operator changelog!!
 All notable changes to this project will be documented in this file.
 
+<!-------------------- v5.1.1.2 start -------------------->
+
+## HyperCloud-Multi-Operator_5.1.1.2 (2023. 02. 22. (수) 17:44:24 KST)
+
+### Added
+  - [feat] webhook 및 예외처리 추가 by sjoh0704
+
+### Changed
+
+### Fixed
+
+### CRD yaml
+  - [crd] status에 노드 수 추가, 동시성 예외 처리 추가, 리팩토링 by sjoh0704
+
+### Etc
+
+<!--------------------- v5.1.1.2 end --------------------->
+
 <!-------------------- v5.1.1.1 start -------------------->
 
 ## HyperCloud-Multi-Operator_5.1.1.1 (2023. 02. 21. (화) 18:57:28 KST)
