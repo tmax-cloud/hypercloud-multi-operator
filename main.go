@@ -157,6 +157,11 @@ func setupWebhooks(mgr ctrl.Manager) {
 		os.Exit(1)
 	}
 
+	if err := (&claimV1alpha1.ClusterUpdateClaim{}).SetupWebhookWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create webhook", "webhook", "ClusterRegistration")
+		os.Exit(1)
+	}
+
 	if err := (&clusterV1alpha1.ClusterManager{}).SetupWebhookWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create webhook", "webhook", "ClusterManager")
 		os.Exit(1)
@@ -166,6 +171,7 @@ func setupWebhooks(mgr ctrl.Manager) {
 		setupLog.Error(err, "unable to create webhook", "webhook", "ClusterRegistration")
 		os.Exit(1)
 	}
+
 }
 
 func setupChecks() {

@@ -64,6 +64,29 @@ webhooks:
     service:
       name: webhook-service
       namespace: system
+      path: /validate-claim-tmax-io-v1alpha1-clusterupdateclaim
+  failurePolicy: Fail
+  name: validation.webhook.clusterupdateclaim
+  rules:
+  - apiGroups:
+    - claim.tmax.io
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    - DELETE
+    resources:
+    - clusterupdateclaims
+    - clusterupdateclaims/status
+  sideEffects: NoneOnDryRun
+- admissionReviewVersions:
+  - v1beta1
+  - v1
+  clientConfig:
+    service:
+      name: webhook-service
+      namespace: system
       path: /validate-cluster-tmax-io-v1alpha1-clustermanager
   failurePolicy: Fail
   name: validation.webhook.clustermanager
