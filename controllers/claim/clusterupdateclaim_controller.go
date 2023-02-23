@@ -114,8 +114,6 @@ func (r *ClusterUpdateClaimReconciler) reconcile(ctx context.Context, cuc *claim
 	}
 
 	if cuc.IsPhaseApproved() {
-		log.Info("Approved clusterupdateclaim")
-
 		if err := r.CheckValidClaim(clm, cuc); err != nil {
 			log.Error(err, "Failed to approve")
 			cuc.Status.SetTypedPhase(claimV1alpha1.ClusterUpdateClaimPhaseError)
@@ -130,6 +128,7 @@ func (r *ClusterUpdateClaimReconciler) reconcile(ctx context.Context, cuc *claim
 			return ctrl.Result{}, err
 		}
 
+		log.Info("Approved clusterupdateclaim")
 		cuc.Status.SetTypedPhase(claimV1alpha1.ClusterUpdateClaimPhaseApproved)
 		cuc.Status.SetTypedReason(claimV1alpha1.ClusterUpdateClaimReasonAdminApproved)
 		return ctrl.Result{}, nil

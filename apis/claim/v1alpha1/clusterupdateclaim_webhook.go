@@ -52,12 +52,7 @@ func (r *ClusterUpdateClaim) ValidateCreate() error {
 
 // ValidateUpdate implements webhook.Validator so a webhook will be registered for the type
 func (r *ClusterUpdateClaim) ValidateUpdate(old runtime.Object) error {
-	oc := old.(*ClusterUpdateClaim).DeepCopy()
-
-	// approved일 때 상태를 변경할 수 없음
-	if oc.IsPhaseApproved() {
-		return fmt.Errorf("Cannot change when in Approved phase")
-	}
+	// oc := old.(*ClusterUpdateClaim).DeepCopy()
 
 	// masterNum을 짝수로 변경하는 경우
 	masterNum := r.Spec.UpdatedMasterNum
