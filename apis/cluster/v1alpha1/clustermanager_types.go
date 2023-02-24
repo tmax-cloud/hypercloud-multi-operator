@@ -224,11 +224,6 @@ const (
 	ProviderVSphere = "vSphere"
 )
 
-func (c *ClusterManagerStatus) SetTypedPhase(p ClusterManagerPhase) {
-	// c.Phase = string(p)
-	c.Phase = p
-}
-
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:path=clustermanagers,scope=Namespaced,shortName=clm
@@ -286,10 +281,27 @@ func (c *ClusterManager) GetApplicationName() string {
 	return c.GetNamespacedPrefix() + "-applications"
 }
 
-func (c *ClusterManager) GetPhase() ClusterManagerPhase {
-	return c.Status.Phase
+func (c *ClusterManagerStatus) SetTypedPhase(p ClusterManagerPhase) {
+	c.Phase = p
 }
 
-func (c *ClusterManager) SetPhase(phase ClusterManagerPhase) {
-	c.Status.Phase = phase
+func (c ClusterManagerStatus) GetTypedPhase() ClusterManagerPhase {
+	return c.Phase
+}
+
+func (c ClusterManager) GetK8SVersion() string {
+	return c.Spec.Version
+}
+
+func (c *ClusterManager) SetK8SVersion(version string) {
+	c.Spec.Version = version
+}
+
+
+func (c ClusterManagerStatus) GetK8SVersion() string {
+	return c.Version
+}
+
+func (c *ClusterManagerStatus) SetK8SVersion(version string) {
+	c.Version = version
 }

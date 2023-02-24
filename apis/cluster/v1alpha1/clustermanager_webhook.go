@@ -79,8 +79,8 @@ func (r *ClusterManager) ValidateUpdate(old runtime.Object) error {
 
 	if oldClusterManager.GetClusterType() == ClusterTypeCreated {
 		// cluster 생성 중에 version upgrade 또는 scaling을 진행할 수 없음
-		if oldClusterManager.Status.Phase == ClusterManagerPhaseProcessing {
-			if r.Spec.Version != oldClusterManager.Spec.Version ||
+		if oldClusterManager.Status.GetTypedPhase() == ClusterManagerPhaseProcessing {
+			if r.GetK8SVersion() != oldClusterManager.GetK8SVersion() ||
 				r.Spec.MasterNum != oldClusterManager.Spec.MasterNum ||
 				r.Spec.WorkerNum != oldClusterManager.Spec.WorkerNum {
 				return errors.New("Cannot upgrade or scaling, when cluster's phase is progressing")
@@ -89,7 +89,7 @@ func (r *ClusterManager) ValidateUpdate(old runtime.Object) error {
 		}
 
 		// version upgrade의 경우
-		if r.Spec.Version != oldClusterManager.Spec.Version {
+		if r.GetK8SVersion() != oldClusterManager.GetK8SVersion() {
 			// vsphere의 경우, version과 template을 함께 업데이트해야 함
 			if r.Spec.Provider == ProviderVSphere {
 				if r.VsphereSpec.VcenterTemplate == oldClusterManager.VsphereSpec.VcenterTemplate {
@@ -101,19 +101,19 @@ func (r *ClusterManager) ValidateUpdate(old runtime.Object) error {
 		// scaling을 못하는 경우
 		if (r.Spec.MasterNum != oldClusterManager.Spec.MasterNum ||
 			r.Spec.WorkerNum != oldClusterManager.Spec.WorkerNum) &&
-			(oldClusterManager.Status.Phase == ClusterManagerPhaseProcessing ||
-				oldClusterManager.Status.Phase == ClusterManagerPhaseScaling ||
-				oldClusterManager.Status.Phase == ClusterManagerPhaseDeleting ||
-				oldClusterManager.Status.Phase == ClusterManagerPhaseUpgrading) {
+			(oldClusterManager.Status.GetTypedPhase() == ClusterManagerPhaseProcessing ||
+				oldClusterManager.Status.GetTypedPhase() == ClusterManagerPhaseScaling ||
+				oldClusterManager.Status.GetTypedPhase() == ClusterManagerPhaseDeleting ||
+				oldClusterManager.Status.GetTypedPhase() == ClusterManagerPhaseUpgrading) {
 			return errors.New("Cannot update MasterNum or WorkerNum at Processing, Scaling, Upgrading or Deleting phases")
 		}
 
 		// version upgrade를 못하는 경우
-		if r.Spec.Version != oldClusterManager.Spec.Version &&
-			(oldClusterManager.Status.Phase == ClusterManagerPhaseProcessing ||
-				oldClusterManager.Status.Phase == ClusterManagerPhaseScaling ||
-				oldClusterManager.Status.Phase == ClusterManagerPhaseDeleting ||
-				oldClusterManager.Status.Phase == ClusterManagerPhaseUpgrading) {
+		if r.GetK8SVersion() != oldClusterManager.GetK8SVersion() &&
+			(oldClusterManager.Status.GetTypedPhase() == ClusterManagerPhaseProcessing ||
+				oldClusterManager.Status.GetTypedPhase() == ClusterManagerPhaseScaling ||
+				oldClusterManager.Status.GetTypedPhase() == ClusterManagerPhaseDeleting ||
+				oldClusterManager.Status.GetTypedPhase() == ClusterManagerPhaseUpgrading) {
 			return errors.New("Cannot update version at Progressing, Scaling, Upgrading or Deleting phases")
 		}
 
