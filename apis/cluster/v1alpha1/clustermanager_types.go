@@ -285,3 +285,11 @@ func (c *ClusterManager) GetClusterType() string {
 func (c *ClusterManager) GetApplicationName() string {
 	return c.GetNamespacedPrefix() + "-applications"
 }
+
+func (c *ClusterManager) GetPhase() ClusterManagerPhase {
+	return c.Status.Phase
+}
+
+func (c *ClusterManager) SetPhase(phase ClusterManagerPhase) {
+	c.Status.Phase = phase
+}
