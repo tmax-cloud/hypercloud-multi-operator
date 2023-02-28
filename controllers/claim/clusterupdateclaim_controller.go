@@ -105,6 +105,13 @@ func (r *ClusterUpdateClaimReconciler) reconcile(ctx context.Context, cuc *claim
 		return ctrl.Result{RequeueAfter: requeueAfter10Second}, nil
 	}
 
+	if clm.GetClusterType() != clusterV1alpha1.ClusterTypeCreated {
+		log.Info(fmt.Sprintf("Clustermanager[%s] type is not created.", cuc.Spec.ClusterName))
+		cuc.Status.SetTypedPhase(claimV1alpha1.ClusterUpdateClaimPhaseError)
+		cuc.Status.SetTypedReason(claimV1alpha1.ClusterUpdateClaimReasonInvalidCluster)
+		return ctrl.Result{}, nil
+	}
+
 	log.Info(fmt.Sprintf("Found clustermanager [%s]. Start clusterupdateclaim reconcile phase", cuc.Spec.ClusterName))
 
 	r.SetupClaim(cuc, clm)

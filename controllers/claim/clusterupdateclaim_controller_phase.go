@@ -76,7 +76,7 @@ func (r *ClusterUpdateClaimReconciler) RequeueClusterUpdateClaimsForClusterManag
 }
 
 // clusterupdateclaim 초기 세팅을 하는 메서드
-func (r *ClusterUpdateClaimReconciler) SetupClaim(clusterUpdateClaim *claimV1alpha1.ClusterUpdateClaim, clusterManager *clusterV1alpha1.ClusterManager) {
+func (r *ClusterUpdateClaimReconciler) SetupClaim(clusterUpdateClaim *claimV1alpha1.ClusterUpdateClaim, clusterManager *clusterV1alpha1.ClusterManager){
 	if clusterUpdateClaim.Labels == nil {
 		clusterUpdateClaim.Labels = map[string]string{}
 	}

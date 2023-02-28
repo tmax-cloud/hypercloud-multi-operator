@@ -70,8 +70,8 @@ func (r *ClusterManagerReconciler) ReadyReconcilePhase(ctx context.Context, clus
 		}
 	}
 
-	if clusterManager.Status.Version == "" {
-		clusterManager.Status.Version = clusterManager.Spec.Version
+	if clusterManager.Status.GetK8SVersion() == "" {
+		clusterManager.Status.SetK8SVersion(clusterManager.Spec.Version)
 	}
 	if clusterManager.Status.MasterNum == 0 {
 		clusterManager.Status.MasterNum = clusterManager.Spec.MasterNum
@@ -136,7 +136,8 @@ func (r *ClusterManagerReconciler) UpdateClusterManagerStatus(ctx context.Contex
 	if err := json.Unmarshal(jsonData, &data); err != nil {
 		return ctrl.Result{}, err
 	}
-	clusterManager.Spec.Version = fmt.Sprintf("%v", data["kubernetesVersion"])
+
+	clusterManager.SetK8SVersion(fmt.Sprintf("%v", data["kubernetesVersion"]))
 
 	nodeList, err := remoteClientset.
 		CoreV1().
@@ -313,7 +314,7 @@ func (r *ClusterManagerReconciler) CreateUpgradeServiceInstance(ctx context.Cont
 	log.Info("Start to reconcile phase for CreateUpgradeServiceInstance")
 
 	// controlplane service instance 생성
-	controlplaneInstanceName := fmt.Sprintf("%s-controlplane-%s", clusterManager.Name, clusterManager.Spec.Version)
+	controlplaneInstanceName := fmt.Sprintf("%s-controlplane-%s", clusterManager.Name, clusterManager.GetK8SVersion())
 	key := types.NamespacedName{
 		Name:      controlplaneInstanceName,
 		Namespace: clusterManager.Namespace,
@@ -341,7 +342,7 @@ func (r *ClusterManagerReconciler) CreateUpgradeServiceInstance(ctx context.Cont
 	}
 
 	// worker service instance 생성
-	workerInstanceName := fmt.Sprintf("%s-worker-%s", clusterManager.Name, clusterManager.Spec.Version)
+	workerInstanceName := fmt.Sprintf("%s-worker-%s", clusterManager.Name, clusterManager.GetK8SVersion())
 	key = types.NamespacedName{
 		Name:      workerInstanceName,
 		Namespace: clusterManager.Namespace,
@@ -487,7 +488,7 @@ func (r *ClusterManagerReconciler) UpgradeCluster(ctx context.Context, clusterMa
 
 	if clusterManager.Spec.Provider == clusterV1alpha1.ProviderVSphere {
 		// service instance 체크 for controlplane
-		serviceInstanceName := fmt.Sprintf("%s-controlplane-%s", clusterManager.Name, clusterManager.Spec.Version)
+		serviceInstanceName := fmt.Sprintf("%s-controlplane-%s", clusterManager.Name, clusterManager.GetK8SVersion())
 		key := types.NamespacedName{
 			Name:      serviceInstanceName,
 			Namespace: clusterManager.Namespace,
@@ -508,7 +509,7 @@ func (r *ClusterManagerReconciler) UpgradeCluster(ctx context.Context, clusterMa
 		}
 
 		// service instance 체크 for worker
-		serviceInstanceName = fmt.Sprintf("%s-worker-%s", clusterManager.Name, clusterManager.Spec.Version)
+		serviceInstanceName = fmt.Sprintf("%s-worker-%s", clusterManager.Name, clusterManager.GetK8SVersion())
 		key = types.NamespacedName{
 			Name:      serviceInstanceName,
 			Namespace: clusterManager.Namespace,
@@ -545,10 +546,10 @@ func (r *ClusterManagerReconciler) UpgradeCluster(ctx context.Context, clusterMa
 	}
 
 	// 단일 트랜잭션으로 업데이트 필요
-	if kcp.Spec.Version != clusterManager.Spec.Version {
-		kcp.Spec.Version = clusterManager.Spec.Version
+	if kcp.Spec.Version != clusterManager.GetK8SVersion() {
+		kcp.Spec.Version = clusterManager.GetK8SVersion()
 		if clusterManager.Spec.Provider == clusterV1alpha1.ProviderVSphere {
-			kcp.Spec.InfrastructureTemplate.Name = fmt.Sprintf("%s-controlplane-%s", clusterManager.Name, clusterManager.Spec.Version)
+			kcp.Spec.InfrastructureTemplate.Name = fmt.Sprintf("%s-controlplane-%s", clusterManager.Name, clusterManager.GetK8SVersion())
 		}
 		if err := r.Update(context.TODO(), kcp); err != nil {
 			log.Error(err, "Failed to update kubeadmcontrolplane")
@@ -586,10 +587,10 @@ func (r *ClusterManagerReconciler) UpgradeCluster(ctx context.Context, clusterMa
 		return ctrl.Result{}, err
 	}
 
-	if *md.Spec.Template.Spec.Version != clusterManager.Spec.Version {
-		*md.Spec.Template.Spec.Version = clusterManager.Spec.Version
+	if *md.Spec.Template.Spec.Version != clusterManager.GetK8SVersion() {
+		*md.Spec.Template.Spec.Version = clusterManager.GetK8SVersion()
 		if clusterManager.Spec.Provider == clusterV1alpha1.ProviderVSphere {
-			md.Spec.Template.Spec.InfrastructureRef.Name = fmt.Sprintf("%s-worker-%s", clusterManager.Name, clusterManager.Spec.Version)
+			md.Spec.Template.Spec.InfrastructureRef.Name = fmt.Sprintf("%s-worker-%s", clusterManager.Name, clusterManager.GetK8SVersion())
 		}
 		if err := r.Update(context.TODO(), md); err != nil {
 			log.Error(err, "Failed to update machinedeployment")
@@ -613,7 +614,7 @@ func (r *ClusterManagerReconciler) UpgradeCluster(ctx context.Context, clusterMa
 		return ctrl.Result{RequeueAfter: requeueAfter1Minute}, nil
 	}
 
-	clusterManager.Status.Version = clusterManager.Spec.Version
+	clusterManager.Status.SetK8SVersion(clusterManager.Spec.Version)
 	log.Info("Cluster upgradeded successfully")
 	return ctrl.Result{}, nil
 }

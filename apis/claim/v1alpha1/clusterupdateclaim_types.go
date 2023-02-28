@@ -40,6 +40,7 @@ const (
 	ClusterUpdateClaimReasonAdminApproved     = ClusterUpdateClaimReason("Admin approved")
 	ClusterUpdateClaimReasonAdminAwaiting     = ClusterUpdateClaimReason("Waiting for admin approval")
 	ClusterUpdateClaimReasonConcurruencyError = ClusterUpdateClaimReason("The number of nodes at the time of creation of the clusterupdataclaim differs from the current number of nodes.")
+	ClusterUpdateClaimReasonInvalidCluster   = ClusterUpdateClaimReason("Cluster type is not created type")
 )
 
 type ClusterUpdateType string

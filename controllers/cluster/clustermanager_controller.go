@@ -189,7 +189,7 @@ func (r *ClusterManagerReconciler) reconcile(ctx context.Context, clusterManager
 
 	// special case- capi upgrade/master scaling/worker scaling
 	if clusterManager.GetClusterType() == clusterV1alpha1.ClusterTypeCreated {
-		if clusterManager.Status.Version != "" && clusterManager.Spec.Version != clusterManager.Status.Version {
+		if clusterManager.Status.GetK8SVersion() != "" && clusterManager.GetK8SVersion() != clusterManager.Status.GetK8SVersion() {
 			phases = []phaseFunc{}
 			if clusterManager.Spec.Provider == clusterV1alpha1.ProviderVSphere {
 				phases = append(phases, r.CreateUpgradeServiceInstance)
@@ -352,7 +352,7 @@ func (r *ClusterManagerReconciler) reconcilePhase(_ context.Context, clusterMana
 		return
 	}
 
-	if clusterManager.Status.Phase == "" {
+	if clusterManager.Status.GetTypedPhase() == "" {
 		clusterManager.Status.SetTypedPhase(clusterV1alpha1.ClusterManagerPhaseProcessing)
 	}
 
@@ -376,7 +376,7 @@ func (r *ClusterManagerReconciler) reconcilePhase(_ context.Context, clusterMana
 	}
 
 	// cluster upgrading
-	if clusterManager.Status.Version != "" && clusterManager.Status.Version != clusterManager.Spec.Version {
+	if clusterManager.Status.GetK8SVersion() != "" && clusterManager.Status.GetK8SVersion() != clusterManager.GetK8SVersion() {
 		clusterManager.Status.SetTypedPhase(clusterV1alpha1.ClusterManagerPhaseUpgrading)
 		return
 	}
@@ -403,7 +403,7 @@ func (r *ClusterManagerReconciler) SetupWithManager(mgr ctrl.Manager) error {
 					isControlPlaneEndpointUpdate := oldclm.Status.ControlPlaneEndpoint == "" &&
 						newclm.Status.ControlPlaneEndpoint != ""
 					isSubResourceNotReady := !newclm.Status.ArgoReady || !newclm.Status.TraefikReady || !newclm.Status.GatewayReady
-					isUpgrade := oldclm.Spec.Version != "" && oldclm.Spec.Version != newclm.Spec.Version
+					isUpgrade := oldclm.GetK8SVersion() != "" && oldclm.GetK8SVersion() != newclm.GetK8SVersion()
 					isScaling := oldclm.Spec.MasterNum != newclm.Spec.MasterNum ||
 						oldclm.Spec.WorkerNum != newclm.Spec.WorkerNum
 					if isDelete || isControlPlaneEndpointUpdate || isFinalized || isUpgrade || isScaling {
