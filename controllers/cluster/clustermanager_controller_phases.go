@@ -875,30 +875,30 @@ func (r *ClusterManagerReconciler) CreateGatewayResources(ctx context.Context, c
 		return ctrl.Result{}, err
 	}
 
-	remoteTraefikClient, err := util.GetRemoteK8sTraefikClient(kubeconfigSecret)
-	if err != nil {
-		log.Error(err, "Failed to get remoteK8sClient")
-		return ctrl.Result{}, err
-	}
+	// remoteTraefikClient, err := util.GetRemoteK8sTraefikClient(kubeconfigSecret)
+	// if err != nil {
+	// 	log.Error(err, "Failed to get remoteK8sClient")
+	// 	return ctrl.Result{}, err
+	// }
 
 	// single cluster에 ingressroute 생성
-	_, err = remoteTraefikClient.
-		IngressRoutes(util.ApiGatewayNamespace).
-		Get(context.TODO(), util.MonitoringIngressRoute, metav1.GetOptions{})
+	// _, err = remoteTraefikClient.
+	// 	IngressRoutes(util.ApiGatewayNamespace).
+	// 	Get(context.TODO(), util.MonitoringIngressRoute, metav1.GetOptions{})
 
-	if errors.IsNotFound(err) {
-		ingressRoute := ConstructMonitoringIngressRoute()
-		if _, err = remoteTraefikClient.
-			IngressRoutes(util.ApiGatewayNamespace).
-			Create(context.TODO(), &ingressRoute, metav1.CreateOptions{}); err != nil {
-			log.Error(err, "Failed to create ingressroute in workload cluster")
-			return ctrl.Result{}, err
-		}
-		log.Info("Created ingressroute successfully in workload cluster")
-	} else if err != nil {
-		log.Error(err, "Failed to get Service for gateway")
-		return ctrl.Result{}, err
-	}
+	// if errors.IsNotFound(err) {
+	// 	ingressRoute := ConstructMonitoringIngressRoute()
+	// 	if _, err = remoteTraefikClient.
+	// 		IngressRoutes(util.ApiGatewayNamespace).
+	// 		Create(context.TODO(), &ingressRoute, metav1.CreateOptions{}); err != nil {
+	// 		log.Error(err, "Failed to create ingressroute in workload cluster")
+	// 		return ctrl.Result{}, err
+	// 	}
+	// 	log.Info("Created ingressroute successfully in workload cluster")
+	// } else if err != nil {
+	// 	log.Error(err, "Failed to get Service for gateway")
+	// 	return ctrl.Result{}, err
+	// }
 
 	clusterManager.Status.GatewayReady = true
 	return ctrl.Result{}, nil

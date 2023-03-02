@@ -297,7 +297,6 @@ func (c *ClusterManager) SetK8SVersion(version string) {
 	c.Spec.Version = version
 }
 
-
 func (c ClusterManagerStatus) GetK8SVersion() string {
 	return c.Version
 }
