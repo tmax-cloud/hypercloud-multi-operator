@@ -1,6 +1,23 @@
 # HyperCloud-Multi-Operator changelog!!
 All notable changes to this project will be documented in this file.
 
+<!-------------------- v5.1.2.2 start -------------------->
+
+## HyperCloud-Multi-Operator_5.1.2.2 (2023. 03. 09. (목) 10:24:18 KST)
+
+### Added
+  - [feat] delete create ingressroute logic by sjoh0704
+
+### Changed
+
+### Fixed
+
+### CRD yaml
+
+### Etc
+
+<!--------------------- v5.1.2.2 end --------------------->
+
 <!-------------------- v5.1.2.1 start -------------------->
 
 ## HyperCloud-Multi-Operator_5.1.2.1 (2023. 02. 28. (화) 12:56:24 KST)
