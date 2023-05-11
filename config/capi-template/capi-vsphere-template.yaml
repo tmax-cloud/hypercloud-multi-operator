@@ -1585,6 +1585,13 @@ objects:
       - echo "127.0.0.1   localhost" >>/etc/hosts
       - echo "127.0.0.1   {{ ds.meta_data.hostname }}" >>/etc/hosts
       - echo "{{ ds.meta_data.hostname }}" >/etc/hostname
+      - echo 'root:${VM_PASSWORD}' | chpasswd
+      - sed -i 's/#PermitRootLogin prohibit-password/PermitRootLogin yes/' /etc/ssh/sshd_config
+      - systemctl restart sshd
+      # - echo '[plugins."io.containerd.grpc.v1.cri".registry.configs."registry-1.docker.io".auth]' >> /etc/containerd/config.toml
+      # - echo '  username = "dockerhub ID"' >> /etc/containerd/config.toml
+      # - echo '  password = "dockerhub PW"' >> /etc/containerd/config.toml
+      # - systemctl restart containerd
       postKubeadmCommands:
       - mkdir -p $HOME/.kube
       - cp /etc/kubernetes/admin.conf $HOME/.kube/config
@@ -1593,9 +1600,6 @@ objects:
       - sed -i 's/--bind-address=127.0.0.1/--bind-address=0.0.0.0/g' /etc/kubernetes/manifests/kube-controller-manager.yaml || echo
       - sed -i 's/--bind-address=127.0.0.1/--bind-address=0.0.0.0/g' /etc/kubernetes/manifests/kube-scheduler.yaml || echo
       - sed -i "s/--listen-metrics-urls=http:\/\/127.0.0.1:2381/--listen-metrics-urls=http:\/\/127.0.0.1:2381,http:\/\/{{ ds.meta_data.local_ipv4 }}:2381/g" /etc/kubernetes/manifests/etcd.yaml || echo
-      - echo 'root:dG1heEAyMw==' | chpasswd
-      - sed -i 's/#PermitRootLogin prohibit-password/PermitRootLogin yes/' /etc/ssh/sshd_config
-      - systemctl restart sshd
       useExperimentalRetryJoin: true
       users:
       - name: root
@@ -1624,9 +1628,13 @@ objects:
         - echo "127.0.0.1   localhost" >>/etc/hosts
         - echo "127.0.0.1   {{ ds.meta_data.hostname }}" >>/etc/hosts
         - echo "{{ ds.meta_data.hostname }}" >/etc/hostname
-        - echo 'root:dG1heEAyMw==' | chpasswd
+        - echo 'root:${VM_PASSWORD}' | chpasswd
         - sed -i 's/#PermitRootLogin prohibit-password/PermitRootLogin yes/' /etc/ssh/sshd_config
         - systemctl restart sshd
+        # - echo '[plugins."io.containerd.grpc.v1.cri".registry.configs."registry-1.docker.io".auth]' >> /etc/containerd/config.toml
+        # - echo '  username = "dockerhub ID"' >> /etc/containerd/config.toml
+        # - echo '  password = "dockerhub PW"' >> /etc/containerd/config.toml
+        # - systemctl restart containerd
         users:
         - name: root
           sshAuthorizedKeys:
@@ -2265,6 +2273,12 @@ parameters:
   required: false
   value: 3
   valueType: number
+- description: Password of VM
+  displayName: Password of VM
+  name: VM_PASSWORD
+  required: false
+  value: dG1heEAyMw==
+  valueType: string
 # - description: HyperAuth url for open id connect
 #   displayName: HyperAuth URL
 #   name: HyperAuthUrl
