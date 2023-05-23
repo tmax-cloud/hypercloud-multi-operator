@@ -28,7 +28,6 @@ import (
 	util "github.com/tmax-cloud/hypercloud-multi-operator/controllers/util"
 	traefikV1alpha1 "github.com/traefik/traefik/v2/pkg/provider/kubernetes/crd/traefik/v1alpha1"
 	coreV1 "k8s.io/api/core/v1"
-	networkingV1 "k8s.io/api/networking/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -44,7 +43,8 @@ import (
 	"sigs.k8s.io/yaml"
 )
 
-// reconcile시작 전 필요한 동작들을 수행
+// ReadyReconcilePhase는 reconcile시작 전에 수행되는 phase
+// reconcile 시작 전 필요한 동작들을 수행한다.
 func (r *ClusterManagerReconciler) ReadyReconcilePhase(ctx context.Context, clusterManager *clusterV1alpha1.ClusterManager) (ctrl.Result, error) {
 	log := r.Log.WithValues("clustermanager", clusterManager.GetNamespacedName())
 	log.Info("Start to reconcile phase for ReadyReconcilePhase")
@@ -55,27 +55,21 @@ func (r *ClusterManagerReconciler) ReadyReconcilePhase(ctx context.Context, clus
 		clusterManager.Status.GatewayReadyMigration = true
 	}
 
-	// ApplicationLink migration for old version
-	if clusterManager.Status.ApplicationLink == "" {
-		argoIngress := &networkingV1.Ingress{}
-		key := types.NamespacedName{
-			Name:      util.ArgoIngressName,
-			Namespace: util.ArgoNamespace,
-		}
-		if err := r.Client.Get(context.TODO(), key, argoIngress); err != nil {
-			log.Error(err, "Can not get argocd ingress information.")
-		} else {
-			subdomain := strings.Split(argoIngress.Spec.Rules[0].Host, ".")[0]
-			SetApplicationLink(clusterManager, subdomain)
-		}
+	// check Argocd ingress
+	_, err := r.fetchArgocdIngressDomain(clusterManager)
+	if err != nil {
+		log.Error(err, "Failed to get argocd ingress domain")
+		return ctrl.Result{RequeueAfter: requeueAfter10Second}, nil
 	}
 
 	if clusterManager.Status.GetK8SVersion() == "" {
 		clusterManager.Status.SetK8SVersion(clusterManager.Spec.Version)
 	}
+
 	if clusterManager.Status.MasterNum == 0 {
 		clusterManager.Status.MasterNum = clusterManager.Spec.MasterNum
 	}
+
 	if clusterManager.Status.WorkerNum == 0 {
 		clusterManager.Status.WorkerNum = clusterManager.Spec.WorkerNum
 	}
@@ -84,7 +78,7 @@ func (r *ClusterManagerReconciler) ReadyReconcilePhase(ctx context.Context, clus
 	if _, ok := clusterManager.Annotations[clusterV1alpha1.AnnotationKeyClmMgmtK8SVersion]; !ok {
 		version, err := r.FetchMgmtK8SVersion()
 		if err != nil {
-			return ctrl.Result{}, err
+			log.Error(err, "Failed to get management cluster version")
 		}
 		if version == "" {
 			clusterManager.Annotations[clusterV1alpha1.AnnotationKeyClmMgmtK8SVersion] = "empty"
@@ -97,7 +91,7 @@ func (r *ClusterManagerReconciler) ReadyReconcilePhase(ctx context.Context, clus
 		return ctrl.Result{RequeueAfter: requeueAfter1Minute}, nil
 	}
 	clusterManager.Status.Ready = true
-	log.Info("Cluster is ready successfully")
+	log.Info("ClusterManager is ready successfully")
 
 	return ctrl.Result{}, nil
 }
@@ -740,16 +734,13 @@ func (r *ClusterManagerReconciler) CreateArgocdResources(ctx context.Context, cl
 		return ctrl.Result{}, err
 	}
 
-	argoIngress := &networkingV1.Ingress{}
-	key = types.NamespacedName{
-		Name:      util.ArgoIngressName,
-		Namespace: util.ArgoNamespace,
+	// argocd ingress setting
+	subdomain, err := r.fetchArgocdIngressDomain(clusterManager)
+	if err != nil {
+		log.Error(err, "Failed to get argocd ingress domain")
+		return ctrl.Result{}, err
 	}
-	if err := r.Client.Get(context.TODO(), key, argoIngress); err != nil {
-		log.Error(err, "Can not get argocd ingress information.")
-	}
-	subdomain := strings.Split(argoIngress.Spec.Rules[0].Host, ".")[0]
-	SetApplicationLink(clusterManager, subdomain)
+	SetArgocdApplicationLink(clusterManager, subdomain)
 
 	log.Info("Create argocd cluster secret successfully")
 	clusterManager.Status.ArgoReady = true

@@ -55,3 +55,8 @@ const (
 	VSPHERE_UPGRADE_PARAM_VSPHERE_TEMPLATE       = "VSPHERE_TEMPLATE"
 	VSPHERE_UPGRADE_PARAM_KUBERNETES_VERSION     = "KUBERNETES_VERSION"
 )
+
+const (
+	LabelKeyControlplaneNode   = "node-role.kubernetes.io/master"
+	LabelValueControlplaneNode = ""
+)
