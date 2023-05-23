@@ -22,9 +22,9 @@ import (
 
 	"github.com/go-logr/logr"
 	certmanagerV1 "github.com/jetstack/cert-manager/pkg/apis/certmanager/v1"
-	servicecatalogv1beta1 "github.com/kubernetes-sigs/service-catalog/pkg/apis/servicecatalog/v1beta1"
 	clusterV1alpha1 "github.com/tmax-cloud/hypercloud-multi-operator/apis/cluster/v1alpha1"
 	util "github.com/tmax-cloud/hypercloud-multi-operator/controllers/util"
+	tmaxv1 "github.com/tmax-cloud/template-operator/api/v1"
 	traefikV1alpha1 "github.com/traefik/traefik/v2/pkg/provider/kubernetes/crd/traefik/v1alpha1"
 
 	coreV1 "k8s.io/api/core/v1"
@@ -81,8 +81,7 @@ const (
 // +kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=clusterroles;clusterrolebindings;roles;rolebindings,verbs=create;delete;get;list;patch;update;watch
 // +kubebuilder:rbac:groups=controlplane.cluster.x-k8s.io,resources=kubeadmcontrolplanes,verbs=create;delete;get;list;patch;update;watch
 // +kubebuilder:rbac:groups=controlplane.cluster.x-k8s.io,resources=kubeadmcontrolplanes/status,verbs=get;list;patch;update;watch
-// +kubebuilder:rbac:groups=servicecatalog.k8s.io,resources=serviceinstances,verbs=create;delete;get;list;patch;update;watch
-// +kubebuilder:rbac:groups=servicecatalog.k8s.io,resources=serviceinstances/status,verbs=get;list;patch;update;watch
+// +kubebuilder:rbac:groups=tmax.io,resources=templateinstances,verbs=create;delete;get;list;patch;update;watch
 // +kubebuilder:rbac:groups=cert-manager.io,resources=certificates,verbs=create;delete;get;list;patch;update;watch
 // +kubebuilder:rbac:groups=networking.k8s.io,resources=ingresses,verbs=create;delete;get;list;patch;update;watch
 // +kubebuilder:rbac:groups="",resources=services;endpoints,verbs=create;delete;get;list;patch;update;watch
@@ -149,8 +148,8 @@ func (r *ClusterManagerReconciler) reconcile(ctx context.Context, clusterManager
 		// cluster claim 으로 cluster 를 생성한 경우에만 수행
 		phases = append(
 			phases,
-			// cluster manager 의  metadata 와 provider 정보를 service instance 의 parameter 값에 넣어 service instance 를 생성한다.
-			r.CreateServiceInstance,
+			// cluster manager 의  metadata 와 provider 정보를 template instance 의 parameter 값에 넣어 template instance 를 생성한다.
+			r.CreateTemplateInstance,
 			// cluster manager 가 바라봐야 할 cluster 의 endpoint 를 annotation 으로 달아준다.
 			r.SetEndpoint,
 			// cluster claim 을 통해, cluster 의 spec 을 변경한 경우, 그에 맞게 master 노드의 spec 을 업데이트 해준다.
@@ -192,7 +191,7 @@ func (r *ClusterManagerReconciler) reconcile(ctx context.Context, clusterManager
 		if clusterManager.Status.GetK8SVersion() != "" && clusterManager.GetK8SVersion() != clusterManager.Status.GetK8SVersion() {
 			phases = []phaseFunc{}
 			if clusterManager.Spec.Provider == clusterV1alpha1.ProviderVSphere {
-				phases = append(phases, r.CreateUpgradeServiceInstance)
+				phases = append(phases, r.CreateUpgradeTemplateInstance)
 			}
 			phases = append(phases, r.UpgradeCluster)
 		} else if clusterManager.Status.MasterNum != 0 && clusterManager.Spec.MasterNum != clusterManager.Status.MasterNum {
@@ -258,27 +257,27 @@ func (r *ClusterManagerReconciler) reconcileDelete(ctx context.Context, clusterM
 
 	// cluster type label을 지우면 생성 타입 클러스터를 지우지 않고 분리할 수 있음
 	if clusterManager.GetClusterType() == clusterV1alpha1.ClusterTypeCreated {
-		// delete serviceinstance
+		// delete templateinstance
 		key := types.NamespacedName{
 			Name:      clusterManager.Name + "-" + clusterManager.Annotations[clusterV1alpha1.AnnotationKeyClmSuffix],
 			Namespace: clusterManager.Namespace,
 		}
 
-		serviceInstance := &servicecatalogv1beta1.ServiceInstance{}
-		if err := r.Client.Get(context.TODO(), key, serviceInstance); errors.IsNotFound(err) {
-			log.Info("ServiceInstance is already deleted. Waiting cluster to be deleted")
+		templateInstance := &tmaxv1.TemplateInstance{}
+		if err := r.Client.Get(context.TODO(), key, templateInstance); errors.IsNotFound(err) {
+			log.Info("TemplateInstance is already deleted. Waiting cluster to be deleted")
 		} else if err != nil {
-			log.Error(err, "Failed to get serviceInstance")
+			log.Error(err, "Failed to get templateinstance")
 			return ctrl.Result{}, err
 		} else {
-			if err := r.Delete(context.TODO(), serviceInstance); err != nil {
-				log.Error(err, "Failed to delete serviceInstance")
+			if err := r.Delete(context.TODO(), templateInstance); err != nil {
+				log.Error(err, "Failed to delete templateinstance")
 				return ctrl.Result{}, err
 			}
 		}
 	}
 
-	// capi가 생성한 kubeconfig는 service instance를 지우면서 삭제되었으므로, registration으로 생성한 경우 또한 kubeconfig를 이 시점에서 삭제한다.
+	// capi가 생성한 kubeconfig는 template instance를 지우면서 삭제되었으므로, registration으로 생성한 경우 또한 kubeconfig를 이 시점에서 삭제한다.
 	// kubeconfig가 없으면 skip 한다.
 	if clusterManager.GetClusterType() == clusterV1alpha1.ClusterTypeRegistered {
 		key := types.NamespacedName{

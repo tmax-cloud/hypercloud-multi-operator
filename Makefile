@@ -66,10 +66,12 @@ test-push:
 	docker build . -t $$IMG; \
 	docker push $$IMG'
 
-
 # test 환경 deploy
-test-deploy: manifests kustomize test-push
+test-deploy: manifests kustomize
 	bash -c 'source ./setting.conf; \
+	echo $$IMG; \
+	docker build . -t $$IMG; \
+	docker push $$IMG; \
 	cd config/test-manager && kustomize edit set image controller=$$IMG && cd ../../;\
 	kustomize build config/test-deploy | kubectl apply -f - ;\
 	kubectl apply -f config/capi-template/;'

@@ -23,7 +23,6 @@ import (
 	"strings"
 
 	argocdV1alpha1 "github.com/argoproj/argo-cd/v2/pkg/apis/application/v1alpha1"
-	servicecatalogv1beta1 "github.com/kubernetes-sigs/service-catalog/pkg/apis/servicecatalog/v1beta1"
 	clusterV1alpha1 "github.com/tmax-cloud/hypercloud-multi-operator/apis/cluster/v1alpha1"
 	hyperauthCaller "github.com/tmax-cloud/hypercloud-multi-operator/controllers/hyperAuth"
 	util "github.com/tmax-cloud/hypercloud-multi-operator/controllers/util"
@@ -37,6 +36,7 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 
 	// cpavV1alpha3 "sigs.k8s.io/cluster-api-provider-vsphere/apis/v1alpha3"
+	tmaxv1 "github.com/tmax-cloud/template-operator/api/v1"
 	capiV1alpha3 "sigs.k8s.io/cluster-api/api/v1alpha3"
 	controlplanev1 "sigs.k8s.io/cluster-api/controlplane/kubeadm/api/v1alpha3"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -218,154 +218,103 @@ func (r *ClusterManagerReconciler) UpdateClusterManagerStatus(ctx context.Contex
 	return ctrl.Result{}, nil
 }
 
-func (r *ClusterManagerReconciler) CreateServiceInstance(ctx context.Context, clusterManager *clusterV1alpha1.ClusterManager) (ctrl.Result, error) {
+func (r *ClusterManagerReconciler) CreateTemplateInstance(ctx context.Context, clusterManager *clusterV1alpha1.ClusterManager) (ctrl.Result, error) {
 	if clusterManager.Annotations[clusterV1alpha1.AnnotationKeyClmSuffix] != "" {
 		return ctrl.Result{}, nil
 	}
 	log := r.Log.WithValues("clustermanager", clusterManager.GetNamespacedName())
-	log.Info("Start to reconcile phase for CreateServiceInstance")
-
-	// hypercloud5-api-server를 audit webhook server로 사용한다.
-	// api-server의 CA certificate를 추출하여 service instance에 넣어준다.
-	// key = types.NamespacedName{
-	// 	Name:      "hypercloud5-api-server-certs",
-	// 	Namespace: "hypercloud5-system",
-	// }
-	// auditWebhookServerSecret := &coreV1.Secret{}
-	// if err := r.Client.Get(context.TODO(), key, auditWebhookServerSecret); errors.IsNotFound(err) {
-	// 	log.Error(err, "hypercloud5-api-server-certs secret not created . Waiting for secret to be created")
-	// 	return ctrl.Result{RequeueAfter: requeueAfter10Second}, err
-	// } else if err != nil {
-	// 	log.Error(err, "Failed to get hypercloud5-api-server-certs secret")
-	// 	return ctrl.Result{}, err
-	// }
-	// webhookServerCACert, err := base64.StdEncoding.DecodeString(string(hyperauthHttpsSecret.Data["ca.crt"]))
-	// if err != nil {
-	// 	log.Error(err, "Failed to decode hypercloud5-api-server-certs")
-	// 	return ctrl.Result{}, err
-	// }
-
-	// hyperauth certificate를 가져와서 service instance에 넣어주어야 한다.
-	// key := types.NamespacedName{
-	// 	Name:      hyperAuth.HYPERAUTH_HTTPS_SECRET,
-	// 	Namespace: hyperAuth.HYPERAUTH_NAMESPACE,
-	// }
-
-	// hyperauthHttpsSecret := &coreV1.Secret{}
-	// if err := r.Client.Get(context.TODO(), key, hyperauthHttpsSecret); errors.IsNotFound(err) {
-	// 	log.Error(err, "Hyperauth-https-secret not created . Waiting for secret to be created")
-	// 	return ctrl.Result{RequeueAfter: requeueAfter10Second}, err
-	// } else if err != nil {
-	// 	log.Error(err, "Failed to get hyperauth-https-secret")
-	// 	return ctrl.Result{}, err
-	// }
-
-	// hyperauthTlsCert := hyperAuth.GetHyperAuthTLSCertificate(hyperauthHttpsSecret)
+	log.Info("Start to reconcile phase for CreateTemplateInstance")
 
 	key := types.NamespacedName{
 		Name:      clusterManager.Name + clusterManager.Annotations[clusterV1alpha1.AnnotationKeyClmSuffix],
 		Namespace: clusterManager.Namespace,
 	}
 
-	if err := r.Client.Get(context.TODO(), key, &servicecatalogv1beta1.ServiceInstance{}); errors.IsNotFound(err) {
-		clusterJson, err := Marshaling(&ClusterParameter{}, *clusterManager)
-		if err != nil {
-			log.Error(err, "Failed to marshal cluster parameters")
-		}
+	if err := r.Client.Get(context.TODO(), key, &tmaxv1.TemplateInstance{}); errors.IsNotFound(err) {
+		clusterParams := buildClusterParams(*clusterManager)
 
-		var providerJson []byte
 		switch strings.ToUpper(clusterManager.Spec.Provider) {
 		case util.ProviderAws:
-			providerJson, err = Marshaling(&AwsParameter{}, *clusterManager)
-			if err != nil {
-				log.Error(err, "Failed to marshal cluster parameters")
-				return ctrl.Result{}, err
-			}
+			awsParams := buildAwsParams(clusterManager.AwsSpec)
+			clusterParams = mergeParams(clusterParams, awsParams)
+
 		case util.ProviderVsphere:
-			providerJson, err = Marshaling(&VsphereParameter{}, *clusterManager)
-			if err != nil {
-				log.Error(err, "Failed to marshal cluster parameters")
-				return ctrl.Result{}, err
-			}
+			vsphereParams := buildVsphereParams(clusterManager.VsphereSpec)
+			clusterParams = mergeParams(clusterParams, vsphereParams)
 		}
-		clusterJson = util.MergeJson(clusterJson, providerJson)
+
 		generatedSuffix := util.CreateSuffixString()
-		serviceInstanceName := clusterManager.Name + "-" + generatedSuffix
-		serviceInstance, err := ConstructServiceInstance(clusterManager, serviceInstanceName, clusterJson, false)
+		instanceName := clusterManager.Name + "-" + generatedSuffix
+		templateInstance, err := ConstructTemplateInstance(clusterManager, instanceName, clusterParams, false)
 		if err != nil {
-			log.Error(err, "Failed to create ServiceInstance")
+			log.Error(err, "Failed to create TemplateInstance")
 			return ctrl.Result{}, err
 		}
-		if err = r.Create(context.TODO(), serviceInstance); err != nil {
-			log.Error(err, "Failed to create ServiceInstance")
+		if err = r.Create(context.TODO(), templateInstance); err != nil {
+			log.Error(err, "Failed to create TemplateInstance")
 			return ctrl.Result{}, err
 		}
 		clusterManager.Annotations[clusterV1alpha1.AnnotationKeyClmSuffix] = generatedSuffix
 	} else if err != nil {
-		log.Error(err, "Failed to get ServiceInstance")
+		log.Error(err, "Failed to get TemplateInstance")
 		return ctrl.Result{}, err
 	}
 
 	return ctrl.Result{}, nil
 }
 
-func (r *ClusterManagerReconciler) CreateUpgradeServiceInstance(ctx context.Context, clusterManager *clusterV1alpha1.ClusterManager) (ctrl.Result, error) {
+// CreateUpgradeTemplateInstance는 클러스터 업그레이드를 위한 템플릿 인스턴스를 생성한다.
+func (r *ClusterManagerReconciler) CreateUpgradeTemplateInstance(ctx context.Context, clusterManager *clusterV1alpha1.ClusterManager) (ctrl.Result, error) {
 	log := r.Log.WithValues("clustermanager", clusterManager.GetNamespacedName())
-	log.Info("Start to reconcile phase for CreateUpgradeServiceInstance")
+	log.Info("Start to reconcile phase for CreateUpgradeTemplateInstance")
 
-	// controlplane service instance 생성
+	// controlplane template instance 생성
 	controlplaneInstanceName := fmt.Sprintf("%s-controlplane-%s", clusterManager.Name, clusterManager.GetK8SVersion())
 	key := types.NamespacedName{
 		Name:      controlplaneInstanceName,
 		Namespace: clusterManager.Namespace,
 	}
 
-	if err := r.Client.Get(context.TODO(), key, &servicecatalogv1beta1.ServiceInstance{}); errors.IsNotFound(err) {
-		upgradeJson, err := Marshaling(&VsphereUpgradeParameter{controlPlane: true}, *clusterManager)
+	if err := r.Client.Get(context.TODO(), key, &tmaxv1.TemplateInstance{}); errors.IsNotFound(err) {
+		upgradeParams := buildVsphereUpgradeParams(*clusterManager)
+		templateInstance, err := ConstructTemplateInstance(clusterManager, controlplaneInstanceName, upgradeParams, true)
 		if err != nil {
-			log.Error(err, "Failed to marshal upgrade parameters")
-		}
-		serviceInstance, err := ConstructServiceInstance(clusterManager, controlplaneInstanceName, upgradeJson, true)
-		if err != nil {
-			log.Error(err, "Failed to create ServiceInstance")
+			log.Error(err, "Failed to construct TemplateInstance")
 			return ctrl.Result{}, err
 		}
-		ctrl.SetControllerReference(clusterManager, serviceInstance, r.Scheme)
-		if err = r.Create(context.TODO(), serviceInstance); err != nil {
-			log.Error(err, "Failed to create ServiceInstance")
+		ctrl.SetControllerReference(clusterManager, templateInstance, r.Scheme)
+		if err = r.Create(context.TODO(), templateInstance); err != nil {
+			log.Error(err, "Failed to create TemplateInstance")
 			return ctrl.Result{}, err
 		}
-		log.Info("Created UpgradeServiceInstance for controlplane successfully")
+		log.Info("Created UpgradeTemplateInstance for controlplane successfully")
 	} else if err != nil {
-		log.Error(err, "Failed to get ServiceInstance")
+		log.Error(err, "Failed to get TemplateInstance")
 		return ctrl.Result{}, err
 	}
 
-	// worker service instance 생성
+	// worker template instance 생성
 	workerInstanceName := fmt.Sprintf("%s-worker-%s", clusterManager.Name, clusterManager.GetK8SVersion())
 	key = types.NamespacedName{
 		Name:      workerInstanceName,
 		Namespace: clusterManager.Namespace,
 	}
 
-	if err := r.Client.Get(context.TODO(), key, &servicecatalogv1beta1.ServiceInstance{}); errors.IsNotFound(err) {
-		upgradeJson, err := Marshaling(&VsphereUpgradeParameter{controlPlane: false}, *clusterManager)
+	if err := r.Client.Get(context.TODO(), key, &tmaxv1.TemplateInstance{}); errors.IsNotFound(err) {
+		upgradeParams := buildVsphereUpgradeParams(*clusterManager)
+		templateInstance, err := ConstructTemplateInstance(clusterManager, workerInstanceName, upgradeParams, true)
 		if err != nil {
-			log.Error(err, "Failed to marshal upgrade parameters")
-		}
-		serviceInstance, err := ConstructServiceInstance(clusterManager, workerInstanceName, upgradeJson, true)
-		if err != nil {
-			log.Error(err, "Failed to create ServiceInstance")
+			log.Error(err, "Failed to construct TemplateInstance")
 			return ctrl.Result{}, err
 		}
-		ctrl.SetControllerReference(clusterManager, serviceInstance, r.Scheme)
-		if err = r.Create(context.TODO(), serviceInstance); err != nil {
-			log.Error(err, "Failed to create ServiceInstance")
+		ctrl.SetControllerReference(clusterManager, templateInstance, r.Scheme)
+		if err = r.Create(context.TODO(), templateInstance); err != nil {
+			log.Error(err, "Failed to create TemplateInstance")
 			return ctrl.Result{}, err
 		}
-		log.Info("Created UpgradeServiceInstance for worker successfully")
+		log.Info("Created UpgradeTemplateInstance for worker successfully")
 	} else if err != nil {
-		log.Error(err, "Failed to get ServiceInstance")
+		log.Error(err, "Failed to get TemplateInstance")
 		return ctrl.Result{}, err
 	}
 
@@ -481,51 +430,52 @@ func (r *ClusterManagerReconciler) ScaleWorker(ctx context.Context, clusterManag
 	return ctrl.Result{RequeueAfter: requeueAfter20Second}, nil
 }
 
-// cluster를 upgrade한다. vsphere의 경우, serviceinstance 생성이 필요하다.
+// UpgradeCluster는 controlplane, worker순으로 진행된다.
+// controlplane upgrade가 완료되면, worker upgrade를 진행한다.
 func (r *ClusterManagerReconciler) UpgradeCluster(ctx context.Context, clusterManager *clusterV1alpha1.ClusterManager) (ctrl.Result, error) {
 	log := r.Log.WithValues("clustermanager", clusterManager.GetNamespacedName())
 	log.Info("Start to reconcile phase for ClusterUpgrade")
 
 	if clusterManager.Spec.Provider == clusterV1alpha1.ProviderVSphere {
-		// service instance 체크 for controlplane
-		serviceInstanceName := fmt.Sprintf("%s-controlplane-%s", clusterManager.Name, clusterManager.GetK8SVersion())
+		// template instance 체크 for controlplane
+		templateInstanceName := fmt.Sprintf("%s-controlplane-%s", clusterManager.Name, clusterManager.GetK8SVersion())
 		key := types.NamespacedName{
-			Name:      serviceInstanceName,
+			Name:      templateInstanceName,
 			Namespace: clusterManager.Namespace,
 		}
 
-		serviceinstance := &servicecatalogv1beta1.ServiceInstance{}
-		if err := r.Client.Get(context.TODO(), key, serviceinstance); errors.IsNotFound(err) {
-			log.Info("Waiting for vsphere upgrade service instance(controlplane) to be created")
+		templateinstance := &tmaxv1.TemplateInstance{}
+		if err := r.Client.Get(context.TODO(), key, templateinstance); errors.IsNotFound(err) {
+			log.Info("Waiting for vsphere upgrade templateinstance(controlplane) to be created")
 			return ctrl.Result{RequeueAfter: requeueAfter10Second}, nil
 		} else if err != nil {
-			log.Error(err, "Failed to get service instance")
+			log.Error(err, "Failed to get templateinstance")
 			return ctrl.Result{}, err
 		}
 
-		if serviceinstance.Status.ProvisionStatus != servicecatalogv1beta1.ServiceInstanceProvisionStatusProvisioned {
-			log.Info("Waiting for vsphere upgrade service instance(controlplane) to be provisioned")
+		if !checkTemplateInstanceDeployed(templateinstance) {
+			log.Info("Waiting for vsphere upgrade templateinstance(controlplane) to be provisioned")
 			return ctrl.Result{RequeueAfter: requeueAfter10Second}, nil
 		}
 
-		// service instance 체크 for worker
-		serviceInstanceName = fmt.Sprintf("%s-worker-%s", clusterManager.Name, clusterManager.GetK8SVersion())
+		// template instance 체크 for worker
+		templateInstanceName = fmt.Sprintf("%s-worker-%s", clusterManager.Name, clusterManager.GetK8SVersion())
 		key = types.NamespacedName{
-			Name:      serviceInstanceName,
+			Name:      templateInstanceName,
 			Namespace: clusterManager.Namespace,
 		}
 
-		serviceinstance = &servicecatalogv1beta1.ServiceInstance{}
-		if err := r.Client.Get(context.TODO(), key, serviceinstance); errors.IsNotFound(err) {
-			log.Info("Waiting for vsphere upgrade service instance(worker) to be created")
+		templateinstance = &tmaxv1.TemplateInstance{}
+		if err := r.Client.Get(context.TODO(), key, templateinstance); errors.IsNotFound(err) {
+			log.Info("Waiting for vsphere upgrade templateinstance(worker) to be created")
 			return ctrl.Result{RequeueAfter: requeueAfter10Second}, nil
 		} else if err != nil {
-			log.Error(err, "Failed to get service instance")
+			log.Error(err, "Failed to get templateinstance")
 			return ctrl.Result{}, err
 		}
 
-		if serviceinstance.Status.ProvisionStatus != servicecatalogv1beta1.ServiceInstanceProvisionStatusProvisioned {
-			log.Info("Waiting for vsphere upgrade service instance(worker) to be provisioned")
+		if !checkTemplateInstanceDeployed(templateinstance) {
+			log.Info("Waiting for vsphere upgrade templateinstance(worker) to be provisioned")
 			return ctrl.Result{RequeueAfter: requeueAfter10Second}, nil
 		}
 	}

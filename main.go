@@ -21,13 +21,15 @@ import (
 	// +kubebuilder:scaffold:imports
 	argocdV1alpha1 "github.com/argoproj/argo-cd/v2/pkg/apis/application/v1alpha1"
 	certmanagerV1 "github.com/jetstack/cert-manager/pkg/apis/certmanager/v1"
-	servicecatalogv1beta1 "github.com/kubernetes-sigs/service-catalog/pkg/apis/servicecatalog/v1beta1"
+
+	// servicecatalogv1beta1 "github.com/kubernetes-sigs/service-catalog/pkg/apis/servicecatalog/v1beta1"
 	claimV1alpha1 "github.com/tmax-cloud/hypercloud-multi-operator/apis/claim/v1alpha1"
 	clusterV1alpha1 "github.com/tmax-cloud/hypercloud-multi-operator/apis/cluster/v1alpha1"
 	claimController "github.com/tmax-cloud/hypercloud-multi-operator/controllers/claim"
 	clusterController "github.com/tmax-cloud/hypercloud-multi-operator/controllers/cluster"
 	k8scontroller "github.com/tmax-cloud/hypercloud-multi-operator/controllers/k8s"
 	"github.com/tmax-cloud/hypercloud-multi-operator/controllers/util"
+	tmaxv1 "github.com/tmax-cloud/template-operator/api/v1"
 	traefikV1alpha1 "github.com/traefik/traefik/v2/pkg/provider/kubernetes/crd/traefik/v1alpha1"
 
 	"k8s.io/apimachinery/pkg/runtime"
@@ -52,7 +54,7 @@ func init() {
 	utilruntime.Must(clusterV1alpha1.AddToScheme(scheme))
 	utilruntime.Must(clusterV1alpha3.AddToScheme(scheme))
 	utilruntime.Must(controlplanev1.AddToScheme(scheme))
-	utilruntime.Must(servicecatalogv1beta1.AddToScheme(scheme))
+	utilruntime.Must(tmaxv1.AddToScheme(scheme))
 	utilruntime.Must(certmanagerV1.AddToScheme(scheme))
 	utilruntime.Must(traefikV1alpha1.AddToScheme(scheme))
 	utilruntime.Must(argocdV1alpha1.AddToScheme(scheme))
