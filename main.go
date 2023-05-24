@@ -17,17 +17,21 @@ package main
 import (
 	"flag"
 	"os"
+	"os/signal"
+	"syscall"
 
 	// +kubebuilder:scaffold:imports
 	argocdV1alpha1 "github.com/argoproj/argo-cd/v2/pkg/apis/application/v1alpha1"
 	certmanagerV1 "github.com/jetstack/cert-manager/pkg/apis/certmanager/v1"
-	servicecatalogv1beta1 "github.com/kubernetes-sigs/service-catalog/pkg/apis/servicecatalog/v1beta1"
+
+	// servicecatalogv1beta1 "github.com/kubernetes-sigs/service-catalog/pkg/apis/servicecatalog/v1beta1"
 	claimV1alpha1 "github.com/tmax-cloud/hypercloud-multi-operator/apis/claim/v1alpha1"
 	clusterV1alpha1 "github.com/tmax-cloud/hypercloud-multi-operator/apis/cluster/v1alpha1"
 	claimController "github.com/tmax-cloud/hypercloud-multi-operator/controllers/claim"
 	clusterController "github.com/tmax-cloud/hypercloud-multi-operator/controllers/cluster"
 	k8scontroller "github.com/tmax-cloud/hypercloud-multi-operator/controllers/k8s"
 	"github.com/tmax-cloud/hypercloud-multi-operator/controllers/util"
+	tmaxv1 "github.com/tmax-cloud/template-operator/api/v1"
 	traefikV1alpha1 "github.com/traefik/traefik/v2/pkg/provider/kubernetes/crd/traefik/v1alpha1"
 
 	"k8s.io/apimachinery/pkg/runtime"
@@ -39,6 +43,7 @@ import (
 	controlplanev1 "sigs.k8s.io/cluster-api/controlplane/kubeadm/api/v1alpha3"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
+	"sigs.k8s.io/controller-runtime/pkg/manager/signals"
 )
 
 var (
@@ -52,7 +57,7 @@ func init() {
 	utilruntime.Must(clusterV1alpha1.AddToScheme(scheme))
 	utilruntime.Must(clusterV1alpha3.AddToScheme(scheme))
 	utilruntime.Must(controlplanev1.AddToScheme(scheme))
-	utilruntime.Must(servicecatalogv1beta1.AddToScheme(scheme))
+	utilruntime.Must(tmaxv1.AddToScheme(scheme))
 	utilruntime.Must(certmanagerV1.AddToScheme(scheme))
 	utilruntime.Must(traefikV1alpha1.AddToScheme(scheme))
 	utilruntime.Must(argocdV1alpha1.AddToScheme(scheme))
@@ -81,12 +86,14 @@ func main() {
 	restConfig := ctrl.GetConfigOrDie()
 
 	mgr, err := ctrl.NewManager(restConfig, ctrl.Options{
-		Scheme:             scheme,
-		MetricsBindAddress: metricsAddr,
-		Port:               9443,
-		LeaderElection:     enableLeaderElection,
-		LeaderElectionID:   "86810e1d.tmax.io",
+		Scheme:                     scheme,
+		MetricsBindAddress:         metricsAddr,
+		Port:                       9443,
+		LeaderElection:             enableLeaderElection,
+		LeaderElectionID:           "86810e1d.tmax.io",
+		LeaderElectionResourceLock: "leases",
 	})
+	
 	if err != nil {
 		setupLog.Error(err, "unable to start manager")
 		os.Exit(1)
@@ -97,11 +104,23 @@ func main() {
 	setupChecks()
 
 	// +kubebuilder:scaffold:builder
-	setupLog.Info("starting manager")
-	if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {
-		setupLog.Error(err, "problem running manager")
-		os.Exit(1)
-	}
+
+	// gracefully shutdown
+	stop := signals.SetupSignalHandler()
+	c := make(chan os.Signal, 1)
+	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
+
+	go func() {
+		setupLog.Info("starting manager")
+		if err := mgr.Start(stop); err != nil {
+			setupLog.Error(err, "problem running manager")
+			os.Exit(1)
+		}
+	}()
+
+	// channel에 들어올때까지 대기
+	<-c
+	setupLog.Info("Received SIGTERM, shutting down gracefully...")
 }
 
 func setupReconcilers(mgr ctrl.Manager) {

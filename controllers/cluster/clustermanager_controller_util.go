@@ -16,7 +16,6 @@ package controllers
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"os"
 	"regexp"
@@ -36,149 +35,81 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
-	servicecatalogv1beta1 "github.com/kubernetes-sigs/service-catalog/pkg/apis/servicecatalog/v1beta1"
+	tmaxv1 "github.com/tmax-cloud/template-operator/api/v1"
 	coreV1 "k8s.io/api/core/v1"
+	networkingV1 "k8s.io/api/networking/v1"
 	networkingv1 "k8s.io/api/networking/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
-type Parameters interface {
-	SetParameter(clusterV1alpha1.ClusterManager)
+// checkTemplateInstanceDeployed는 TemplateInstance가 배포되었는지 확인
+func checkTemplateInstanceDeployed(instance *tmaxv1.TemplateInstance) bool {
+	for _, condition := range instance.Status.Conditions {
+		if condition.Status == "Succeeded" {
+			return true
+		}
+	}
+	return false
 }
 
-type ClusterParameter struct {
-	Namespace         string `json:"NAMESPACE"`
-	ClusterName       string `json:"CLUSTER_NAME"`
-	MasterNum         int    `json:"CONTROL_PLANE_MACHINE_COUNT"`
-	WorkerNum         int    `json:"WORKER_MACHINE_COUNT"`
-	Owner             string `json:"OWNER"`
-	KubernetesVersion string `json:"KUBERNETES_VERSION"`
-	// HyperAuthUrl      string
-}
-
-func (p *ClusterParameter) SetParameter(clusterManager clusterV1alpha1.ClusterManager) {
-	p.Namespace = clusterManager.Namespace
-	p.ClusterName = clusterManager.Name
-	p.Owner = clusterManager.Annotations[util.AnnotationKeyOwner]
-	p.KubernetesVersion = clusterManager.Spec.Version
-	p.MasterNum = clusterManager.Spec.MasterNum
-	p.WorkerNum = clusterManager.Spec.WorkerNum
-	// hyperauthDomain := "https://" + os.Getenv("AUTH_SUBDOMAIN") + "." + os.Getenv("HC_DOMAIN") + "/auth/realms/tmax"
-	// p.HyperAuthUrl = hyperauthDomain
-}
-
-type AwsParameter struct {
-	SshKey         string `json:"AWS_SSH_KEY_NAME"`
-	Region         string `json:"AWS_REGION"`
-	MasterType     string `json:"AWS_CONTROL_PLANE_MACHINE_TYPE"`
-	WorkerType     string `json:"AWS_NODE_MACHINE_TYPE"`
-	MasterDiskSize int    `json:"MASTER_DISK_SIZE"`
-	WorkerDiskSize int    `json:"WORKER_DISK_SIZE"`
-}
-
-func (p *AwsParameter) SetParameter(clusterManager clusterV1alpha1.ClusterManager) {
-	p.SshKey = clusterManager.AwsSpec.SshKey
-	p.Region = clusterManager.AwsSpec.Region
-	p.MasterType = clusterManager.AwsSpec.MasterType
-	p.MasterDiskSize = clusterManager.AwsSpec.MasterDiskSize
-	p.WorkerType = clusterManager.AwsSpec.WorkerType
-	p.WorkerDiskSize = clusterManager.AwsSpec.WorkerDiskSize
-}
-
-type VsphereParameter struct {
-	PodCidr             string `json:"POD_CIDR"`
-	VcenterIp           string `json:"VSPHERE_SERVER"`
-	VcenterId           string `json:"VSPHERE_USERNAME"`
-	VcenterPassword     string `json:"VSPHERE_PASSWORD"`
-	VcenterThumbprint   string `json:"VSPHERE_TLS_THUMBPRINT"`
-	VcenterNetwork      string `json:"VSPHERE_NETWORK"`
-	VcenterDataCenter   string `json:"VSPHERE_DATACENTER"`
-	VcenterDataStore    string `json:"VSPHERE_DATASTORE"`
-	VcenterFolder       string `json:"VSPHERE_FOLDER"`
-	VcenterResourcePool string `json:"VSPHERE_RESOURCE_POOL"`
-	VcenterKcpIp        string `json:"CONTROL_PLANE_ENDPOINT_IP"`
-	MasterCpuNum        int    `json:"MASTER_CPU_NUM"`
-	MasterMemSize       int    `json:"MASTER_MEM_SIZE"`
-	MasterDiskSize      int    `json:"MASTER_DISK_SIZE"`
-	WorkerCpuNum        int    `json:"WORKER_CPU_NUM"`
-	WorkerMemSize       int    `json:"WORKER_MEM_SIZE"`
-	WorkerDiskSize      int    `json:"WORKER_DISK_SIZE"`
-	VcenterTemplate     string `json:"VSPHERE_TEMPLATE"`
-	VMPassword          string `json:"VM_PASSWORD"`
-}
-
-func (p *VsphereParameter) SetParameter(clusterManager clusterV1alpha1.ClusterManager) {
-	p.PodCidr = clusterManager.VsphereSpec.PodCidr
-	p.VcenterIp = clusterManager.VsphereSpec.VcenterIp
-	p.VcenterId = clusterManager.VsphereSpec.VcenterId
-	p.VcenterPassword = clusterManager.VsphereSpec.VcenterPassword
-	p.VcenterThumbprint = clusterManager.VsphereSpec.VcenterThumbprint
-	p.VcenterNetwork = clusterManager.VsphereSpec.VcenterNetwork
-	p.VcenterDataCenter = clusterManager.VsphereSpec.VcenterDataCenter
-	p.VcenterDataStore = clusterManager.VsphereSpec.VcenterDataStore
-	p.VcenterFolder = clusterManager.VsphereSpec.VcenterFolder
-	p.VcenterResourcePool = clusterManager.VsphereSpec.VcenterResourcePool
-	p.VcenterKcpIp = clusterManager.VsphereSpec.VcenterKcpIp
-	p.VMPassword = clusterManager.VsphereSpec.VMPassword
-	// todo master worker 분리 필요
-	p.MasterCpuNum = clusterManager.VsphereSpec.VcenterCpuNum
-	p.MasterMemSize = clusterManager.VsphereSpec.VcenterMemSize
-	p.MasterDiskSize = clusterManager.VsphereSpec.VcenterDiskSize
-	p.WorkerCpuNum = clusterManager.VsphereSpec.VcenterCpuNum
-	p.WorkerMemSize = clusterManager.VsphereSpec.VcenterMemSize
-	p.WorkerDiskSize = clusterManager.VsphereSpec.VcenterDiskSize
-	p.VcenterTemplate = clusterManager.VsphereSpec.VcenterTemplate
-}
-
-type VsphereUpgradeParameter struct {
-	controlPlane        bool
-	Namespace           string `json:"NAMESPACE"`
-	UpgradeTemplateName string `json:"UPGRADE_TEMPLATE_NAME"`
-	VcenterIp           string `json:"VSPHERE_SERVER"`
-	VcenterThumbprint   string `json:"VSPHERE_TLS_THUMBPRINT"`
-	VcenterNetwork      string `json:"VSPHERE_NETWORK"`
-	VcenterDataCenter   string `json:"VSPHERE_DATACENTER"`
-	VcenterDataStore    string `json:"VSPHERE_DATASTORE"`
-	VcenterFolder       string `json:"VSPHERE_FOLDER"`
-	VcenterResourcePool string `json:"VSPHERE_RESOURCE_POOL"`
-	VcenterCpuNum       int    `json:"CPU_NUM"`
-	VcenterMemSize      int    `json:"MEM_SIZE"`
-	VcenterDiskSize     int    `json:"DISK_SIZE"`
-	VcenterTemplate     string `json:"VSPHERE_TEMPLATE"`
-	KubernetesVersion   string `json:"KUBERNETES_VERSION"`
-}
-
-func (p *VsphereUpgradeParameter) SetParameter(clusterManager clusterV1alpha1.ClusterManager) {
-	if p.controlPlane {
-		p.UpgradeTemplateName = fmt.Sprintf("%s-controlplane-%s", clusterManager.Name, clusterManager.Spec.Version)
-	} else {
-		p.UpgradeTemplateName = fmt.Sprintf("%s-worker-%s", clusterManager.Name, clusterManager.Spec.Version)
+// fetchArgocdIngressDomain는 argocd ingress의 domain을 가져온다.
+func (r *ClusterManagerReconciler) fetchArgocdIngressDomain(manager *clusterV1alpha1.ClusterManager) (string, error) {
+	argoIngress := &networkingV1.Ingress{}
+	key := types.NamespacedName{
+		Name:      util.ArgoIngressName,
+		Namespace: util.ArgoNamespace,
+	}
+	if err := r.Client.Get(context.TODO(), key, argoIngress); err != nil {
+		return "", err
 	}
 
-	p.UpgradeTemplateName = fmt.Sprintf("%s-%s", clusterManager.Name, clusterManager.Spec.Version)
-	p.Namespace = clusterManager.Namespace
-	p.KubernetesVersion = clusterManager.Spec.Version
-	p.VcenterIp = clusterManager.VsphereSpec.VcenterIp
-	p.VcenterThumbprint = clusterManager.VsphereSpec.VcenterThumbprint
-	p.VcenterNetwork = clusterManager.VsphereSpec.VcenterNetwork
-	p.VcenterDataCenter = clusterManager.VsphereSpec.VcenterDataCenter
-	p.VcenterDataStore = clusterManager.VsphereSpec.VcenterDataStore
-	p.VcenterFolder = clusterManager.VsphereSpec.VcenterFolder
-	p.VcenterResourcePool = clusterManager.VsphereSpec.VcenterResourcePool
-	p.VcenterCpuNum = clusterManager.VsphereSpec.VcenterCpuNum
-	p.VcenterMemSize = clusterManager.VsphereSpec.VcenterMemSize
-	p.VcenterDiskSize = clusterManager.VsphereSpec.VcenterDiskSize
-	p.VcenterTemplate = clusterManager.VsphereSpec.VcenterTemplate
+	if len(argoIngress.Spec.Rules) == 0 {
+		return "", fmt.Errorf("argocd ingress spec.rules is empty")
+	}
+
+	if argoIngress.Spec.Rules[0].Host == "" {
+		return "", fmt.Errorf("argocd ingress spec.rules[0].host is empty")
+	}
+
+	domain := argoIngress.Spec.Rules[0].Host
+	subdomain := strings.Split(domain, ".")
+	return subdomain[0], nil
 }
 
-// parameter에 clustermanager spec 값을 넣어 marshaling해서 리턴하는 메서드
-func Marshaling(parameter Parameters, clusterManager clusterV1alpha1.ClusterManager) ([]byte, error) {
-	parameter.SetParameter(clusterManager)
-	return json.Marshal(parameter)
+// buildParam는 name과 value를 받아서 ParamSpec을 만들어 리턴
+// valueType이 intstr.String이면 value를 string으로 변환해서 리턴
+// valueType이 intstr.Int이면 value를 int로 변환해서 리턴(int만 가능)
+func buildParam(name string, value interface{}, valueType intstr.Type) tmaxv1.ParamSpec {
+	paramSpec := tmaxv1.ParamSpec{}
+	if valueType == intstr.String {
+		paramSpec.Name = name
+		paramSpec.Value = intstr.IntOrString{
+			Type:   intstr.String,
+			StrVal: value.(string),
+		}
+	} else if valueType == intstr.Int {
+		paramSpec.Name = name
+		value := int32(value.(int))
+		paramSpec.Value = intstr.IntOrString{
+			Type:   intstr.Int,
+			IntVal: value,
+		}
+	} else {
+		return tmaxv1.ParamSpec{}
+	}
+
+	return paramSpec
+}
+
+func mergeParams(paramsList ...[]tmaxv1.ParamSpec) []tmaxv1.ParamSpec {
+	var result []tmaxv1.ParamSpec
+	for _, params := range paramsList {
+		result = append(result, params...)
+	}
+	return result
 }
 
 func ParseK8SVersion(clusterManager *clusterV1alpha1.ClusterManager) (int, int, error) {
@@ -194,50 +125,6 @@ func ParseK8SVersion(clusterManager *clusterV1alpha1.ClusterManager) (int, int, 
 		return 0, 0, err
 	}
 	return major, minor, nil
-}
-
-func ConstructServiceInstance(clusterManager *clusterV1alpha1.ClusterManager, serviceInstanceName string, json []byte, upgrade bool) (*servicecatalogv1beta1.ServiceInstance, error) {
-	templateName := ""
-
-	if upgrade {
-		// vsphere upgrade에 대해서만 serviceinstance를 생성하므로
-		templateName = CAPI_VSPHERE_UPGRADE_TEMPLATE
-	} else {
-		templateName = "capi-" + strings.ToLower(clusterManager.Spec.Provider) + "-template"
-	}
-
-	major, minor, err := ParseK8SVersion(clusterManager)
-	if err != nil {
-		return nil, err
-	}
-	fmt.Println(major, minor)
-
-	// k8s version이 1.19 이하일때는 1.19용 템플릿 사용
-	if major == 1 && minor < 20 {
-		templateName += "-v1.19"
-	}
-
-	serviceInstance := &servicecatalogv1beta1.ServiceInstance{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      serviceInstanceName,
-			Namespace: clusterManager.Namespace,
-			Annotations: map[string]string{
-				util.AnnotationKeyOwner:   clusterManager.Annotations[util.AnnotationKeyCreator],
-				util.AnnotationKeyCreator: clusterManager.Annotations[util.AnnotationKeyCreator],
-			},
-		},
-		Spec: servicecatalogv1beta1.ServiceInstanceSpec{
-			PlanReference: servicecatalogv1beta1.PlanReference{
-				ClusterServiceClassExternalName: templateName,
-				ClusterServicePlanExternalName:  fmt.Sprintf("%s-%s", templateName, "plan-default"),
-			},
-			Parameters: &runtime.RawExtension{
-				Raw: json,
-			},
-		},
-	}
-
-	return serviceInstance, nil
 }
 
 // controlplane, worker에 따른 machine list를 반환한다.
@@ -259,12 +146,22 @@ func (r *ClusterManagerReconciler) GetMachineList(clusterManager *clusterV1alpha
 }
 
 // kubeadm-config configmap에서 k8s version을 parsing한다.
+// FetchMgmtK8SVersion는 kubeadm-config configmap에서 k8s version을 parsing한다.
+// 만약 실패하거나 k8s version이 없으면 빈 string을 반환하고 다음 reconcile phase로 넘어간다.
 func (r *ClusterManagerReconciler) FetchMgmtK8SVersion() (string, error) {
 	nodes := &coreV1.NodeList{}
-	opts := client.MatchingLabels{"node-role.kubernetes.io/master": ""}
+	opts := client.MatchingLabels{
+		LabelKeyControlplaneNode: LabelValueControlplaneNode,
+	}
+
 	if err := r.Client.List(context.TODO(), nodes, opts); err != nil {
 		return "", err
 	}
+
+	if len(nodes.Items) == 0 {
+		return "", fmt.Errorf("no controlplane node found")
+	}
+
 	node := nodes.Items[0]
 	return node.Status.NodeInfo.KubeletVersion, nil
 }
@@ -332,17 +229,17 @@ func (r *ClusterManagerReconciler) GetUpgradeMachinesInfo(clusterManager *cluste
 	return machineUpgrade, nil
 }
 
-func SetApplicationLink(c *clusterV1alpha1.ClusterManager, subdomain string) {
-	c.Status.ApplicationLink = strings.Join(
+func SetArgocdApplicationLink(manager *clusterV1alpha1.ClusterManager, subdomain string) {
+	manager.Status.ApplicationLink = strings.Join(
 		[]string{
 			"https://",
 			subdomain,
 			".",
 			os.Getenv(util.HC_DOMAIN),
 			"/applications/",
-			c.GetNamespacedPrefix(),
+			manager.GetNamespacedPrefix(),
 			"-applications?node=argoproj.io/Application/argocd/",
-			c.GetNamespacedPrefix(),
+			manager.GetNamespacedPrefix(),
 			"-applications/0&resource=",
 			"",
 		},

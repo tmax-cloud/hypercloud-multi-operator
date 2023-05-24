@@ -58,12 +58,24 @@ deploy: manifests kustomize
 	cd config/manager && $(KUSTOMIZE) edit set image controller=${IMG}
 	$(KUSTOMIZE) build config/default | kubectl apply -f -
 
-# test 환경 배포를 위해 만든 변수 
-# Deploy controller in the configured Kubernetes cluster in ~/.kube/config
-deploy-test: manifests kustomize
-	cd config/test-manager && $(KUSTOMIZE) edit set image controller=${IMG}
-	$(KUSTOMIZE) build config/test-deploy | kubectl apply -f -
-	kubectl apply -f config/capi-template/
+
+# test image build and push 
+test-push: 
+	bash -c 'source ./setting.conf; \
+	echo $$IMG; \
+	docker build . -t $$IMG; \
+	docker push $$IMG'
+
+# test 환경 deploy
+test-deploy: manifests kustomize
+	bash -c 'source ./setting.conf; \
+	echo $$IMG; \
+	docker build . -t $$IMG; \
+	docker push $$IMG; \
+	cd config/test-manager && kustomize edit set image controller=$$IMG && cd ../../;\
+	kustomize build config/test-deploy | kubectl apply -f - ;\
+	kubectl apply -f config/capi-template/;'
+
 
 # Undeploy controller 
 undeploy-test: manifests kustomize

@@ -9,6 +9,7 @@ require (
 	github.com/kubernetes-sigs/service-catalog v0.3.1
 	github.com/onsi/ginkgo v1.16.5
 	github.com/onsi/gomega v1.19.0
+	github.com/tmax-cloud/template-operator v0.0.1
 	github.com/traefik/traefik/v2 v2.8.0
 	k8s.io/api v0.24.2
 	k8s.io/apimachinery v0.24.2

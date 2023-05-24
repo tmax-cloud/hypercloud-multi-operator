@@ -48,7 +48,7 @@ spec:
           name: hypercloud-multi-operator-controller-manager-token
           readOnly: true
       serviceAccountName: hypercloud-multi-operator-controller-manager
-      terminationGracePeriodSeconds: 10
+      terminationGracePeriodSeconds: 30
       volumes:
       - name:  hypercloud-multi-operator-controller-manager-token
         secret:

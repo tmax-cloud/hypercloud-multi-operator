@@ -310,22 +310,12 @@ rules:
   - update
   - watch
 - apiGroups:
-  - servicecatalog.k8s.io
+  - tmax.io
   resources:
-  - serviceinstances
+  - templateinstances
   verbs:
   - create
   - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - servicecatalog.k8s.io
-  resources:
-  - serviceinstances/status
-  verbs:
   - get
   - list
   - patch
