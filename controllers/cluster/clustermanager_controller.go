@@ -35,7 +35,6 @@ import (
 	kerrors "k8s.io/apimachinery/pkg/util/errors"
 
 	capiV1alpha3 "sigs.k8s.io/cluster-api/api/v1alpha3"
-	controlplanev1 "sigs.k8s.io/cluster-api/controlplane/kubeadm/api/v1alpha3"
 	"sigs.k8s.io/cluster-api/util/patch"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -153,9 +152,10 @@ func (r *ClusterManagerReconciler) reconcile(ctx context.Context, clusterManager
 			// cluster manager 가 바라봐야 할 cluster 의 endpoint 를 annotation 으로 달아준다.
 			r.SetEndpoint,
 			// cluster claim 을 통해, cluster 의 spec 을 변경한 경우, 그에 맞게 master 노드의 spec 을 업데이트 해준다.
-			r.KubeadmControlPlaneUpdate,
+			// r.KubeadmControlPlaneUpdate,
 			// cluster claim 을 통해, cluster 의 spec 을 변경한 경우, 그에 맞게 worker 노드의 spec 을 업데이트 해준다.
-			r.MachineDeploymentUpdate,
+			// r.MachineDeploymentUpdate,
+			r.CountRunningCAPINodes,
 		)
 	} else {
 		// cluster 를 등록한 경우에만 수행
@@ -453,49 +453,50 @@ func (r *ClusterManagerReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		},
 	)
 
-	controller.Watch(
-		&source.Kind{Type: &controlplanev1.KubeadmControlPlane{}},
-		handler.EnqueueRequestsFromMapFunc(r.requeueClusterManagersForKubeadmControlPlane),
-		predicate.Funcs{
-			UpdateFunc: func(e event.UpdateEvent) bool {
-				oldKcp := e.ObjectOld.(*controlplanev1.KubeadmControlPlane)
-				newKcp := e.ObjectNew.(*controlplanev1.KubeadmControlPlane)
+	// status를 watch하지 않음
+	// controller.Watch(
+	// 	&source.Kind{Type: &controlplanev1.KubeadmControlPlane{}},
+	// 	handler.EnqueueRequestsFromMapFunc(r.requeueClusterManagersForKubeadmControlPlane),
+	// 	predicate.Funcs{
+	// 		UpdateFunc: func(e event.UpdateEvent) bool {
+	// 			oldKcp := e.ObjectOld.(*controlplanev1.KubeadmControlPlane)
+	// 			newKcp := e.ObjectNew.(*controlplanev1.KubeadmControlPlane)
 
-				return oldKcp.Status.Replicas != newKcp.Status.Replicas
-			},
-			CreateFunc: func(e event.CreateEvent) bool {
-				return true
-			},
-			DeleteFunc: func(e event.DeleteEvent) bool {
-				return false
-			},
-			GenericFunc: func(e event.GenericEvent) bool {
-				return false
-			},
-		},
-	)
+	// 			return oldKcp.Status.Replicas != newKcp.Status.Replicas
+	// 		},
+	// 		CreateFunc: func(e event.CreateEvent) bool {
+	// 			return true
+	// 		},
+	// 		DeleteFunc: func(e event.DeleteEvent) bool {
+	// 			return false
+	// 		},
+	// 		GenericFunc: func(e event.GenericEvent) bool {
+	// 			return false
+	// 		},
+	// 	},
+	// )
 
-	controller.Watch(
-		&source.Kind{Type: &capiV1alpha3.MachineDeployment{}},
-		handler.EnqueueRequestsFromMapFunc(r.requeueClusterManagersForMachineDeployment),
-		predicate.Funcs{
-			UpdateFunc: func(e event.UpdateEvent) bool {
-				oldMd := e.ObjectOld.(*capiV1alpha3.MachineDeployment)
-				newMd := e.ObjectNew.(*capiV1alpha3.MachineDeployment)
+	// controller.Watch(
+	// 	&source.Kind{Type: &capiV1alpha3.MachineDeployment{}},
+	// 	handler.EnqueueRequestsFromMapFunc(r.requeueClusterManagersForMachineDeployment),
+	// 	predicate.Funcs{
+	// 		UpdateFunc: func(e event.UpdateEvent) bool {
+	// 			oldMd := e.ObjectOld.(*capiV1alpha3.MachineDeployment)
+	// 			newMd := e.ObjectNew.(*capiV1alpha3.MachineDeployment)
 
-				return oldMd.Status.Replicas != newMd.Status.Replicas
-			},
-			CreateFunc: func(e event.CreateEvent) bool {
-				return true
-			},
-			DeleteFunc: func(e event.DeleteEvent) bool {
-				return false
-			},
-			GenericFunc: func(e event.GenericEvent) bool {
-				return false
-			},
-		},
-	)
+	// 			return oldMd.Status.Replicas != newMd.Status.Replicas
+	// 		},
+	// 		CreateFunc: func(e event.CreateEvent) bool {
+	// 			return true
+	// 		},
+	// 		DeleteFunc: func(e event.DeleteEvent) bool {
+	// 			return false
+	// 		},
+	// 		GenericFunc: func(e event.GenericEvent) bool {
+	// 			return false
+	// 		},
+	// 	},
+	// )
 
 	subResources := []client.Object{
 		&certmanagerV1.Certificate{},

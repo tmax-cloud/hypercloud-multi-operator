@@ -96,6 +96,42 @@ func (r *ClusterManagerReconciler) ReadyReconcilePhase(ctx context.Context, clus
 	return ctrl.Result{}, nil
 }
 
+// CountRunningCAPINodes는 capi 리소스의 readyreplicas를 가져와서
+// clusterManager의 status.Master/WorkerRun에 반영한다.
+func (r *ClusterManagerReconciler) CountRunningCAPINodes(ctx context.Context, clusterManager *clusterV1alpha1.ClusterManager) (ctrl.Result, error) {
+	log := r.Log.WithValues("clustermanager", clusterManager.GetNamespacedName())
+
+	log.Info("Start to reconcile phase for CountRunningCAPINodes")
+
+	kcp := &controlplanev1.KubeadmControlPlane{}
+	key := types.NamespacedName{
+		Namespace: clusterManager.Namespace,
+		Name:      clusterManager.Name + "-control-plane",
+	}
+
+	if err := r.Get(ctx, key, kcp); errors.IsNotFound(err) {
+		log.Info("KubeadmControlPlane is not found")
+		return ctrl.Result{RequeueAfter: requeueAfter10Second}, nil
+	}
+
+	clusterManager.Status.MasterRun = int(kcp.Status.ReadyReplicas)
+
+	md := &capiV1alpha3.MachineDeployment{}
+	key = types.NamespacedName{
+		Namespace: clusterManager.Namespace,
+		Name:      clusterManager.Name + "-md-0",
+	}
+
+	if err := r.Get(ctx, key, md); errors.IsNotFound(err) {
+		log.Info("MachineDeployment is not found")
+		return ctrl.Result{RequeueAfter: requeueAfter10Second}, nil
+	}
+
+	clusterManager.Status.WorkerRun = int(md.Status.ReadyReplicas)
+	
+	return ctrl.Result{RequeueAfter: requeueAfter1Minute}, nil
+}
+
 func (r *ClusterManagerReconciler) UpdateClusterManagerStatus(ctx context.Context, clusterManager *clusterV1alpha1.ClusterManager) (ctrl.Result, error) {
 	if clusterManager.Status.ControlPlaneReady {
 		return ctrl.Result{}, nil
