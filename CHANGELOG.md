@@ -1,6 +1,27 @@
 # HyperCloud-Multi-Operator changelog!!
 All notable changes to this project will be documented in this file.
 
+<!-------------------- v5.1.3.1 start -------------------->
+
+## HyperCloud-Multi-Operator_5.1.3.1 (2023. 05. 24. (수) 14:18:47 KST)
+
+### Added
+  - [feat] Add check node count logic when deployed in created type by sjoh0704
+  - [feat] service instance 사용 제거 및 template instance 사용하도록 기능 변경 by sjoh0704
+
+### Changed
+
+### Fixed
+
+### CRD yaml
+
+### Etc
+  - [etc] add gracefully shutdown by sjoh0704
+  - [etc] add argocd ingress check logic by sjoh0704
+  - [etc] makefile에 test build and deploy 추가 by sjoh0704
+
+<!--------------------- v5.1.3.1 end --------------------->
+
 <!-------------------- v5.1.3.0 start -------------------->
 
 ## HyperCloud-Multi-Operator_5.1.3.0 (2023. 03. 31. (금) 16:48:39 KST)
