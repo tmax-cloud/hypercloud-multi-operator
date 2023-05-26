@@ -118,10 +118,10 @@ spec:
                     minimum: 2
                     type: integer
                   vcenterDataCenter:
-                    description: The name of data center.
+                    description: The name of datacenter.
                     type: string
                   vcenterDataStore:
-                    description: The name of data store.
+                    description: The name of datastore.
                     type: string
                   vcenterDiskSize:
                     description: The disk size for vm, write as GB without unit. Defaults
@@ -149,7 +149,7 @@ spec:
                     description: 'The name of resource pool. Example: 192.168.9.30/Resources'
                     type: string
                   vcenterTemplate:
-                    description: The template name for cloud init.
+                    description: The template name to use in vsphere.
                     type: string
                   vcenterThumbprint:
                     description: 'The TLS thumbprint of machine certificate. Example:

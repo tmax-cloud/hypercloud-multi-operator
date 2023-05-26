@@ -52,13 +52,13 @@ const (
 // ClusterUpdateClaimSpec defines the desired state of ClusterUpdateClaim
 type ClusterUpdateClaimSpec struct {
 	// +kubebuilder:validation:Required
-	// The name of the cluster to be created.
+	// Cluster name created using clusterclaim.
 	ClusterName string `json:"clusterName"`
 	// +kubebuilder:validation:Minimum:=1
-	// The expected number of master node.
+	// The number of master nodes to update.
 	UpdatedMasterNum int `json:"updatedMasterNum,omitempty"`
 	// +kubebuilder:validation:Minimum:=1
-	// The expected number of worker node.
+	// The number of worker nodes to update.
 	UpdatedWorkerNum int `json:"updatedWorkerNum,omitempty"`
 }
 
@@ -66,7 +66,9 @@ type ClusterUpdateClaimSpec struct {
 type ClusterUpdateClaimStatus struct {
 	// Reason of the phase.
 	Reason ClusterUpdateClaimReason `json:"reason,omitempty" protobuf:"bytes,3,opt,name=reason"`
+
 	// +kubebuilder:validation:Enum=Awaiting;Approved;Rejected;Error;Cluster Deleted;
+	// Phase of the clusterupdateclaim.
 	Phase ClusterUpdateClaimPhase `json:"phase,omitempty" protobuf:"bytes,4,opt,name=phase"`
 
 	// The number of current master node.
