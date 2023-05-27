@@ -99,22 +99,27 @@ func (r *ClusterManager) ValidateUpdate(old runtime.Object) error {
 		}
 
 		// scaling을 못하는 경우
-		if (r.Spec.MasterNum != oldClusterManager.Spec.MasterNum ||
-			r.Spec.WorkerNum != oldClusterManager.Spec.WorkerNum) &&
-			(oldClusterManager.Status.GetTypedPhase() == ClusterManagerPhaseProcessing ||
-				oldClusterManager.Status.GetTypedPhase() == ClusterManagerPhaseScaling ||
-				oldClusterManager.Status.GetTypedPhase() == ClusterManagerPhaseDeleting ||
-				oldClusterManager.Status.GetTypedPhase() == ClusterManagerPhaseUpgrading) {
-			return errors.New("Cannot update MasterNum or WorkerNum at Processing, Scaling, Upgrading or Deleting phases")
+		masterNumChanged := r.Spec.MasterNum != oldClusterManager.Spec.MasterNum
+		workerNumChanged := r.Spec.WorkerNum != oldClusterManager.Spec.WorkerNum
+		managerNotReady := oldClusterManager.Status.GetTypedPhase() != ClusterManagerPhaseReady
+		// scaling 복구를 위한 경우는 제외
+		masterNumRestored := r.Spec.MasterNum == oldClusterManager.Status.MasterNum
+		workerNumRestored := r.Spec.WorkerNum == oldClusterManager.Status.WorkerNum
+		mangerScaling := oldClusterManager.Status.GetTypedPhase() == ClusterManagerPhaseScaling
+		if ((masterNumChanged || workerNumChanged) && managerNotReady) &&
+			!((masterNumRestored || workerNumRestored) && mangerScaling) {
+			return errors.New("Cannot update MasterNum or WorkerNum at Processing, Upgrading or Deleting phases")
 		}
 
 		// version upgrade를 못하는 경우
-		if r.GetK8SVersion() != oldClusterManager.GetK8SVersion() &&
-			(oldClusterManager.Status.GetTypedPhase() == ClusterManagerPhaseProcessing ||
-				oldClusterManager.Status.GetTypedPhase() == ClusterManagerPhaseScaling ||
-				oldClusterManager.Status.GetTypedPhase() == ClusterManagerPhaseDeleting ||
-				oldClusterManager.Status.GetTypedPhase() == ClusterManagerPhaseUpgrading) {
-			return errors.New("Cannot update version at Progressing, Scaling, Upgrading or Deleting phases")
+		versionChanged := r.GetK8SVersion() != oldClusterManager.GetK8SVersion()
+		managerNotReady = oldClusterManager.Status.GetTypedPhase() != ClusterManagerPhaseReady
+		// version upgrade 복구를 위한 경우는 제외
+		versionRestored := r.GetK8SVersion() == oldClusterManager.Status.Version
+		managerUpgrade := oldClusterManager.Status.GetTypedPhase() == ClusterManagerPhaseUpgrading
+		if (versionChanged && managerNotReady) &&
+			!(versionRestored && managerUpgrade) {
+			return errors.New("Cannot update version at Progressing, Scaling or Deleting phases")
 		}
 
 		if r.Spec.MasterNum%2 == 0 {
