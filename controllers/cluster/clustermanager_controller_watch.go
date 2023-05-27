@@ -72,7 +72,7 @@ func (r *ClusterManagerReconciler) requeueClusterManagersForKubeadmControlPlane(
 		return nil
 	}
 
-	clusterName, ok := cp.Labels["cluster.x-k8s.io/cluster-name"]
+	clusterName, ok := cp.Labels[LabelKeyCAPIClusterName]
 	if !ok {
 		log.Info("clusterName is not exist")
 		return nil
@@ -88,21 +88,37 @@ func (r *ClusterManagerReconciler) requeueClusterManagersForKubeadmControlPlane(
 		log.Info("ClusterManager resource not found. Ignoring since object must be deleted")
 		return nil
 	} else if err != nil {
-		log.Error(err, "Failed to get ClusterManager")
+		log.Error(err, "Failed to get clusterManager")
 		return nil
 	}
 
-	//create helper for patch
-	helper, _ := patch.NewHelper(clm, r.Client)
-	defer func() {
-		if err := helper.Patch(context.TODO(), clm); err != nil {
-			log.Error(err, "ClusterManager patch error")
-		}
-	}()
-
+	// cluster manager status masterRun update
 	if clm.Status.MasterRun != int(cp.Status.ReadyReplicas) {
 		clm.Status.MasterRun = int(cp.Status.ReadyReplicas)
-		log.Info("Update ClusterManager status", "MasterRun", clm.Status.MasterRun)
+		err := r.Client.Status().Update(context.Background(), clm)
+		if err != nil {
+			log.Error(err, "Failed to update clusterManager")
+			return nil
+		}
+		log.Info("Update clusterManager status", "masterRun", clm.Status.MasterRun)
+	}
+
+	// kubeadmcontrolplane spec replicas update
+	if cp.Spec.Replicas != nil && *cp.Spec.Replicas != int32(clm.Spec.MasterNum) {
+		masterNum := int32(clm.Spec.MasterNum)
+		cp.Spec.Replicas = &masterNum
+		err := r.Client.Update(context.Background(), cp)
+		// TODO : conflict error 처리
+		if errors.IsConflict(err) {
+			// 이미 업데이트 되었을 경우
+			log.Info("Already updated kubeadmcontrolplane replicas")
+			return nil
+		} else if err != nil {
+			log.Error(err, "Failed to update kubeadmcontrolplane")
+			return nil
+		}
+		log.Info("Resource changes are detected and changed to existing values. Update kubeadmcontrolplane", "replicas", cp.Spec.Replicas)
+		return nil
 	}
 
 	return nil
@@ -119,7 +135,7 @@ func (r *ClusterManagerReconciler) requeueClusterManagersForMachineDeployment(o 
 	}
 
 	//get ClusterManager
-	clusterName, ok := md.Labels["cluster.x-k8s.io/cluster-name"]
+	clusterName, ok := md.Labels[LabelKeyCAPIClusterName]
 	if !ok {
 		log.Info("clusterName is not exist")
 		return nil
@@ -139,17 +155,34 @@ func (r *ClusterManagerReconciler) requeueClusterManagersForMachineDeployment(o 
 		return nil
 	}
 
-	//create helper for patch
-	helper, _ := patch.NewHelper(clm, r.Client)
-	defer func() {
-		if err := helper.Patch(context.TODO(), clm); err != nil {
-			log.Error(err, "ClusterManager patch error")
-		}
-	}()
-
+	// cluster manager status workerRun update
 	if clm.Status.WorkerRun != int(md.Status.ReadyReplicas) {
 		clm.Status.WorkerRun = int(md.Status.ReadyReplicas)
-		log.Info("Update ClusterManager status", "WorkerRun", clm.Status.WorkerRun)
+		err := r.Client.Status().Update(context.Background(), clm)
+		if err != nil {
+			log.Error(err, "Failed to update clusterManager")
+			return nil
+		}
+		log.Info("Update clusterManager status", "workerRun", clm.Status.WorkerRun)
+		return nil
+	}
+
+	// machine deployment spec replicas update
+	if md.Spec.Replicas != nil && *md.Spec.Replicas != int32(clm.Spec.WorkerNum) {
+		workerNum := int32(clm.Spec.WorkerNum)
+		md.Spec.Replicas = &workerNum
+		err := r.Client.Update(context.Background(), md)
+		// TODO : conflict error 처리
+		if errors.IsConflict(err) {
+			// 이미 존재하는 경우
+			log.Info("Already updated machinedeployment replicas")
+			return nil
+		} else if err != nil {
+			log.Error(err, "Failed to update MachineDeployment")
+			return nil
+		}
+		log.Info("Resource changes are detected and changed to existing values. Update machinedeployment", "replicas", md.Spec.Replicas)
+		return nil
 	}
 
 	return nil

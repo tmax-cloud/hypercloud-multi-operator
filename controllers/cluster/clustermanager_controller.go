@@ -462,8 +462,15 @@ func (r *ClusterManagerReconciler) SetupWithManager(mgr ctrl.Manager) error {
 			UpdateFunc: func(e event.UpdateEvent) bool {
 				oldKcp := e.ObjectOld.(*controlplanev1.KubeadmControlPlane)
 				newKcp := e.ObjectNew.(*controlplanev1.KubeadmControlPlane)
-				replicaChanged := oldKcp.Status.ReadyReplicas != newKcp.Status.ReadyReplicas
-				return replicaChanged
+				// kcp status가 변경된 경우, cluster manager status에 반영
+				replicaStatusChanged := oldKcp.Status.ReadyReplicas != newKcp.Status.ReadyReplicas
+				// kcp replica가 임의로 변경된 경우, cluster manager spec을 조회하여 원래 상태로 복구
+				replicaChanged := false
+				if oldKcp.Spec.Replicas != nil && newKcp.Spec.Replicas != nil {
+					replicaChanged = *oldKcp.Spec.Replicas != *newKcp.Spec.Replicas
+				}
+
+				return replicaStatusChanged || replicaChanged
 			},
 			CreateFunc: func(e event.CreateEvent) bool {
 				return true
@@ -484,8 +491,15 @@ func (r *ClusterManagerReconciler) SetupWithManager(mgr ctrl.Manager) error {
 			UpdateFunc: func(e event.UpdateEvent) bool {
 				oldMd := e.ObjectOld.(*capiV1alpha3.MachineDeployment)
 				newMd := e.ObjectNew.(*capiV1alpha3.MachineDeployment)
-				replicaChanged := oldMd.Status.ReadyReplicas != newMd.Status.ReadyReplicas
-				return replicaChanged
+				// md status가 변경된 경우, cluster manager status에 반영
+				replicaStatusChanged := oldMd.Status.ReadyReplicas != newMd.Status.ReadyReplicas
+				// md replica가 임의로 변경된 경우, cluster manager spec을 조회하여 원래 상태로 복구
+				replicaChanged := false
+				if oldMd.Spec.Replicas != nil && newMd.Spec.Replicas != nil {
+					replicaChanged = *oldMd.Spec.Replicas != *newMd.Spec.Replicas
+				}
+
+				return replicaStatusChanged || replicaChanged
 			},
 			CreateFunc: func(e event.CreateEvent) bool {
 				return true
