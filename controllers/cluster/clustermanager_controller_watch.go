@@ -72,10 +72,17 @@ func (r *ClusterManagerReconciler) requeueClusterManagersForKubeadmControlPlane(
 		return nil
 	}
 
+	clusterName, ok := cp.Labels["cluster.x-k8s.io/cluster-name"]
+	if !ok {
+		log.Info("clusterName is not exist")
+		return nil
+	}
+
 	key := types.NamespacedName{
-		Name:      strings.Split(cp.Name, "-control-plane")[0],
+		Name:      clusterName,
 		Namespace: cp.Namespace,
 	}
+
 	clm := &clusterV1alpha1.ClusterManager{}
 	if err := r.Client.Get(context.TODO(), key, clm); errors.IsNotFound(err) {
 		log.Info("ClusterManager resource not found. Ignoring since object must be deleted")
@@ -93,7 +100,10 @@ func (r *ClusterManagerReconciler) requeueClusterManagersForKubeadmControlPlane(
 		}
 	}()
 
-	clm.Status.MasterRun = int(cp.Status.Replicas)
+	if clm.Status.MasterRun != int(cp.Status.ReadyReplicas) {
+		clm.Status.MasterRun = int(cp.Status.ReadyReplicas)
+		log.Info("Update ClusterManager status", "MasterRun", clm.Status.MasterRun)
+	}
 
 	return nil
 }
@@ -109,10 +119,17 @@ func (r *ClusterManagerReconciler) requeueClusterManagersForMachineDeployment(o 
 	}
 
 	//get ClusterManager
+	clusterName, ok := md.Labels["cluster.x-k8s.io/cluster-name"]
+	if !ok {
+		log.Info("clusterName is not exist")
+		return nil
+	}
+
 	key := types.NamespacedName{
-		Name:      strings.Split(md.Name, "-md-0")[0],
+		Name:      clusterName,
 		Namespace: md.Namespace,
 	}
+
 	clm := &clusterV1alpha1.ClusterManager{}
 	if err := r.Client.Get(context.TODO(), key, clm); errors.IsNotFound(err) {
 		log.Info("ClusterManager is deleted")
@@ -130,7 +147,10 @@ func (r *ClusterManagerReconciler) requeueClusterManagersForMachineDeployment(o 
 		}
 	}()
 
-	clm.Status.WorkerRun = int(md.Status.Replicas)
+	if clm.Status.WorkerRun != int(md.Status.ReadyReplicas) {
+		clm.Status.WorkerRun = int(md.Status.ReadyReplicas)
+		log.Info("Update ClusterManager status", "WorkerRun", clm.Status.WorkerRun)
+	}
 
 	return nil
 }
