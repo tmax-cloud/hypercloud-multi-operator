@@ -1,6 +1,26 @@
 # HyperCloud-Multi-Operator changelog!!
 All notable changes to this project will be documented in this file.
 
+<!-------------------- v5.1.3.2 start -------------------->
+
+## HyperCloud-Multi-Operator_5.1.3.2 (2023. 05. 30. (화) 15:04:58 KST)
+
+### Added
+  - [feat] upgrade, scaling roll back 가능하도록 webhook 수정 by sjoh0704
+  - [feat] node 수 복구 기능 추가 by sjoh0704
+
+### Changed
+
+### Fixed
+
+### CRD yaml
+  - [crd] change crd description by sjoh0704
+
+### Etc
+  - [etc] CountRunningCAPINodes 제거 후 리소스 watch로 변경 by sjoh0704
+
+<!--------------------- v5.1.3.2 end --------------------->
+
 <!-------------------- v5.1.3.1 start -------------------->
 
 ## HyperCloud-Multi-Operator_5.1.3.1 (2023. 05. 24. (수) 14:18:47 KST)
