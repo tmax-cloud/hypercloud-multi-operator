@@ -60,3 +60,7 @@ const (
 	LabelKeyControlplaneNode   = "node-role.kubernetes.io/master"
 	LabelValueControlplaneNode = ""
 )
+
+const (
+	LabelKeyCAPIClusterName = "cluster.x-k8s.io/cluster-name"
+)

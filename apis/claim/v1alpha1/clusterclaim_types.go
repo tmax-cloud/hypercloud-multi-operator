@@ -96,9 +96,9 @@ type VsphereClaimSpec struct {
 	VcenterThumbprint string `json:"vcenterThumbprint,omitempty"`
 	// The name of network. Defaults to VM Network.
 	VcenterNetwork string `json:"vcenterNetwork,omitempty"`
-	// The name of data center.
+	// The name of datacenter.
 	VcenterDataCenter string `json:"vcenterDataCenter,omitempty"`
-	// The name of data store.
+	// The name of datastore.
 	VcenterDataStore string `json:"vcenterDataStore,omitempty"`
 	// The name of folder. Defaults to vm.
 	VcenterFolder string `json:"vcenterFolder,omitempty"`
@@ -115,7 +115,7 @@ type VsphereClaimSpec struct {
 	// +kubebuilder:validation:Minimum:=20
 	// The disk size for vm, write as GB without unit. Defaults to 20.
 	VcenterDiskSize int `json:"vcenterDiskSize,omitempty"`
-	// The template name for cloud init.
+	// The template name to use in vsphere.
 	VcenterTemplate string `json:"vcenterTemplate,omitempty"`
 	// The root user password for virtual machine. Defaults to random.
 	VMPassword string `json:"vmPassword,omitempty"`
