@@ -78,16 +78,6 @@ func (r *ClusterManager) ValidateUpdate(old runtime.Object) error {
 	// }
 
 	if oldClusterManager.GetClusterType() == ClusterTypeCreated {
-		// cluster 생성 중에 version upgrade 또는 scaling을 진행할 수 없음
-		if oldClusterManager.Status.GetTypedPhase() == ClusterManagerPhaseProcessing {
-			if r.GetK8SVersion() != oldClusterManager.GetK8SVersion() ||
-				r.Spec.MasterNum != oldClusterManager.Spec.MasterNum ||
-				r.Spec.WorkerNum != oldClusterManager.Spec.WorkerNum {
-				return errors.New("Cannot upgrade or scaling, when cluster's phase is progressing")
-			}
-
-		}
-
 		// version upgrade의 경우
 		if r.GetK8SVersion() != oldClusterManager.GetK8SVersion() {
 			// vsphere의 경우, version과 template을 함께 업데이트해야 함
@@ -102,13 +92,14 @@ func (r *ClusterManager) ValidateUpdate(old runtime.Object) error {
 		masterNumChanged := r.Spec.MasterNum != oldClusterManager.Spec.MasterNum
 		workerNumChanged := r.Spec.WorkerNum != oldClusterManager.Spec.WorkerNum
 		managerNotReady := oldClusterManager.Status.GetTypedPhase() != ClusterManagerPhaseReady
+		// testFlag := false
 		// scaling 복구를 위한 경우는 제외
 		masterNumRestored := r.Spec.MasterNum == oldClusterManager.Status.MasterNum
 		workerNumRestored := r.Spec.WorkerNum == oldClusterManager.Status.WorkerNum
 		mangerScaling := oldClusterManager.Status.GetTypedPhase() == ClusterManagerPhaseScaling
 		if ((masterNumChanged || workerNumChanged) && managerNotReady) &&
 			!((masterNumRestored || workerNumRestored) && mangerScaling) {
-			return errors.New("Cannot update MasterNum or WorkerNum at Processing, Upgrading or Deleting phases")
+			return errors.New("Cannot update MasterNum or WorkerNum at Processing, SyncNeeded, Upgrading or Deleting phases")
 		}
 
 		// version upgrade를 못하는 경우
