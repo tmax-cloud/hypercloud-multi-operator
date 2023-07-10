@@ -19,7 +19,6 @@ import (
 	"fmt"
 	"os"
 	"regexp"
-	"strconv"
 	"strings"
 
 	argocdV1alpha1 "github.com/argoproj/argo-cd/v2/pkg/apis/application/v1alpha1"
@@ -112,21 +111,6 @@ func mergeParams(paramsList ...[]tmaxv1.ParamSpec) []tmaxv1.ParamSpec {
 	return result
 }
 
-func ParseK8SVersion(clusterManager *clusterV1alpha1.ClusterManager) (int, int, error) {
-	k8sVersion := clusterManager.Annotations[clusterV1alpha1.AnnotationKeyClmMgmtK8SVersion]
-	parts := strings.Split(k8sVersion, ".")
-	major, err := strconv.Atoi(strings.TrimLeft(parts[0], "v"))
-	if err != nil {
-		return 0, 0, err
-	}
-	// Parse the minor version number
-	minor, err := strconv.Atoi(parts[1])
-	if err != nil {
-		return 0, 0, err
-	}
-	return major, minor, nil
-}
-
 // controlplane, worker에 따른 machine list를 반환한다.
 func (r *ClusterManagerReconciler) GetMachineList(clusterManager *clusterV1alpha1.ClusterManager, controlplane bool) ([]capiV1alpha3.Machine, error) {
 
@@ -143,27 +127,6 @@ func (r *ClusterManagerReconciler) GetMachineList(clusterManager *clusterV1alpha
 		return []capiV1alpha3.Machine{}, err
 	}
 	return machines.Items, nil
-}
-
-// kubeadm-config configmap에서 k8s version을 parsing한다.
-// FetchMgmtK8SVersion는 kubeadm-config configmap에서 k8s version을 parsing한다.
-// 만약 실패하거나 k8s version이 없으면 빈 string을 반환하고 다음 reconcile phase로 넘어간다.
-func (r *ClusterManagerReconciler) FetchMgmtK8SVersion() (string, error) {
-	nodes := &coreV1.NodeList{}
-	opts := client.MatchingLabels{
-		LabelKeyControlplaneNode: LabelValueControlplaneNode,
-	}
-
-	if err := r.Client.List(context.TODO(), nodes, opts); err != nil {
-		return "", err
-	}
-
-	if len(nodes.Items) == 0 {
-		return "", fmt.Errorf("no controlplane node found")
-	}
-
-	node := nodes.Items[0]
-	return node.Status.NodeInfo.KubeletVersion, nil
 }
 
 // controlplane machine list를 반환

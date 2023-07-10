@@ -204,7 +204,6 @@ const (
 	AnnotationKeyClmGateway        = "clustermanager.cluster.tmax.io/gateway"
 	AnnotationKeyClmSuffix         = "clustermanager.cluster.tmax.io/suffix"
 	AnnotationKeyClmDomain         = "clustermanager.cluster.tmax.io/domain"
-	AnnotationKeyClmMgmtK8SVersion = "clustermanager.cluster.tmax.io/mgmtk8sversion"
 
 	LabelKeyClmName               = "clustermanager.cluster.tmax.io/clm-name"
 	LabelKeyClmNamespace          = "clustermanager.cluster.tmax.io/clm-namespace"

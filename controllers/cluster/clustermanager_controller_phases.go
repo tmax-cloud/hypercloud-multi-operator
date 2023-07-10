@@ -74,19 +74,6 @@ func (r *ClusterManagerReconciler) ReadyReconcilePhase(ctx context.Context, clus
 		clusterManager.Status.WorkerNum = clusterManager.Spec.WorkerNum
 	}
 
-	// get management cluster version
-	if _, ok := clusterManager.Annotations[clusterV1alpha1.AnnotationKeyClmMgmtK8SVersion]; !ok {
-		version, err := r.FetchMgmtK8SVersion()
-		if err != nil {
-			log.Error(err, "Failed to get management cluster version")
-		}
-		if version == "" {
-			clusterManager.Annotations[clusterV1alpha1.AnnotationKeyClmMgmtK8SVersion] = "empty"
-		} else {
-			clusterManager.Annotations[clusterV1alpha1.AnnotationKeyClmMgmtK8SVersion] = version
-		}
-	}
-
 	if !clusterManager.Status.TraefikReady {
 		return ctrl.Result{RequeueAfter: requeueAfter1Minute}, nil
 	}
