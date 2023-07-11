@@ -1,6 +1,25 @@
 # HyperCloud-Multi-Operator changelog!!
 All notable changes to this project will be documented in this file.
 
+<!-------------------- v5.1.3.3 start -------------------->
+
+## HyperCloud-Multi-Operator_5.1.3.3 (2023. 07. 11. (화) 20:16:59 KST)
+
+### Added
+  - [feat] Add scaling roll back logic by sjoh0704
+
+### Changed
+  - [mod] k8s version에 따른 template 사용 기능 제거 by sjoh0704
+
+### Fixed
+
+### CRD yaml
+
+### Etc
+  - [etc] test용 yaml HC domain 변경 by sjoh0704
+
+<!--------------------- v5.1.3.3 end --------------------->
+
 <!-------------------- v5.1.3.2 start -------------------->
 
 ## HyperCloud-Multi-Operator_5.1.3.2 (2023. 05. 30. (화) 15:04:58 KST)
