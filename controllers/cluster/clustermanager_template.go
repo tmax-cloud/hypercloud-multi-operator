@@ -96,16 +96,6 @@ func ConstructTemplateInstance(clusterManager *clusterV1alpha1.ClusterManager,
 		templateName = "capi-" + strings.ToLower(clusterManager.Spec.Provider) + "-template"
 	}
 
-	major, minor, err := ParseK8SVersion(clusterManager)
-	if err != nil {
-		return nil, err
-	}
-
-	// k8s version이 1.19 이하일때는 1.19용 템플릿 사용
-	if major == 1 && minor < 20 {
-		templateName += "-v1.19"
-	}
-
 	annotations := map[string]string{
 		util.AnnotationKeyOwner:   clusterManager.Annotations[util.AnnotationKeyCreator],
 		util.AnnotationKeyCreator: clusterManager.Annotations[util.AnnotationKeyCreator],

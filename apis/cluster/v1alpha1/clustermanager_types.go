@@ -127,7 +127,6 @@ type ClusterManagerStatus struct {
 	AuthClientReady       bool                    `json:"authClientReady,omitempty"`
 	OpenSearchReady       bool                    `json:"openSearchReady,omitempty"`
 	ApplicationLink       string                  `json:"applicationLink,omitempty"`
-	// UpgradeRequeueCount   int                     `json:"upgradeRequeueCount,omitempty"`
 
 	// will be deprecated
 	PrometheusReady bool `json:"prometheusReady,omitempty"`
@@ -205,7 +204,6 @@ const (
 	AnnotationKeyClmGateway        = "clustermanager.cluster.tmax.io/gateway"
 	AnnotationKeyClmSuffix         = "clustermanager.cluster.tmax.io/suffix"
 	AnnotationKeyClmDomain         = "clustermanager.cluster.tmax.io/domain"
-	AnnotationKeyClmMgmtK8SVersion = "clustermanager.cluster.tmax.io/mgmtk8sversion"
 
 	LabelKeyClmName               = "clustermanager.cluster.tmax.io/clm-name"
 	LabelKeyClmNamespace          = "clustermanager.cluster.tmax.io/clm-namespace"

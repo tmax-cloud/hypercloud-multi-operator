@@ -153,11 +153,9 @@ func (r *ClusterManagerReconciler) reconcile(ctx context.Context, clusterManager
 			r.CreateTemplateInstance,
 			// cluster manager 가 바라봐야 할 cluster 의 endpoint 를 annotation 으로 달아준다.
 			r.SetEndpoint,
-			// cluster claim 을 통해, cluster 의 spec 을 변경한 경우, 그에 맞게 master 노드의 spec 을 업데이트 해준다.
-			// r.KubeadmControlPlaneUpdate,
-			// cluster claim 을 통해, cluster 의 spec 을 변경한 경우, 그에 맞게 worker 노드의 spec 을 업데이트 해준다.
-			// r.MachineDeploymentUpdate,
-			// r.CountRunningCAPINodes,
+			// scaling을 roll back하는 경우, kcp와 md의 replicas를 원래대로 돌려놓는다.
+			r.KubeadmControlPlaneUpdate,
+			r.MachineDeploymentUpdate,
 		)
 	} else {
 		// cluster 를 등록한 경우에만 수행

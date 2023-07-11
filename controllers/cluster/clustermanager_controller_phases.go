@@ -74,19 +74,6 @@ func (r *ClusterManagerReconciler) ReadyReconcilePhase(ctx context.Context, clus
 		clusterManager.Status.WorkerNum = clusterManager.Spec.WorkerNum
 	}
 
-	// get management cluster version
-	if _, ok := clusterManager.Annotations[clusterV1alpha1.AnnotationKeyClmMgmtK8SVersion]; !ok {
-		version, err := r.FetchMgmtK8SVersion()
-		if err != nil {
-			log.Error(err, "Failed to get management cluster version")
-		}
-		if version == "" {
-			clusterManager.Annotations[clusterV1alpha1.AnnotationKeyClmMgmtK8SVersion] = "empty"
-		} else {
-			clusterManager.Annotations[clusterV1alpha1.AnnotationKeyClmMgmtK8SVersion] = version
-		}
-	}
-
 	if !clusterManager.Status.TraefikReady {
 		return ctrl.Result{RequeueAfter: requeueAfter1Minute}, nil
 	}
@@ -94,42 +81,6 @@ func (r *ClusterManagerReconciler) ReadyReconcilePhase(ctx context.Context, clus
 	log.Info("ClusterManager is ready successfully")
 
 	return ctrl.Result{}, nil
-}
-
-// CountRunningCAPINodes는 capi 리소스의 readyreplicas를 가져와서
-// clusterManager의 status.Master/WorkerRun에 반영한다.
-func (r *ClusterManagerReconciler) CountRunningCAPINodes(ctx context.Context, clusterManager *clusterV1alpha1.ClusterManager) (ctrl.Result, error) {
-	log := r.Log.WithValues("clustermanager", clusterManager.GetNamespacedName())
-
-	log.Info("Start to reconcile phase for CountRunningCAPINodes")
-
-	kcp := &controlplanev1.KubeadmControlPlane{}
-	key := types.NamespacedName{
-		Namespace: clusterManager.Namespace,
-		Name:      clusterManager.Name + "-control-plane",
-	}
-
-	if err := r.Get(ctx, key, kcp); errors.IsNotFound(err) {
-		log.Info("KubeadmControlPlane is not found")
-		return ctrl.Result{RequeueAfter: requeueAfter10Second}, nil
-	}
-
-	clusterManager.Status.MasterRun = int(kcp.Status.ReadyReplicas)
-
-	md := &capiV1alpha3.MachineDeployment{}
-	key = types.NamespacedName{
-		Namespace: clusterManager.Namespace,
-		Name:      clusterManager.Name + "-md-0",
-	}
-
-	if err := r.Get(ctx, key, md); errors.IsNotFound(err) {
-		log.Info("MachineDeployment is not found")
-		return ctrl.Result{RequeueAfter: requeueAfter10Second}, nil
-	}
-
-	clusterManager.Status.WorkerRun = int(md.Status.ReadyReplicas)
-	
-	return ctrl.Result{RequeueAfter: requeueAfter1Minute}, nil
 }
 
 func (r *ClusterManagerReconciler) UpdateClusterManagerStatus(ctx context.Context, clusterManager *clusterV1alpha1.ClusterManager) (ctrl.Result, error) {
@@ -599,7 +550,14 @@ func (r *ClusterManagerReconciler) UpgradeCluster(ctx context.Context, clusterMa
 	return ctrl.Result{}, nil
 }
 
+// KubeadmControlPlaneUpdate는 cluster manager의 master num와 kubeadmcontrolplane의 replicas를 비교하여
+// kubeadmcontrolplane의 replicas를 cluster manager의 master num으로 업데이트한다.
 func (r *ClusterManagerReconciler) KubeadmControlPlaneUpdate(ctx context.Context, clusterManager *clusterV1alpha1.ClusterManager) (ctrl.Result, error) {
+	// scaling 하는 경우에 대해서는 실행하지 않음
+	if clusterManager.Spec.MasterNum != clusterManager.Status.MasterNum {
+		return ctrl.Result{}, nil
+	}
+
 	log := r.Log.WithValues("clustermanager", clusterManager.GetNamespacedName())
 	log.Info("Start to reconcile phase for kubeadmControlPlaneUpdate")
 
@@ -615,21 +573,25 @@ func (r *ClusterManagerReconciler) KubeadmControlPlaneUpdate(ctx context.Context
 		return ctrl.Result{}, err
 	}
 
-	//create helper for patch
-	// helper, _ := patch.NewHelper(kcp, r.Client)
-	// defer func() {
-	// 	if err := helper.Patch(context.TODO(), kcp); err != nil {
-	// 		r.Log.Error(err, "KubeadmControlPlane patch error")
-	// 	}
-	// }()
-
-	// if *kcp.Spec.Replicas != int32(clusterManager.Spec.MasterNum) {
-	// 	*kcp.Spec.Replicas = int32(clusterManager.Spec.MasterNum)
-	// }
+	if *kcp.Spec.Replicas != int32(clusterManager.Spec.MasterNum) {
+		*kcp.Spec.Replicas = int32(clusterManager.Spec.MasterNum)
+		if err := r.Client.Update(context.TODO(), kcp); err != nil {
+			log.Error(err, "Failed to update kubeadmcontrolplane")
+			return ctrl.Result{}, err
+		}
+		log.Info("Updated kubeadmcontrolplane replicas", "replicas", *kcp.Spec.Replicas)
+	}
 	return ctrl.Result{}, nil
 }
 
+// MachineDeploymentUpdate는 cluster manager의 worker num와 machinedeployment의 replicas를 비교하여
+// machinedeployment의 replicas를 cluster manager의 worker num으로 업데이트한다.
 func (r *ClusterManagerReconciler) MachineDeploymentUpdate(ctx context.Context, clusterManager *clusterV1alpha1.ClusterManager) (ctrl.Result, error) {
+	// scaling 하는 경우에 대해서는 실행하지 않음
+	if clusterManager.Spec.WorkerNum != clusterManager.Status.WorkerNum {
+		return ctrl.Result{}, nil
+	}
+
 	log := r.Log.WithValues("clustermanager", clusterManager.GetNamespacedName())
 	log.Info("Start to reconcile phase for machineDeploymentUpdate")
 
@@ -645,17 +607,14 @@ func (r *ClusterManagerReconciler) MachineDeploymentUpdate(ctx context.Context, 
 		return ctrl.Result{}, err
 	}
 
-	//create helper for patch
-	// helper, _ := patch.NewHelper(md, r.Client)
-	// defer func() {
-	// 	if err := helper.Patch(context.TODO(), md); err != nil {
-	// 		r.Log.Error(err, "machineDeployment patch error")
-	// 	}
-	// }()
-
-	// if *md.Spec.Replicas != int32(clusterManager.Spec.WorkerNum) {
-	// 	*md.Spec.Replicas = int32(clusterManager.Spec.WorkerNum)
-	// }
+	if *md.Spec.Replicas != int32(clusterManager.Spec.WorkerNum) {
+		*md.Spec.Replicas = int32(clusterManager.Spec.WorkerNum)
+		if err := r.Client.Update(context.Background(), md); err != nil {
+			log.Error(err, "Failed to update machinedeployment")
+			return ctrl.Result{}, err
+		}
+		log.Info("Updated machinedeployment replicas", "replicas", *md.Spec.Replicas)
+	}
 
 	return ctrl.Result{}, nil
 }
